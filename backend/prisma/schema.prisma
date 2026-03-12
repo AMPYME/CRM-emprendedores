@@ -1,0 +1,548 @@
+// ============================================================================
+// Emprendedores CRM — Schema de Prisma
+// ============================================================================
+// Modelo de datos maestro para el sistema de cartera/CRM.
+// Patrón: Table-per-Type (TPT) con entities como tabla polimórfica.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum EntityType {
+  PERSON
+  COMPANY
+  ESTABLISHMENT
+}
+
+enum EntityStatus {
+  ACTIVE
+  INACTIVE
+  DUPLICATE
+  MERGED
+}
+
+enum ContactType {
+  EMAIL
+  PHONE
+  MOBILE
+  WHATSAPP
+  WEBSITE
+  SOCIAL_MEDIA
+  OTHER
+}
+
+enum RelationshipType {
+  OWNER
+  EMPLOYEE
+  PARTNER
+  BRANCH
+  REPRESENTATIVE
+  OTHER
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum RegistrationStatus {
+  REGISTERED
+  CONFIRMED
+  ATTENDED
+  NO_SHOW
+  CANCELLED
+}
+
+enum PortfolioStatus {
+  NEW
+  IN_PROGRESS
+  WAITING
+  RESOLVED
+  CLOSED
+}
+
+enum PortfolioPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ActionType {
+  CALL
+  EMAIL_ACTION
+  VISIT
+  MEETING
+  WHATSAPP
+  NOTE
+  DOCUMENT
+  STATUS_CHANGE
+  OTHER
+}
+
+enum ImportStatus {
+  PENDING
+  PROCESSING
+  VALIDATING
+  DEDUPLICATING
+  REVIEW_REQUIRED
+  IMPORTING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum StagingRowStatus {
+  PENDING
+  VALID
+  INVALID
+  DUPLICATE_EXACT
+  DUPLICATE_POSSIBLE
+  IMPORTED
+  SKIPPED
+  ERROR
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  ANALYST
+  OPERATOR
+  VIEWER
+}
+
+// ============================================================================
+// AUTENTICACIÓN Y USUARIOS
+// ============================================================================
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  firstName    String   @map("first_name")
+  lastName     String   @map("last_name")
+  role         UserRole @default(OPERATOR)
+  isActive     Boolean  @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  portfolioRecordsAssigned PortfolioRecord[] @relation("AssignedTo")
+  portfolioActions         PortfolioAction[] @relation("ActionPerformedBy")
+  importBatches            ImportBatch[]     @relation("ImportedBy")
+  createdEntities          Entity[]          @relation("CreatedBy")
+
+  @@map("users")
+}
+
+// ============================================================================
+// ENTIDADES MAESTRAS (Patrón Table-per-Type)
+// ============================================================================
+
+/// Tabla maestra de entidades. Cada registro es una persona, empresa o establecimiento.
+/// Los datos específicos van en la tabla hija correspondiente.
+model Entity {
+  id              String       @id @default(uuid())
+  entityType      EntityType   @map("entity_type")
+  status          EntityStatus @default(ACTIVE)
+  displayName     String       @map("display_name")
+
+  // Ubicación geográfica (común a todos los tipos)
+  province        String?
+  district        String?
+  corregimiento   String?
+  address         String?
+
+  // Trazabilidad
+  notes           String?
+  sourceOrigin    String?      @map("source_origin")  // Ej: "IMPORTACION_DIRECTORIO_2024", "EVENTO_CUMBRE_2024", "MANUAL"
+  importBatchId   String?      @map("import_batch_id")
+  mergedIntoId    String?      @map("merged_into_id")  // Si fue fusionada con otra entidad
+  createdById     String?      @map("created_by_id")
+
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  // Relaciones
+  person          Person?
+  company         Company?
+  establishment   Establishment?
+  contacts        EntityContact[]
+  relationshipsFrom EntityRelationship[] @relation("RelationFrom")
+  relationshipsTo   EntityRelationship[] @relation("RelationTo")
+  eventRegistrations EventRegistration[]
+  portfolioRecords   PortfolioRecord[]
+  importBatch     ImportBatch?   @relation(fields: [importBatchId], references: [id])
+  mergedInto      Entity?        @relation("MergedEntity", fields: [mergedIntoId], references: [id])
+  mergedFrom      Entity[]       @relation("MergedEntity")
+  createdBy       User?          @relation("CreatedBy", fields: [createdById], references: [id])
+  stagingRows     StagingRow[]   @relation("MatchedEntity")
+
+  @@index([entityType])
+  @@index([status])
+  @@index([displayName])
+  @@index([province])
+  @@index([sourceOrigin])
+  @@index([importBatchId])
+  @@map("entities")
+}
+
+/// Datos específicos de personas naturales.
+model Person {
+  id              String    @id @default(uuid())
+  entityId        String    @unique @map("entity_id")
+  cedula          String?   // Cédula panameña — puede no estar disponible
+  firstName       String    @map("first_name")
+  lastName        String    @map("last_name")
+  secondLastName  String?   @map("second_last_name")
+  gender          Gender?
+  birthDate       DateTime? @map("birth_date")
+  nationality     String?
+  educationLevel  String?   @map("education_level")
+
+  // Datos laborales/emprendimiento (opcionales, útil para CRM)
+  occupation      String?
+  businessName    String?   @map("business_name")   // Nombre del negocio si lo tiene
+  economicActivity String?  @map("economic_activity")
+
+  // Relación
+  entity          Entity    @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@index([cedula])
+  @@index([firstName, lastName])
+  @@index([lastName])
+  @@map("persons")
+}
+
+/// Datos específicos de empresas / personas jurídicas.
+model Company {
+  id               String    @id @default(uuid())
+  entityId         String    @unique @map("entity_id")
+  ruc              String?   // RUC — puede no estar disponible
+  dv               String?   // Dígito verificador
+  legalName        String    @map("legal_name")
+  tradeName        String?   @map("trade_name")
+  companyType      String?   @map("company_type")      // SA, SRL, Cooperativa, etc.
+  economicActivity String?   @map("economic_activity")
+  foundedDate      DateTime? @map("founded_date")
+  employeeCount    Int?      @map("employee_count")
+
+  // Relación
+  entity           Entity    @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@index([ruc])
+  @@index([legalName])
+  @@index([tradeName])
+  @@map("companies")
+}
+
+/// Datos específicos de establecimientos / locales comerciales.
+model Establishment {
+  id                  String    @id @default(uuid())
+  entityId            String    @unique @map("entity_id")
+  establishmentName   String    @map("establishment_name")
+  establishmentType   String?   @map("establishment_type")  // Local, kiosco, puesto, etc.
+  economicActivity    String?   @map("economic_activity")
+  noticeOfOperation   String?   @map("notice_of_operation") // Aviso de operación
+  latitude            Float?
+  longitude           Float?
+
+  // Relación
+  entity              Entity    @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@index([establishmentName])
+  @@index([economicActivity])
+  @@map("establishments")
+}
+
+// ============================================================================
+// CONTACTOS Y RELACIONES
+// ============================================================================
+
+/// Contactos de una entidad (email, teléfono, web, etc.).
+/// Una entidad puede tener múltiples contactos de cada tipo.
+model EntityContact {
+  id            String      @id @default(uuid())
+  entityId      String      @map("entity_id")
+  contactType   ContactType @map("contact_type")
+  contactValue  String      @map("contact_value")
+  label         String?     // Ej: "Personal", "Trabajo", "WhatsApp negocio"
+  isPrimary     Boolean     @default(false) @map("is_primary")
+  isVerified    Boolean     @default(false) @map("is_verified")
+
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  // Relación
+  entity        Entity      @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@index([entityId])
+  @@index([contactType, contactValue])
+  @@index([contactValue])
+  @@map("entity_contacts")
+}
+
+/// Relaciones entre entidades (persona→empresa, empresa→establecimiento, etc.).
+model EntityRelationship {
+  id               String           @id @default(uuid())
+  fromEntityId     String           @map("from_entity_id")
+  toEntityId       String           @map("to_entity_id")
+  relationshipType RelationshipType @map("relationship_type")
+  role             String?          // Rol específico: "Gerente", "Contador", "Sucursal Norte"
+  startDate        DateTime?        @map("start_date")
+  endDate          DateTime?        @map("end_date")
+  isActive         Boolean          @default(true) @map("is_active")
+
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  // Relaciones
+  fromEntity       Entity           @relation("RelationFrom", fields: [fromEntityId], references: [id], onDelete: Cascade)
+  toEntity         Entity           @relation("RelationTo", fields: [toEntityId], references: [id], onDelete: Cascade)
+
+  @@unique([fromEntityId, toEntityId, relationshipType])
+  @@index([fromEntityId])
+  @@index([toEntityId])
+  @@map("entity_relationships")
+}
+
+// ============================================================================
+// EVENTOS
+// ============================================================================
+
+/// Evento (feria, capacitación, cumbre, taller, etc.).
+model Event {
+  id              String      @id @default(uuid())
+  name            String
+  slug            String      @unique
+  description     String?
+  eventType       String?     @map("event_type")    // Feria, Capacitación, Taller, Cumbre
+  status          EventStatus @default(DRAFT)
+  startDate       DateTime?   @map("start_date")
+  endDate         DateTime?   @map("end_date")
+  location        String?
+  province        String?
+  maxCapacity     Int?        @map("max_capacity")
+
+  /// Campos dinámicos del formulario de inscripción (JSON schema).
+  /// Permite definir preguntas adicionales por evento.
+  formFields      Json?       @map("form_fields")
+
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  // Relaciones
+  registrations   EventRegistration[]
+
+  @@index([status])
+  @@index([startDate])
+  @@map("events")
+}
+
+/// Registro/inscripción de una entidad a un evento.
+model EventRegistration {
+  id                 String             @id @default(uuid())
+  eventId            String             @map("event_id")
+  entityId           String             @map("entity_id")
+  status             RegistrationStatus @default(REGISTERED)
+  registeredAt       DateTime           @default(now()) @map("registered_at")
+  confirmedAt        DateTime?          @map("confirmed_at")
+  attendedAt         DateTime?          @map("attended_at")
+  notes              String?
+
+  // Trazabilidad de importación
+  sourceOrigin       String?            @map("source_origin")
+  importBatchId      String?            @map("import_batch_id")
+
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  // Relaciones
+  event              Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  entity             Entity             @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  answers            EventRegistrationAnswer[]
+  importBatch        ImportBatch?        @relation(fields: [importBatchId], references: [id])
+
+  @@unique([eventId, entityId]) // Una entidad solo se registra una vez por evento
+  @@index([eventId])
+  @@index([entityId])
+  @@index([status])
+  @@map("event_registrations")
+}
+
+/// Respuestas a los campos dinámicos del formulario de un evento.
+model EventRegistrationAnswer {
+  id              String            @id @default(uuid())
+  registrationId  String            @map("registration_id")
+  fieldKey        String            @map("field_key")    // Clave del campo en form_fields
+  fieldLabel      String            @map("field_label")  // Etiqueta legible
+  value           String            // Valor de la respuesta
+
+  createdAt       DateTime          @default(now()) @map("created_at")
+
+  // Relaciones
+  registration    EventRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@unique([registrationId, fieldKey])
+  @@index([registrationId])
+  @@map("event_registration_answers")
+}
+
+// ============================================================================
+// CARTERA / SEGUIMIENTO
+// ============================================================================
+
+/// Registro de cartera vinculado a una entidad.
+/// Representa una gestión/caso/seguimiento activo.
+model PortfolioRecord {
+  id               String           @id @default(uuid())
+  entityId         String           @map("entity_id")
+  assignedToId     String?          @map("assigned_to_id")
+  status           PortfolioStatus  @default(NEW)
+  priority         PortfolioPriority @default(MEDIUM)
+  category         String?          // Categoría de gestión
+  subject          String           // Asunto/motivo
+  description      String?
+  nextFollowUpDate DateTime?        @map("next_follow_up_date")
+  closedAt         DateTime?        @map("closed_at")
+  closedReason     String?          @map("closed_reason")
+
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  // Relaciones
+  entity           Entity           @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  assignedTo       User?            @relation("AssignedTo", fields: [assignedToId], references: [id])
+  actions          PortfolioAction[]
+
+  @@index([entityId])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([priority])
+  @@index([nextFollowUpDate])
+  @@map("portfolio_records")
+}
+
+/// Acción/gestión realizada sobre un registro de cartera.
+model PortfolioAction {
+  id              String          @id @default(uuid())
+  portfolioId     String          @map("portfolio_id")
+  performedById   String?         @map("performed_by_id")
+  actionType      ActionType      @map("action_type")
+  description     String
+  result          String?
+  nextSteps       String?         @map("next_steps")
+  actionDate      DateTime        @default(now()) @map("action_date")
+
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  // Relaciones
+  portfolio       PortfolioRecord @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  performedBy     User?           @relation("ActionPerformedBy", fields: [performedById], references: [id])
+
+  @@index([portfolioId])
+  @@index([performedById])
+  @@index([actionDate])
+  @@map("portfolio_actions")
+}
+
+// ============================================================================
+// IMPORTACIONES
+// ============================================================================
+
+/// Lote de importación. Cada carga de Excel genera un registro aquí.
+model ImportBatch {
+  id               String       @id @default(uuid())
+  fileName         String       @map("file_name")
+  originalFileName String       @map("original_file_name")
+  sourceType       String       @map("source_type")       // "DIRECTORIO", "EVENTO_CUMBRE", "EVENTO_CRECE", etc.
+  targetEventId    String?      @map("target_event_id")   // Si la importación es para un evento
+  status           ImportStatus @default(PENDING)
+  totalRows        Int          @default(0) @map("total_rows")
+  validRows        Int          @default(0) @map("valid_rows")
+  invalidRows      Int          @default(0) @map("invalid_rows")
+  duplicateRows    Int          @default(0) @map("duplicate_rows")
+  importedRows     Int          @default(0) @map("imported_rows")
+  skippedRows      Int          @default(0) @map("skipped_rows")
+  errorLog         Json?        @map("error_log")
+  columnMapping    Json?        @map("column_mapping")    // Mapeo de columnas Excel → campos del sistema
+  importedById     String?      @map("imported_by_id")
+
+  startedAt        DateTime?    @map("started_at")
+  completedAt      DateTime?    @map("completed_at")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+
+  // Relaciones
+  importedBy       User?        @relation("ImportedBy", fields: [importedById], references: [id])
+  stagingRows      StagingRow[]
+  entities         Entity[]
+  eventRegistrations EventRegistration[]
+
+  @@index([status])
+  @@index([sourceType])
+  @@index([importedById])
+  @@map("import_batches")
+}
+
+/// Fila de staging (carga cruda de Excel).
+/// Cada fila del Excel se guarda aquí antes de procesarse.
+model StagingRow {
+  id               String          @id @default(uuid())
+  importBatchId    String          @map("import_batch_id")
+  rowNumber        Int             @map("row_number")
+  status           StagingRowStatus @default(PENDING)
+
+  // Datos crudos del Excel (normalizados pero sin procesar)
+  rawData          Json            @map("raw_data")        // Toda la fila como JSON
+
+  // Campos extraídos/mapeados (para facilitar deduplicación)
+  extractedCedula       String?    @map("extracted_cedula")
+  extractedRuc          String?    @map("extracted_ruc")
+  extractedFirstName    String?    @map("extracted_first_name")
+  extractedLastName     String?    @map("extracted_last_name")
+  extractedEmail        String?    @map("extracted_email")
+  extractedPhone        String?    @map("extracted_phone")
+  extractedBusinessName String?    @map("extracted_business_name")
+
+  // Resultado de validación y deduplicación
+  validationErrors Json?           @map("validation_errors")
+  matchedEntityId  String?         @map("matched_entity_id")
+  matchScore       Float?          @map("match_score")     // Score de similitud (0-1)
+  matchReason      String?         @map("match_reason")    // Ej: "cedula_exacta", "email_exacto", "nombre_fuzzy"
+
+  processedAt      DateTime?       @map("processed_at")
+  createdAt        DateTime        @default(now()) @map("created_at")
+
+  // Relaciones
+  importBatch      ImportBatch     @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+  matchedEntity    Entity?         @relation("MatchedEntity", fields: [matchedEntityId], references: [id])
+
+  @@index([importBatchId])
+  @@index([status])
+  @@index([extractedCedula])
+  @@index([extractedRuc])
+  @@index([extractedEmail])
+  @@index([extractedPhone])
+  @@map("staging_rows")
+}
