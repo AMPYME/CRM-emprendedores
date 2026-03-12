@@ -13,16 +13,13 @@ export interface PersonFilters extends PaginationParams {
   economicActivity?: string;
 }
 
-export interface PersonListItem {
-  entity: Entity & { contacts: EntityContact[] };
-  id: string;
-  entityId: string;
-  cedula: string | null;
-  firstName: string;
-  lastName: string;
-  secondLastName: string | null;
-  gender: string | null;
-  birthDate: string | null;
+/**
+ * El backend retorna objetos Entity con person/contacts anidados.
+ * Estructura: { id (entityId), displayName, province, status, person: { firstName, ... }, contacts: [...] }
+ */
+export interface PersonListItem extends Entity {
+  person: Person;
+  contacts: EntityContact[];
 }
 
 export interface CreatePersonInput {

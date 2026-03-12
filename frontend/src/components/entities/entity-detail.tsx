@@ -2,9 +2,10 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   ArrowLeft, User, Building, Briefcase, Mail, Phone, Globe,
-  FolderKanban, Link2, Plus, Trash2, CheckCircle,
+  FolderKanban, Link2, Plus, Trash2, CheckCircle, ArrowRight,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Modal } from '@/components/ui/modal';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { EntitySearchSelect, type EntityOption } from '@/components/ui/entity-search-select';
 import {
   Table, TableHead, TableBody, TableRow, TableHeaderCell, TableCell,
 } from '@/components/ui/table';
@@ -79,6 +81,24 @@ const relationshipTypeOptions = [
   { value: 'REPRESENTATIVE', label: relationshipTypeLabel.REPRESENTATIVE },
   { value: 'OTHER', label: relationshipTypeLabel.OTHER },
 ];
+/** Mapa de tipo de entidad → segmento de ruta para navegación */
+const entityRouteMap: Record<EntityType, string> = {
+  PERSON: 'persons',
+  COMPANY: 'companies',
+  ESTABLISHMENT: 'establishments',
+};
+/** Etiqueta amigable del tipo de entidad */
+const entityTypeDisplayLabel: Record<EntityType, string> = {
+  PERSON: 'Persona',
+  COMPANY: 'Empresa',
+  ESTABLISHMENT: 'Establecimiento',
+};
+/** Color de badge según tipo de entidad */
+const entityTypeBadgeVariant: Record<EntityType, 'primary' | 'success' | 'warning'> = {
+  PERSON: 'primary',
+  COMPANY: 'success',
+  ESTABLISHMENT: 'warning',
+};
 const contactTypeOptions = [
   { value: 'EMAIL', label: 'Correo electrónico' },
   { value: 'PHONE', label: 'Teléfono' },
@@ -108,12 +128,11 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
   const [contactForm, setContactForm] = useState({ contactType: 'EMAIL', contactValue: '', label: '' });
   const [savingContact, setSavingContact] = useState(false);
   const [addRelationshipOpen, setAddRelationshipOpen] = useState(false);
+  const [selectedEntity, setSelectedEntity] = useState<EntityOption | null>(null);
   const [relationshipForm, setRelationshipForm] = useState<{
-    toEntityId: string;
     relationshipType: RelationshipType;
     role: string;
   }>({
-    toEntityId: '',
     relationshipType: 'OWNER',
     role: '',
   });
@@ -141,19 +160,20 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
   };
 
   const handleAddRelationship = async () => {
-    if (!relationshipForm.toEntityId.trim()) return;
+    if (!selectedEntity) return;
     setSavingRelationship(true);
     try {
       const { relationshipsService } = await import('@/services/relationships.service');
       await relationshipsService.create(entityId, {
-        toEntityId: relationshipForm.toEntityId.trim(),
+        toEntityId: selectedEntity.id,
         relationshipType: relationshipForm.relationshipType,
         role: relationshipForm.role || undefined,
       });
       qc.invalidateQueries({ queryKey: ['relationships', entityId] });
       toast.success('Relación creada');
       setAddRelationshipOpen(false);
-      setRelationshipForm({ toEntityId: '', relationshipType: 'OWNER', role: '' });
+      setSelectedEntity(null);
+      setRelationshipForm({ relationshipType: 'OWNER', role: '' });
     } catch {
       toast.error('Error al crear relación');
     } finally {
@@ -473,6 +493,15 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
               icon={Link2}
               title="Sin relaciones"
               description="No hay relaciones registradas para esta entidad."
+              action={
+                <Button
+                  size="sm"
+                  icon={<Plus className="h-4 w-4" />}
+                  onClick={() => setAddRelationshipOpen(true)}
+                >
+                  Agregar relación
+                </Button>
+              }
             />
           ) : (
             <div className="space-y-2">
@@ -487,31 +516,55 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                     ? Building
                     : Briefcase;
 
+                const otherHref = `/dashboard/${entityRouteMap[other.entityType as EntityType]}/${other.id}`;
+                const directionLabel = isFrom ? 'Es' : 'Tiene como';
+
                 return (
                   <div
                     key={rel.id}
-                    className="flex items-center justify-between rounded-lg border p-3"
+                    className="flex items-center justify-between rounded-lg border p-3 hover:bg-gray-50 transition-colors"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="rounded-lg bg-gray-100 p-2">
-                        <OtherIcon className="h-4 w-4 text-gray-600" />
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className={cn(
+                        'rounded-lg p-2 shrink-0',
+                        other.entityType === 'PERSON' ? 'bg-blue-50' : other.entityType === 'COMPANY' ? 'bg-emerald-50' : 'bg-amber-50'
+                      )}>
+                        <OtherIcon className={cn(
+                          'h-4 w-4',
+                          other.entityType === 'PERSON' ? 'text-blue-600' : other.entityType === 'COMPANY' ? 'text-emerald-600' : 'text-amber-600'
+                        )} />
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">
-                          {other.displayName}
-                        </p>
-                        <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                          <span>
-                            {relationshipTypeLabel[rel.relationshipType] ?? rel.relationshipType}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <Link
+                            href={otherHref}
+                            className="text-sm font-medium text-primary-700 hover:text-primary-900 hover:underline truncate"
+                          >
+                            {other.displayName}
+                          </Link>
+                          <Badge variant={entityTypeBadgeVariant[other.entityType as EntityType] ?? 'default'} className="text-[10px] px-1.5 py-0 shrink-0">
+                            {entityTypeDisplayLabel[other.entityType as EntityType]}
+                          </Badge>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-500 mt-0.5">
+                          <span className="inline-flex items-center gap-1">
+                            <ArrowRight className="h-3 w-3" />
+                            {directionLabel}{' '}
+                            <span className="font-medium text-gray-700">
+                              {relationshipTypeLabel[rel.relationshipType] ?? rel.relationshipType}
+                            </span>
+                            {isFrom ? ` de ${other.displayName}` : ''}
                           </span>
-                          {rel.role && <span>· {rel.role}</span>}
+                          {rel.role && (
+                            <span className="text-gray-400">· Rol: {rel.role}</span>
+                          )}
                           {rel.startDate && (
-                            <span>
+                            <span className="text-gray-400">
                               · Desde {formatDateShort(rel.startDate)}
                             </span>
                           )}
                           {rel.endDate && (
-                            <span>
+                            <span className="text-gray-400">
                               · Hasta {formatDateShort(rel.endDate)}
                             </span>
                           )}
@@ -521,7 +574,7 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-red-500 hover:text-red-700"
+                      className="text-red-500 hover:text-red-700 shrink-0 ml-2"
                       onClick={() => handleDeleteRelationship(rel)}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -535,21 +588,44 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
           {/* Add Relationship Modal */}
           <Modal
             isOpen={addRelationshipOpen}
-            onClose={() => setAddRelationshipOpen(false)}
+            onClose={() => {
+              setAddRelationshipOpen(false);
+              setSelectedEntity(null);
+              setRelationshipForm({ relationshipType: 'OWNER', role: '' });
+            }}
             title="Agregar relación"
             size="sm"
             footer={
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setAddRelationshipOpen(false)}>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setAddRelationshipOpen(false);
+                    setSelectedEntity(null);
+                    setRelationshipForm({ relationshipType: 'OWNER', role: '' });
+                  }}
+                >
                   Cancelar
                 </Button>
-                <Button onClick={handleAddRelationship} isLoading={savingRelationship}>
+                <Button
+                  onClick={handleAddRelationship}
+                  isLoading={savingRelationship}
+                  disabled={!selectedEntity}
+                >
                   Guardar
                 </Button>
               </div>
             }
           >
             <div className="space-y-4">
+              <EntitySearchSelect
+                label="Entidad destino *"
+                placeholder="Buscar persona, empresa o establecimiento..."
+                value={selectedEntity}
+                onSelect={setSelectedEntity}
+                excludeEntityId={entityId}
+                error={!selectedEntity && savingRelationship ? 'Selecciona una entidad' : undefined}
+              />
               <Select
                 label="Tipo de relación"
                 options={relationshipTypeOptions}
@@ -562,25 +638,13 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                 }
               />
               <Input
-                label="Rol"
+                label="Rol (opcional)"
                 placeholder="Ej: Propietario, Gerente, Representante legal"
                 value={relationshipForm.role}
                 onChange={(e) =>
                   setRelationshipForm((p) => ({ ...p, role: e.target.value }))
                 }
               />
-              <Input
-                label="ID de entidad destino *"
-                placeholder="UUID de la empresa o establecimiento"
-                value={relationshipForm.toEntityId}
-                onChange={(e) =>
-                  setRelationshipForm((p) => ({ ...p, toEntityId: e.target.value }))
-                }
-              />
-              <p className="text-xs text-gray-500">
-                Para esta primera versión, debes pegar el ID de la entidad destino
-                (lo puedes copiar de la URL de detalle).
-              </p>
             </div>
           </Modal>
         </Card>

@@ -12,16 +12,13 @@ export interface EstablishmentFilters extends PaginationParams {
   economicActivity?: string;
 }
 
-export interface EstablishmentListItem {
-  entity: Entity & { contacts: EntityContact[] };
-  id: string;
-  entityId: string;
-  establishmentName: string;
-  establishmentType: string | null;
-  economicActivity: string | null;
-  noticeOfOperation: string | null;
-  latitude: number | null;
-  longitude: number | null;
+/**
+ * El backend retorna objetos Entity con establishment/contacts anidados.
+ * Estructura: { id (entityId), displayName, province, status, establishment: { establishmentName, ... }, contacts: [...] }
+ */
+export interface EstablishmentListItem extends Entity {
+  establishment: Establishment;
+  contacts: EntityContact[];
 }
 
 export interface CreateEstablishmentInput {

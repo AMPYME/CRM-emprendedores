@@ -168,29 +168,30 @@ export default function PersonsPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {persons.map((person) => {
-                  const email = person.entity?.contacts?.find((c) => c.contactType === 'EMAIL');
-                  const phone = person.entity?.contacts?.find(
+                {persons.map((item) => {
+                  const p = item.person;
+                  const email = item.contacts?.find((c) => c.contactType === 'EMAIL');
+                  const phone = item.contacts?.find(
                     (c) => c.contactType === 'PHONE' || c.contactType === 'MOBILE'
                   );
                   return (
-                    <TableRow key={person.id}>
+                    <TableRow key={item.id}>
                       <TableCell>
                         <div>
                           <p className="font-medium text-gray-900">
-                            {person.firstName} {person.lastName}
-                            {person.secondLastName ? ` ${person.secondLastName}` : ''}
+                            {p?.firstName} {p?.lastName}
+                            {p?.secondLastName ? ` ${p.secondLastName}` : ''}
                           </p>
-                          {person.entity?.displayName !== `${person.firstName} ${person.lastName}` && (
-                            <p className="text-xs text-gray-400">{person.entity?.displayName}</p>
+                          {item.displayName !== `${p?.firstName} ${p?.lastName}` && (
+                            <p className="text-xs text-gray-400">{item.displayName}</p>
                           )}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <span className="font-mono text-sm">{person.cedula || '—'}</span>
+                        <span className="font-mono text-sm">{p?.cedula || '—'}</span>
                       </TableCell>
                       <TableCell>
-                        {person.entity?.province || '—'}
+                        {item.province || '—'}
                       </TableCell>
                       <TableCell>
                         <div className="space-y-0.5">
@@ -201,14 +202,14 @@ export default function PersonsPage() {
                       </TableCell>
                       <TableCell>
                         <Badge
-                          variant={person.entity?.status === 'ACTIVE' ? 'success' : 'default'}
+                          variant={item.status === 'ACTIVE' ? 'success' : 'default'}
                         >
-                          {person.entity?.status === 'ACTIVE' ? 'Activo' : person.entity?.status || '—'}
+                          {item.status === 'ACTIVE' ? 'Activo' : item.status || '—'}
                         </Badge>
                       </TableCell>
                       <TableCell align="right">
                         <div className="flex items-center justify-end gap-1">
-                          <Link href={`/dashboard/persons/${person.entityId}`}>
+                          <Link href={`/dashboard/persons/${item.id}`}>
                             <Button variant="ghost" size="sm" title="Ver detalle">
                               <Eye className="h-4 w-4" />
                             </Button>
@@ -217,7 +218,7 @@ export default function PersonsPage() {
                             variant="ghost"
                             size="sm"
                             title="Editar"
-                            onClick={() => openEdit(person.id)}
+                            onClick={() => openEdit(item.id)}
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -227,7 +228,7 @@ export default function PersonsPage() {
                             title="Eliminar"
                             className="text-red-500 hover:text-red-700"
                             onClick={() =>
-                              handleDelete(person.id, `${person.firstName} ${person.lastName}`)
+                              handleDelete(item.id, `${p?.firstName} ${p?.lastName}`)
                             }
                           >
                             <Trash2 className="h-4 w-4" />

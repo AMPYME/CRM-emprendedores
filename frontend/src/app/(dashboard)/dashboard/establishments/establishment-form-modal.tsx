@@ -71,18 +71,19 @@ export function EstablishmentFormModal({ isOpen, onClose, editId }: Props) {
 
   useEffect(() => {
     if (isEdit && estabQuery.data) {
-      const e = estabQuery.data;
+      const data = estabQuery.data;
+      const e = data.establishment;
       reset({
-        establishmentName: e.establishmentName || '',
-        establishmentType: e.establishmentType || '',
-        economicActivity: e.economicActivity || '',
-        noticeOfOperation: e.noticeOfOperation || '',
-        province: e.entity?.province || '',
-        district: e.entity?.district || '',
-        address: e.entity?.address || '',
-        notes: e.entity?.notes || '',
-        email: e.entity?.contacts?.find((c) => c.contactType === 'EMAIL')?.contactValue || '',
-        phone: e.entity?.contacts?.find((c) => c.contactType === 'PHONE' || c.contactType === 'MOBILE')?.contactValue || '',
+        establishmentName: e?.establishmentName || '',
+        establishmentType: e?.establishmentType || '',
+        economicActivity: e?.economicActivity || '',
+        noticeOfOperation: e?.noticeOfOperation || '',
+        province: data.province || '',
+        district: data.district || '',
+        address: data.address || '',
+        notes: data.notes || '',
+        email: data.contacts?.find((c) => c.contactType === 'EMAIL')?.contactValue || '',
+        phone: data.contacts?.find((c) => c.contactType === 'PHONE' || c.contactType === 'MOBILE')?.contactValue || '',
       });
     } else if (!isEdit) {
       reset({

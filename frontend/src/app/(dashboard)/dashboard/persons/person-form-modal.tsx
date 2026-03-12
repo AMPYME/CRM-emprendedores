@@ -104,22 +104,23 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
   // Populate form on edit
   useEffect(() => {
     if (isEdit && personQuery.data) {
-      const p = personQuery.data;
+      const data = personQuery.data;
+      const p = data.person;
       reset({
-        firstName: p.firstName || '',
-        lastName: p.lastName || '',
-        secondLastName: p.secondLastName || '',
-        cedula: p.cedula || '',
-        gender: p.gender || '',
-        birthDate: p.birthDate?.split('T')[0] || '',
-        nationality: '',
-        educationLevel: '',
-        province: p.entity?.province || '',
-        district: p.entity?.district || '',
-        address: p.entity?.address || '',
-        notes: p.entity?.notes || '',
-        email: p.entity?.contacts?.find((c) => c.contactType === 'EMAIL')?.contactValue || '',
-        phone: p.entity?.contacts?.find(
+        firstName: p?.firstName || '',
+        lastName: p?.lastName || '',
+        secondLastName: p?.secondLastName || '',
+        cedula: p?.cedula || '',
+        gender: p?.gender || '',
+        birthDate: p?.birthDate?.split('T')[0] || '',
+        nationality: p?.nationality || '',
+        educationLevel: p?.educationLevel || '',
+        province: data.province || '',
+        district: data.district || '',
+        address: data.address || '',
+        notes: data.notes || '',
+        email: data.contacts?.find((c) => c.contactType === 'EMAIL')?.contactValue || '',
+        phone: data.contacts?.find(
           (c) => c.contactType === 'PHONE' || c.contactType === 'MOBILE'
         )?.contactValue || '',
       });

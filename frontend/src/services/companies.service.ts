@@ -13,16 +13,13 @@ export interface CompanyFilters extends PaginationParams {
   economicActivity?: string;
 }
 
-export interface CompanyListItem {
-  entity: Entity & { contacts: EntityContact[] };
-  id: string;
-  entityId: string;
-  ruc: string | null;
-  dv: string | null;
-  legalName: string;
-  tradeName: string | null;
-  companyType: string | null;
-  economicActivity: string | null;
+/**
+ * El backend retorna objetos Entity con company/contacts anidados.
+ * Estructura: { id (entityId), displayName, province, status, company: { legalName, ... }, contacts: [...] }
+ */
+export interface CompanyListItem extends Entity {
+  company: Company;
+  contacts: EntityContact[];
 }
 
 export interface CreateCompanyInput {

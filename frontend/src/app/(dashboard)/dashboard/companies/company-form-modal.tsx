@@ -80,20 +80,21 @@ export function CompanyFormModal({ isOpen, onClose, editId }: CompanyFormModalPr
 
   useEffect(() => {
     if (isEdit && companyQuery.data) {
-      const c = companyQuery.data;
+      const data = companyQuery.data;
+      const c = data.company;
       reset({
-        legalName: c.legalName || '',
-        tradeName: c.tradeName || '',
-        ruc: c.ruc || '',
-        dv: c.dv || '',
-        companyType: c.companyType || '',
-        economicActivity: c.economicActivity || '',
-        province: c.entity?.province || '',
-        district: c.entity?.district || '',
-        address: c.entity?.address || '',
-        notes: c.entity?.notes || '',
-        email: c.entity?.contacts?.find((co) => co.contactType === 'EMAIL')?.contactValue || '',
-        phone: c.entity?.contacts?.find((co) => co.contactType === 'PHONE' || co.contactType === 'MOBILE')?.contactValue || '',
+        legalName: c?.legalName || '',
+        tradeName: c?.tradeName || '',
+        ruc: c?.ruc || '',
+        dv: c?.dv || '',
+        companyType: c?.companyType || '',
+        economicActivity: c?.economicActivity || '',
+        province: data.province || '',
+        district: data.district || '',
+        address: data.address || '',
+        notes: data.notes || '',
+        email: data.contacts?.find((co) => co.contactType === 'EMAIL')?.contactValue || '',
+        phone: data.contacts?.find((co) => co.contactType === 'PHONE' || co.contactType === 'MOBILE')?.contactValue || '',
       });
     } else if (!isEdit) {
       reset({
