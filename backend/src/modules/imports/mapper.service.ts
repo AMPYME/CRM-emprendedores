@@ -21,13 +21,59 @@ import { logger } from '../../shared/logger/logger';
 
 // ── Auto-detección de columnas ───────────────────────────────────
 
+function splitFullName(raw: string): { firstName?: string; lastName?: string } {
+  const cleaned = raw
+    .toString()
+    .trim()
+    .replace(/\s+/g, ' ');
+
+  if (!cleaned) return {};
+
+  // Formato: "Apellido(s), Nombre(s)"
+  if (cleaned.includes(',')) {
+    const [left, right] = cleaned
+      .split(',', 2)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    return {
+      firstName: right || undefined,
+      lastName: left || undefined,
+    };
+  }
+
+  const parts = cleaned.split(' ').filter(Boolean);
+  if (parts.length < 2) return { firstName: cleaned };
+
+  // Heurística:
+  // - 2 tokens: "Juan Pérez" → first=Juan, last=Pérez
+  // - 3+ tokens: tomar los últimos 2 como apellidos ("Juan Carlos Pérez López")
+  if (parts.length === 2) {
+    return { firstName: parts[0], lastName: parts[1] };
+  }
+
+  const lastName = parts.slice(-2).join(' ');
+  const firstName = parts.slice(0, -2).join(' ');
+  return { firstName: firstName || undefined, lastName: lastName || undefined };
+}
+
 /**
  * Patrones comunes para cada campo del sistema.
  * Se usan para auto-detectar el mapeo cuando el usuario no proporciona uno.
  */
 const FIELD_PATTERNS: Record<string, RegExp[]> = {
   // Persona
-  firstName: [/^nombre$/i, /^first.?name$/i, /^primer.?nombre$/i, /^nombres?$/i],
+  firstName: [
+    /^nombre$/i,
+    /^first.?name$/i,
+    /^primer.?nombre$/i,
+    /^nombres?$/i,
+    // Variantes donde el "nombre" suele venir completo (nombre + apellido/s)
+    /^nombre.?completo$/i,
+    /^full.?name$/i,
+    /^nombre.?y.?apellido$/i,
+    /^nombres?.?y.?apellidos?$/i,
+  ],
   lastName: [/^apellido$/i, /^last.?name$/i, /^primer.?apellido$/i, /^apellidos?$/i],
   secondLastName: [/^segundo.?apellido$/i, /^second.?last.?name$/i, /^apellido.?2$/i],
   cedula: [/^cedula$/i, /^ced$/i, /^ci$/i, /^documento$/i, /^identificacion$/i, /^no.?cedula$/i],
@@ -187,6 +233,16 @@ export function applyMapping(
   // Apellido
   const lastName = getValue('lastName');
   if (lastName) fields.extractedLastName = titleCase(lastName);
+
+  // Si el Excel trae "nombre completo" en una sola columna, completar faltantes.
+  // Caso típico: mapping.firstName apunta a "nombre_completo" y mapping.lastName no existe.
+  if (fields.extractedFirstName && !fields.extractedLastName) {
+    const split = splitFullName(fields.extractedFirstName);
+    if (split.firstName && split.lastName) {
+      fields.extractedFirstName = titleCase(split.firstName);
+      fields.extractedLastName = titleCase(split.lastName);
+    }
+  }
 
   // Email
   const email = getValue('email');

@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 const loginSchema = z.object({
-  email: z.string().min(1, 'El email es requerido').email('Formato de email inválido'),
+  email: z.string().min(1, 'Usuario o correo requerido'),
   password: z.string().min(1, 'La contraseña es requerida'),
 });
 
@@ -39,7 +39,7 @@ export default function LoginPage() {
       const result = await authService.login(data);
       setAuth(result.user, result.accessToken, result.refreshToken);
       toast.success(`¡Bienvenido, ${result.user.firstName}!`);
-      router.push('/dashboard');
+      router.replace('/dashboard');
     } catch (error) {
       toast.error(getApiErrorMessage(error));
     }
@@ -65,10 +65,10 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
           <Input
-            label="Correo electrónico"
-            type="email"
-            placeholder="usuario@ampyme.gob.pa"
-            autoComplete="email"
+            label="Usuario o correo"
+            type="text"
+            placeholder="usuario@ampyme.gob.pa o usuario AD"
+            autoComplete="username"
             error={errors.email?.message}
             {...register('email')}
           />

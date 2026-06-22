@@ -16,10 +16,18 @@ export default function DashboardLayout({
 }) {
   const { isLoading, user } = useAuth({ requireAuth: true });
 
-  if (isLoading || !user) {
+  if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <PageLoading text="Cargando sistema..." />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <PageLoading text="Sesión no disponible. Redirigiendo a inicio de sesión..." />
       </div>
     );
   }

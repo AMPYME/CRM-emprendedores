@@ -138,37 +138,37 @@ export default function CompaniesPage() {
                   const c = item.company;
                   return (
                     <TableRow key={item.id}>
-                      <TableCell>
-                        <div>
+                    <TableCell>
+                      <div>
                           <p className="font-medium text-gray-900">{c?.legalName}</p>
                           {c?.tradeName && <p className="text-xs text-gray-400">{c.tradeName}</p>}
-                        </div>
-                      </TableCell>
+                      </div>
+                    </TableCell>
                       <TableCell><span className="font-mono text-sm">{c?.ruc || '—'}</span></TableCell>
                       <TableCell>{c?.companyType || '—'}</TableCell>
                       <TableCell>{item.province || '—'}</TableCell>
-                      <TableCell>
+                    <TableCell>
                         <Badge variant={item.status === 'ACTIVE' ? 'success' : 'default'}>
                           {item.status === 'ACTIVE' ? 'Activo' : item.status || '—'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell align="right">
-                        <div className="flex items-center justify-end gap-1">
+                      </Badge>
+                    </TableCell>
+                    <TableCell align="right">
+                      <div className="flex items-center justify-end gap-1">
                           <Link href={`/dashboard/companies/${item.id}`}>
-                            <Button variant="ghost" size="sm" title="Ver detalle"><Eye className="h-4 w-4" /></Button>
-                          </Link>
+                          <Button variant="ghost" size="sm" title="Ver detalle"><Eye className="h-4 w-4" /></Button>
+                        </Link>
                           <Button variant="ghost" size="sm" title="Editar" onClick={() => openEdit(item.id)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost" size="sm" title="Eliminar" className="text-red-500 hover:text-red-700"
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost" size="sm" title="Eliminar" className="text-red-500 hover:text-red-700"
                             onClick={() => handleDelete(item.id, c?.legalName || item.displayName)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
                   );
                 })}
               </TableBody>

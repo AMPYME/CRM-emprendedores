@@ -130,35 +130,35 @@ export default function EstablishmentsPage() {
                   const e = item.establishment;
                   return (
                     <TableRow key={item.id}>
-                      <TableCell>
+                    <TableCell>
                         <p className="font-medium text-gray-900">{e?.establishmentName || item.displayName}</p>
                         {e?.noticeOfOperation && <p className="text-xs text-gray-400">AO: {e.noticeOfOperation}</p>}
-                      </TableCell>
+                    </TableCell>
                       <TableCell>{e?.establishmentType || '—'}</TableCell>
                       <TableCell className="max-w-[200px] truncate">{e?.economicActivity || '—'}</TableCell>
                       <TableCell>{item.province || '—'}</TableCell>
-                      <TableCell>
+                    <TableCell>
                         <Badge variant={item.status === 'ACTIVE' ? 'success' : 'default'}>
                           {item.status === 'ACTIVE' ? 'Activo' : item.status || '—'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell align="right">
-                        <div className="flex items-center justify-end gap-1">
+                      </Badge>
+                    </TableCell>
+                    <TableCell align="right">
+                      <div className="flex items-center justify-end gap-1">
                           <Link href={`/dashboard/establishments/${item.id}`}>
-                            <Button variant="ghost" size="sm"><Eye className="h-4 w-4" /></Button>
-                          </Link>
+                          <Button variant="ghost" size="sm"><Eye className="h-4 w-4" /></Button>
+                        </Link>
                           <Button variant="ghost" size="sm" onClick={() => openEdit(item.id)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost" size="sm" className="text-red-500 hover:text-red-700"
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost" size="sm" className="text-red-500 hover:text-red-700"
                             onClick={() => handleDelete(item.id, e?.establishmentName || item.displayName)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
                   );
                 })}
               </TableBody>

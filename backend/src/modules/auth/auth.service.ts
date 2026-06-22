@@ -2,10 +2,17 @@
  * Servicio de autenticación.
  * Maneja JWT, hashing de contraseñas, login, registro y refresh.
  */
+import { randomUUID } from 'crypto';
 import jwt, { SignOptions } from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { config } from '../../config/environment';
 import { authRepository, SafeUser } from './auth.repository';
+import { adLogin, adGetMe } from './ad-user-api.client';
+import {
+  resolveEmailForLocalUser,
+  namesFromAdProfile,
+  hasAnyRequiredAdRole,
+} from './ad-auth.mapper';
 import {
   LoginInput,
   RegisterInput,
@@ -89,51 +96,161 @@ function toAuthUser(user: SafeUser): AuthUser {
 
 // ── Servicio exportado ──────────────────────────────────────────
 
+async function loginWithLocalPassword(
+  email: string,
+  password: string
+): Promise<AuthTokenResponse> {
+  const user = await authRepository.findByEmail(email);
+
+  if (!user) {
+    throw new UnauthorizedError('Credenciales inválidas');
+  }
+
+  if (!user.isActive) {
+    throw new ForbiddenError('Cuenta desactivada. Contacte al administrador');
+  }
+
+  const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+  if (!isPasswordValid) {
+    throw new UnauthorizedError('Credenciales inválidas');
+  }
+
+  await authRepository.updateLastLogin(user.id);
+
+  const safeUser: SafeUser = {
+    id: user.id,
+    email: user.email,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    role: user.role,
+    isActive: user.isActive,
+    lastLoginAt: new Date(),
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
+
+  const accessToken = generateAccessToken(safeUser);
+  const refreshToken = generateRefreshToken(safeUser);
+
+  logger.info('Login exitoso (local)', { userId: user.id, email: user.email });
+
+  return {
+    user: toAuthUser(safeUser),
+    accessToken,
+    refreshToken,
+  };
+}
+
 export const authService = {
   /**
-   * Login: verifica credenciales y retorna tokens.
+   * Login: si AD_API_BASE_URL está definida, valida primero contra la API interna de usuarios;
+   * si no hay AD o falla (según AD_AUTH_FALLBACK_LOCAL), usa usuario/contraseña locales.
    */
   async login(input: LoginInput): Promise<AuthTokenResponse> {
-    const user = await authRepository.findByEmail(input.email);
+    const identifier = input.email;
 
-    if (!user) {
+    if (config.adApiBaseUrl) {
+      const adOutcome = await adLogin(config.adApiBaseUrl, identifier, input.password);
+
+      if (adOutcome.kind === 'success') {
+        const adTokens = adOutcome.tokens;
+        const me = await adGetMe(config.adApiBaseUrl, adTokens.accessToken);
+        if (!me) {
+          throw new UnauthorizedError(
+            'No se pudo obtener el perfil desde la API de usuarios corporativa'
+          );
+        }
+
+        const adRoles = me.roleNames ?? [];
+        if (
+          !config.adSkipRoleCheck &&
+          !hasAnyRequiredAdRole(adRoles, config.adRequiredAppRoleSlugs)
+        ) {
+          throw new ForbiddenError(
+            'No tiene acceso a este sistema. Se requiere el rol de aplicación adecuado (Emprendedores CRM).'
+          );
+        }
+
+        const emailResolved = resolveEmailForLocalUser(
+          me,
+          identifier,
+          config.adEmailDomain
+        );
+        if (!emailResolved) {
+          throw new UnauthorizedError(
+            'No se pudo determinar el correo del usuario. Configure AD_EMAIL_DOMAIN si usa solo nombre de usuario.'
+          );
+        }
+
+        let user = await authRepository.findByEmail(emailResolved);
+
+        if (!user) {
+          if (!config.adAutoProvision) {
+            throw new ForbiddenError(
+              'Usuario no registrado en el CRM. Solicite acceso al administrador.'
+            );
+          }
+          const { firstName, lastName } = namesFromAdProfile(me);
+          const placeholderHash = await bcrypt.hash(randomUUID(), 12);
+          const created = await authRepository.create({
+            email: emailResolved,
+            passwordHash: placeholderHash,
+            firstName,
+            lastName,
+            role: 'OPERATOR',
+          });
+          await authRepository.updateLastLogin(created.id);
+          const safe = await authRepository.findByIdSafe(created.id);
+          if (!safe) {
+            throw new UnauthorizedError('Error al crear sesión tras alta por AD');
+          }
+          const accessToken = generateAccessToken(safe);
+          const refreshToken = generateRefreshToken(safe);
+          logger.info('Login exitoso (AD + alta automática)', {
+            userId: safe.id,
+            email: safe.email,
+          });
+          return {
+            user: toAuthUser(safe),
+            accessToken,
+            refreshToken,
+          };
+        }
+
+        if (!user.isActive) {
+          throw new ForbiddenError('Cuenta desactivada. Contacte al administrador');
+        }
+
+        await authRepository.updateLastLogin(user.id);
+        const safeUser: SafeUser = {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          role: user.role,
+          isActive: user.isActive,
+          lastLoginAt: new Date(),
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+        };
+        const accessToken = generateAccessToken(safeUser);
+        const refreshToken = generateRefreshToken(safeUser);
+        logger.info('Login exitoso (AD)', { userId: user.id, email: user.email });
+        return {
+          user: toAuthUser(safeUser),
+          accessToken,
+          refreshToken,
+        };
+      }
+
+      if (config.adAuthFallbackLocal) {
+        return loginWithLocalPassword(identifier, input.password);
+      }
+
       throw new UnauthorizedError('Credenciales inválidas');
     }
 
-    if (!user.isActive) {
-      throw new ForbiddenError('Cuenta desactivada. Contacte al administrador');
-    }
-
-    const isPasswordValid = await bcrypt.compare(input.password, user.passwordHash);
-    if (!isPasswordValid) {
-      throw new UnauthorizedError('Credenciales inválidas');
-    }
-
-    // Actualizar último login
-    await authRepository.updateLastLogin(user.id);
-
-    const safeUser: SafeUser = {
-      id: user.id,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      role: user.role,
-      isActive: user.isActive,
-      lastLoginAt: new Date(),
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-    };
-
-    const accessToken = generateAccessToken(safeUser);
-    const refreshToken = generateRefreshToken(safeUser);
-
-    logger.info('Login exitoso', { userId: user.id, email: user.email });
-
-    return {
-      user: toAuthUser(safeUser),
-      accessToken,
-      refreshToken,
-    };
+    return loginWithLocalPassword(identifier, input.password);
   },
 
   /**

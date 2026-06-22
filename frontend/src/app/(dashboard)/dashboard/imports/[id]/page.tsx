@@ -17,7 +17,7 @@ import {
   Table, TableHead, TableBody, TableRow, TableHeaderCell, TableCell,
 } from '@/components/ui/table';
 import {
-  useImport, useImportPreview, useProcessImport, useExecuteImport, useImportRows, useSystemFields,
+  useImport, useImportPreview, useProcessImport, useRetryImport, useExecuteImport, useImportRows, useSystemFields,
 } from '@/hooks/use-imports';
 import { importsService } from '@/services/imports.service';
 import { usePagination } from '@/hooks/use-pagination';
@@ -66,6 +66,15 @@ const rowStatusFilterOptions = [
 /* ──────────────────────────────────────────────── */
 type WizardStep = 'preview' | 'mapping' | 'process' | 'rows';
 
+function invertMapping(map: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(map || {})) {
+    if (!k || !v) continue;
+    out[v] = k;
+  }
+  return out;
+}
+
 function stepForStatus(status: ImportStatus): WizardStep {
   switch (status) {
     case 'PENDING': return 'preview';
@@ -104,6 +113,7 @@ export default function ImportDetailPage() {
   const preview = useImportPreview(id);
   const systemFields = useSystemFields();
   const processMutation = useProcessImport();
+  const retryMutation = useRetryImport();
   const executeMutation = useExecuteImport();
 
   // Wizard step
@@ -123,7 +133,8 @@ export default function ImportDetailPage() {
   // Initialize mapping from batch
   React.useEffect(() => {
     if (batch?.columnMapping && typeof batch.columnMapping === 'object') {
-      setMapping(batch.columnMapping as Record<string, string>);
+      // Backend guarda: { systemField: excelHeader }. La UI necesita: { excelHeader: systemField }.
+      setMapping(invertMapping(batch.columnMapping as Record<string, string>));
     }
   }, [batch?.columnMapping]);
 
@@ -131,7 +142,8 @@ export default function ImportDetailPage() {
     if (!id) return;
     setSavingMapping(true);
     try {
-      await importsService.updateMapping(id, mapping);
+      // Convertir UI mapping (excelHeader -> systemField) a formato backend (systemField -> excelHeader)
+      await importsService.updateMapping(id, invertMapping(mapping));
       qc.invalidateQueries({ queryKey: ['imports', id] });
       toast.success('Mapeo guardado');
     } catch {
@@ -191,6 +203,18 @@ export default function ImportDetailPage() {
   const isDone = ['COMPLETED', 'FAILED', 'CANCELLED'].includes(batch.status);
   const canProcess = batch.status === 'PENDING';
   const canExecute = batch.status === 'REVIEW_REQUIRED';
+  const canRetry = ['PENDING', 'REVIEW_REQUIRED', 'FAILED', 'CANCELLED'].includes(batch.status) && !isProcessing;
+
+  const handleRetry = async () => {
+    if (!id) return;
+    if (!window.confirm('¿Reintentar procesamiento? Se borrarán las filas procesadas (staging) y se volverá a procesar el mismo archivo.')) return;
+    try {
+      await retryMutation.mutateAsync(id);
+      qc.invalidateQueries({ queryKey: ['imports', id] });
+      qc.invalidateQueries({ queryKey: ['import-rows', id] });
+      toast.success('Reintento iniciado');
+    } catch { /* toast */ }
+  };
 
   return (
     <div className="space-y-6">
@@ -220,6 +244,28 @@ export default function ImportDetailPage() {
           </Button>
         )}
       </div>
+
+      {/* Retry bar */}
+      {canRetry && (
+        <Card className="border-amber-200 bg-amber-50">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <p className="font-medium text-amber-900">¿Necesitas reintentar?</p>
+              <p className="text-sm text-amber-800">
+                Reprocesa el mismo archivo sin volver a subirlo (se reinician las filas de staging).
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              icon={<RefreshCw className="h-4 w-4" />}
+              onClick={handleRetry}
+              isLoading={retryMutation.isPending}
+            >
+              Reintentar
+            </Button>
+          </div>
+        </Card>
+      )}
 
       {/* Stats bar */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">

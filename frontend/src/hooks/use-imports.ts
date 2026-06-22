@@ -60,6 +60,20 @@ export function useProcessImport() {
   });
 }
 
+export function useRetryImport() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => importsService.retry(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [IMPORTS_KEY] });
+      toast.success('Reintento iniciado');
+    },
+    onError: () => {
+      toast.error('Error al reintentar la importación');
+    },
+  });
+}
+
 export function useExecuteImport() {
   const qc = useQueryClient();
   return useMutation({

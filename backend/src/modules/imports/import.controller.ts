@@ -90,6 +90,15 @@ export const importController = {
   },
 
   /**
+   * POST /api/v1/imports/:id/retry
+   * Reintenta el procesamiento sin re-subir el archivo.
+   */
+  async retry(req: Request, res: Response): Promise<void> {
+    const batch = await importService.retryProcess(req.params.id as string);
+    sendSuccess(res, batch);
+  },
+
+  /**
    * POST /api/v1/imports/:id/execute
    * Importar filas VALID creando entidades reales.
    */

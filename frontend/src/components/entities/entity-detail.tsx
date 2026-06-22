@@ -540,7 +540,7 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                             href={otherHref}
                             className="text-sm font-medium text-primary-700 hover:text-primary-900 hover:underline truncate"
                           >
-                            {other.displayName}
+                          {other.displayName}
                           </Link>
                           <Badge variant={entityTypeBadgeVariant[other.entityType as EntityType] ?? 'default'} className="text-[10px] px-1.5 py-0 shrink-0">
                             {entityTypeDisplayLabel[other.entityType as EntityType]}
@@ -551,7 +551,7 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                             <ArrowRight className="h-3 w-3" />
                             {directionLabel}{' '}
                             <span className="font-medium text-gray-700">
-                              {relationshipTypeLabel[rel.relationshipType] ?? rel.relationshipType}
+                            {relationshipTypeLabel[rel.relationshipType] ?? rel.relationshipType}
                             </span>
                             {isFrom ? ` de ${other.displayName}` : ''}
                           </span>

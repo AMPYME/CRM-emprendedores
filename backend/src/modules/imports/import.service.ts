@@ -12,7 +12,7 @@
  * 7. Complete → Se actualizan estadisticas y se marca COMPLETED
  */
 import path from 'path';
-import { ImportStatus, StagingRowStatus, EntityType, Prisma } from '@prisma/client';
+import { ImportStatus, StagingRowStatus, EntityType, Prisma, Gender } from '@prisma/client';
 import { prisma } from '../../config/database';
 import { importRepository, BatchWithRelations, StagingRowWithRelations } from './import.repository';
 import { parseExcelFile, getExcelHeaders, getExcelPreview } from './parser.service';
@@ -38,6 +38,29 @@ import { logger } from '../../shared/logger/logger';
 function buildPaginationMeta(total: number, page: number, limit: number): PaginationMeta {
   const totalPages = Math.ceil(total / limit);
   return { page, limit, total, totalPages, hasNextPage: page < totalPages, hasPrevPage: page > 1 };
+}
+
+function normalizeGender(raw: unknown): Gender | null | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  if (typeof raw !== 'string') return null;
+
+  const cleaned = raw
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+  // Ya viene normalizado (por si el archivo trae MALE/FEMALE/OTHER)
+  if (cleaned === 'male') return Gender.MALE;
+  if (cleaned === 'female') return Gender.FEMALE;
+  if (cleaned === 'other') return Gender.OTHER;
+
+  // Variantes comunes en español (y abreviaturas)
+  if (cleaned === 'm' || cleaned === 'masculino' || cleaned === 'hombre') return Gender.MALE;
+  if (cleaned === 'f' || cleaned === 'femenino' || cleaned === 'mujer') return Gender.FEMALE;
+  if (cleaned === 'o' || cleaned === 'otro') return Gender.OTHER;
+
+  return null;
 }
 
 /**
@@ -380,6 +403,33 @@ export const importService = {
     }
   },
 
+  /**
+   * Reintenta el procesamiento sin re-subir el archivo.
+   * Limpia staging rows + resetea el batch y vuelve a ejecutar `process()`.
+   */
+  async retryProcess(batchId: string) {
+    const batch = await importRepository.findBatchById(batchId);
+    if (!batch) throw new NotFoundError('Lote de importación', batchId);
+
+    // Evitar reintentos cuando ya se importó o está importando
+    if (batch.status === 'COMPLETED' || batch.status === 'IMPORTING') {
+      throw new BadRequestError(
+        `No se puede reintentar un lote en estado ${batch.status}.`
+      );
+    }
+
+    // Solo permitir reintento cuando tiene sentido operacionalmente
+    const allowed: ImportStatus[] = ['PENDING', 'REVIEW_REQUIRED', 'FAILED', 'CANCELLED'];
+    if (!allowed.includes(batch.status)) {
+      throw new BadRequestError(
+        `No se puede reintentar un lote en estado ${batch.status}. Estados permitidos: ${allowed.join(', ')}`
+      );
+    }
+
+    await importRepository.resetBatchForRetry(batchId);
+    return this.process(batchId);
+  },
+
   // ═══════════════════════════════════════════════════════════════
   // STAGING ROWS
   // ═══════════════════════════════════════════════════════════════
@@ -665,7 +715,7 @@ export const importService = {
           lastName: fields.extractedLastName || 'Sin apellido',
           secondLastName: get('secondLastName'),
           cedula: fields.extractedCedula,
-          gender: get('gender'),
+          gender: normalizeGender(get('gender')) as any,
           birthDate: get('birthDate'),
           nationality: get('nationality'),
           educationLevel: get('educationLevel'),

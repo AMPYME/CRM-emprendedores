@@ -10,6 +10,7 @@
  *   GET    /api/v1/imports/:id/preview               - vista previa del archivo
  *   PUT    /api/v1/imports/:id/mapping               - actualizar mapeo de columnas
  *   POST   /api/v1/imports/:id/process               - procesar (staging + validacion + dedup)
+ *   POST   /api/v1/imports/:id/retry                 - reintentar procesamiento (sin re-subir)
  *   POST   /api/v1/imports/:id/execute               - importar filas validas
  *   POST   /api/v1/imports/:id/cancel                - cancelar lote
  *
@@ -90,6 +91,12 @@ importRoutes.post(
   '/:id/process',
   validate(importIdParamSchema, 'params'),
   asyncHandler(importController.process)
+);
+
+importRoutes.post(
+  '/:id/retry',
+  validate(importIdParamSchema, 'params'),
+  asyncHandler(importController.retry)
 );
 
 importRoutes.post(

@@ -15,7 +15,8 @@ interface GetRowsParams extends PaginationParams {
 }
 
 interface ColumnMapping {
-  [excelColumn: string]: string; // excel column → system field key
+  // Clave = campo del sistema, Valor = columna del Excel (igual que backend)
+  [systemField: string]: string;
 }
 
 interface ResolveRowInput {
@@ -65,6 +66,11 @@ export const importsService = {
 
   async process(id: string): Promise<ImportBatch> {
     const res = await apiClient.post<ApiResponse<ImportBatch>>(`/imports/${id}/process`);
+    return res.data.data;
+  },
+
+  async retry(id: string): Promise<ImportBatch> {
+    const res = await apiClient.post<ApiResponse<ImportBatch>>(`/imports/${id}/retry`);
     return res.data.data;
   },
 

@@ -28,6 +28,13 @@ export function useAuth({ requireAuth = true }: { requireAuth?: boolean } = {}) 
         return;
       }
 
+      // Evita carrera tras login: si el store ya tiene usuario (setAuth en la página de login),
+      // no repetir GET /auth/profile; un fallo intermitente aquí dejaba la sesión en blanco.
+      if (useAuthStore.getState().user) {
+        setLoading(false);
+        return;
+      }
+
       try {
         // Verificar token obteniendo perfil
         const profile = await authService.getProfile();
@@ -37,7 +44,9 @@ export function useAuth({ requireAuth = true }: { requireAuth?: boolean } = {}) 
         // Token inválido → intentar refresh
         try {
           const result = await authService.refresh(refreshToken);
-          setAuth(result.user, result.accessToken, result.refreshToken);
+          // Algunos backends no devuelven `user` en refresh; si falta, pedir perfil.
+          const profile = result.user ?? await authService.getProfile();
+          setAuth(profile, result.accessToken, result.refreshToken);
         } catch {
           logout();
           if (requireAuth) {

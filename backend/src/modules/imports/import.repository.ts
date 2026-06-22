@@ -187,6 +187,34 @@ export const importRepository = {
   },
 
   /**
+   * Limpia el batch para permitir reintento sin re-subir archivo.
+   * - Borra staging rows del batch
+   * - Resetea stats/errores/timestamps y deja status en PENDING
+   */
+  async resetBatchForRetry(batchId: string): Promise<BatchWithRelations> {
+    return prisma.$transaction(async (tx) => {
+      await tx.stagingRow.deleteMany({ where: { importBatchId: batchId } });
+
+      return tx.importBatch.update({
+        where: { id: batchId },
+        data: {
+          status: 'PENDING',
+          totalRows: 0,
+          validRows: 0,
+          invalidRows: 0,
+          duplicateRows: 0,
+          importedRows: 0,
+          skippedRows: 0,
+          errorLog: Prisma.DbNull,
+          startedAt: null,
+          completedAt: null,
+        },
+        include: BATCH_LIST_INCLUDES,
+      });
+    });
+  },
+
+  /**
    * Obtiene estadisticas resumidas por status de los staging rows de un batch.
    */
   async getBatchStats(batchId: string) {

@@ -20,15 +20,40 @@ import { useAuthStore } from '@/stores/auth.store';
 import { useState } from 'react';
 
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Buscar', href: '/dashboard', icon: Search },
-  { name: 'Personas', href: '/dashboard/persons', icon: Users },
-  { name: 'Empresas', href: '/dashboard/companies', icon: Building2 },
-  { name: 'Establecimientos', href: '/dashboard/establishments', icon: Store },
-  { name: 'Eventos', href: '/dashboard/events', icon: CalendarDays },
-  { name: 'Cartera', href: '/dashboard/portfolio', icon: Briefcase },
-  { name: 'Importaciones', href: '/dashboard/imports', icon: FileSpreadsheet },
-];
+  { id: 'home', name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { id: 'search', name: 'Buscar', href: '/dashboard', icon: Search },
+  { id: 'persons', name: 'Personas', href: '/dashboard/persons', icon: Users },
+  { id: 'companies', name: 'Empresas', href: '/dashboard/companies', icon: Building2 },
+  { id: 'establishments', name: 'Establecimientos', href: '/dashboard/establishments', icon: Store },
+  { id: 'events', name: 'Eventos', href: '/dashboard/events', icon: CalendarDays },
+  { id: 'portfolio', name: 'Cartera', href: '/dashboard/portfolio', icon: Briefcase },
+  { id: 'imports', name: 'Importaciones', href: '/dashboard/imports', icon: FileSpreadsheet },
+] as const;
+
+type NavItem = (typeof navigation)[number];
+
+/** Normaliza pathname (sin barra final salvo raíz). */
+function normalizePath(path: string): string {
+  if (path.length > 1 && path.endsWith('/')) return path.slice(0, -1);
+  return path;
+}
+
+/**
+ * Ítem activo: rutas bajo `/dashboard/...` no deben marcar el enlace «/dashboard»
+ * (si no, Dashboard y Buscar quedarían siempre resaltados).
+ * En la portada exacta `/dashboard`, solo «Dashboard» se marca; «Buscar» comparte URL pero no estado activo.
+ */
+function isNavItemActive(item: NavItem, pathname: string | null): boolean {
+  if (!pathname) return false;
+  const path = normalizePath(pathname);
+
+  if (item.href === '/dashboard') {
+    if (path !== '/dashboard') return false;
+    return item.id === 'home';
+  }
+
+  return path === item.href || path.startsWith(`${item.href}/`);
+}
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -71,10 +96,10 @@ export function Sidebar() {
       {/* Nav links */}
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
         {navigation.map((item) => {
-          const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
+          const isActive = isNavItemActive(item, pathname);
           return (
             <Link
-              key={item.href}
+              key={item.id}
               href={item.href}
               title={collapsed ? item.name : undefined}
               className={cn(

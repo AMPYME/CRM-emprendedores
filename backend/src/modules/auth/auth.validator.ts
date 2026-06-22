@@ -4,11 +4,11 @@
 import { z } from 'zod';
 
 // ── Login ───────────────────────────────────────────────────────
+// `email` en el JSON es el identificador de inicio de sesión: correo UPN o usuario AD (según integración).
 export const loginSchema = z.object({
   email: z
     .string()
-    .min(1, 'El email es requerido')
-    .email('Formato de email inválido')
+    .min(1, 'Usuario o correo requerido')
     .transform((v) => v.trim().toLowerCase()),
   password: z
     .string()

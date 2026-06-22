@@ -7,8 +7,43 @@ import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
+/** Slugs de eventos creados por este seed (para poder borrarlos al re-ejecutar). */
+const SEED_EVENT_SLUGS = [
+  'feria-del-emprendedor-2026',
+  'capacitacion-marketing-digital',
+  'cumbre-pyme-chiriqui-2026',
+] as const;
+
+/**
+ * Elimina datos de ejecuciones previas del mismo seed (misma marca `sourceOrigin: 'SEED'`).
+ * Permite correr `npm run prisma:seed` varias veces sin error de slug único ni duplicados.
+ */
+async function clearPreviousSeed(): Promise<void> {
+  await prisma.portfolioAction.deleteMany({
+    where: { portfolio: { entity: { sourceOrigin: 'SEED' } } },
+  });
+  await prisma.portfolioRecord.deleteMany({
+    where: { entity: { sourceOrigin: 'SEED' } },
+  });
+  await prisma.eventRegistration.deleteMany({
+    where: { entity: { sourceOrigin: 'SEED' } },
+  });
+  await prisma.entityRelationship.deleteMany({
+    where: {
+      OR: [
+        { fromEntity: { sourceOrigin: 'SEED' } },
+        { toEntity: { sourceOrigin: 'SEED' } },
+      ],
+    },
+  });
+  await prisma.entity.deleteMany({ where: { sourceOrigin: 'SEED' } });
+  await prisma.event.deleteMany({ where: { slug: { in: [...SEED_EVENT_SLUGS] } } });
+}
+
 async function main() {
   console.log('🌱 Ejecutando seeds...\n');
+
+  await clearPreviousSeed();
 
   // ── Usuarios ────────────────────────────────────────────────────
   const adminHash = await bcrypt.hash('Admin2026!', 12);
