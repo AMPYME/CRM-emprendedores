@@ -19,6 +19,7 @@ import {
   usePortfolio, useUpdatePortfolio, usePortfolioActions, useAddPortfolioAction,
 } from '@/hooks/use-portfolio';
 import { formatDate, formatDateShort, cn } from '@/lib/utils';
+import { provinciaNombre } from '@/lib/division-politica';
 import type { PortfolioAction, ActionType } from '@/types/entities.types';
 
 const statusBadge: Record<string, 'default' | 'primary' | 'success' | 'warning' | 'danger'> = {
@@ -227,7 +228,9 @@ export default function PortfolioDetailPage() {
                 <div className="space-y-2">
                   <p className="font-medium text-gray-900">{record.entity.displayName}</p>
                   <p className="text-xs text-gray-400">{record.entity.entityType}</p>
-                  {record.entity.province && <p className="text-xs text-gray-500">{record.entity.province}</p>}
+                  {record.entity.province && (
+                    <p className="text-xs text-gray-500">{provinciaNombre(record.entity.province)}</p>
+                  )}
                   <Button
                     variant="outline" size="sm" className="mt-2 w-full"
                     onClick={() => {

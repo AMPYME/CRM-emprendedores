@@ -8,8 +8,18 @@ import { Modal } from '@/components/ui/modal';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { LocationCascadeFields } from '@/components/forms/location-cascade-fields';
 import { useCreatePerson, useUpdatePerson, usePerson } from '@/hooks/use-persons';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import {
+  DEFAULT_NATIONALITY_CODE,
+  nationalitySelectOptions,
+} from '@/lib/nationalities';
+import {
+  toProvinciaCode,
+  toDistritoCode,
+  toCorregimientoCode,
+} from '@/lib/division-politica';
 
 const personSchema = z.object({
   firstName: z.string().min(2, 'El nombre es requerido'),
@@ -18,10 +28,10 @@ const personSchema = z.object({
   cedula: z.string().optional(),
   gender: z.string().optional(),
   birthDate: z.string().optional(),
-  nationality: z.string().optional(),
-  educationLevel: z.string().optional(),
+  nationalityCode: z.string().length(3, 'Seleccione la nacionalidad'),
   province: z.string().optional(),
   district: z.string().optional(),
+  corregimiento: z.string().optional(),
   address: z.string().optional(),
   notes: z.string().optional(),
   email: z.string().email('Correo inválido').optional().or(z.literal('')),
@@ -43,33 +53,6 @@ const genderOptions = [
   { value: 'OTHER', label: 'Otro' },
 ];
 
-const educationOptions = [
-  { value: '', label: 'Seleccionar' },
-  { value: 'Sin estudios', label: 'Sin estudios' },
-  { value: 'Primaria', label: 'Primaria' },
-  { value: 'Secundaria', label: 'Secundaria' },
-  { value: 'Técnico', label: 'Técnico' },
-  { value: 'Universitario', label: 'Universitario' },
-  { value: 'Postgrado', label: 'Postgrado' },
-];
-
-const provinciaOptions = [
-  { value: '', label: 'Seleccionar' },
-  { value: 'Bocas del Toro', label: 'Bocas del Toro' },
-  { value: 'Coclé', label: 'Coclé' },
-  { value: 'Colón', label: 'Colón' },
-  { value: 'Chiriquí', label: 'Chiriquí' },
-  { value: 'Darién', label: 'Darién' },
-  { value: 'Herrera', label: 'Herrera' },
-  { value: 'Los Santos', label: 'Los Santos' },
-  { value: 'Panamá', label: 'Panamá' },
-  { value: 'Panamá Oeste', label: 'Panamá Oeste' },
-  { value: 'Veraguas', label: 'Veraguas' },
-  { value: 'Guna Yala', label: 'Guna Yala' },
-  { value: 'Emberá-Wounaan', label: 'Emberá-Wounaan' },
-  { value: 'Ngäbe-Buglé', label: 'Ngäbe-Buglé' },
-];
-
 export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProps) {
   const isEdit = !!editId;
   const personQuery = usePerson(editId ?? undefined);
@@ -80,7 +63,9 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
     register,
     handleSubmit,
     reset,
-    formState: { errors, isSubmitting },
+    watch,
+    setValue,
+    formState: { errors },
   } = useForm<PersonForm>({
     resolver: zodResolver(personSchema),
     defaultValues: {
@@ -90,10 +75,10 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
       cedula: '',
       gender: '',
       birthDate: '',
-      nationality: 'Panameño/a',
-      educationLevel: '',
+      nationalityCode: DEFAULT_NATIONALITY_CODE,
       province: '',
       district: '',
+      corregimiento: '',
       address: '',
       notes: '',
       email: '',
@@ -101,11 +86,17 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
     },
   });
 
-  // Populate form on edit
   useEffect(() => {
     if (isEdit && personQuery.data) {
       const data = personQuery.data;
       const p = data.person;
+      const provinceCode = toProvinciaCode(data.province);
+      const districtCode = toDistritoCode(data.province, data.district);
+      const corregimientoCode = toCorregimientoCode(
+        data.province,
+        data.district,
+        data.corregimiento
+      );
       reset({
         firstName: p?.firstName || '',
         lastName: p?.lastName || '',
@@ -113,16 +104,17 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
         cedula: p?.cedula || '',
         gender: p?.gender || '',
         birthDate: p?.birthDate?.split('T')[0] || '',
-        nationality: p?.nationality || '',
-        educationLevel: p?.educationLevel || '',
-        province: data.province || '',
-        district: data.district || '',
+        nationalityCode: p?.nationalityCode || DEFAULT_NATIONALITY_CODE,
+        province: provinceCode,
+        district: districtCode,
+        corregimiento: corregimientoCode,
         address: data.address || '',
         notes: data.notes || '',
         email: data.contacts?.find((c) => c.contactType === 'EMAIL')?.contactValue || '',
-        phone: data.contacts?.find(
-          (c) => c.contactType === 'PHONE' || c.contactType === 'MOBILE'
-        )?.contactValue || '',
+        phone:
+          data.contacts?.find(
+            (c) => c.contactType === 'PHONE' || c.contactType === 'MOBILE'
+          )?.contactValue || '',
       });
     } else if (!isEdit) {
       reset();
@@ -145,10 +137,10 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
       cedula: formData.cedula || undefined,
       gender: formData.gender || undefined,
       birthDate: formData.birthDate || undefined,
-      nationality: formData.nationality || undefined,
-      educationLevel: formData.educationLevel || undefined,
+      nationalityCode: formData.nationalityCode,
       province: formData.province || undefined,
       district: formData.district || undefined,
+      corregimiento: formData.corregimiento || undefined,
       address: formData.address || undefined,
       notes: formData.notes || undefined,
       contacts: contacts.length > 0 ? contacts : undefined,
@@ -198,11 +190,20 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
           <Input label="Cédula" placeholder="X-XXXX-XXXXX" {...register('cedula')} />
           <Select label="Género" options={genderOptions} {...register('gender')} />
           <Input label="Fecha de nacimiento" type="date" {...register('birthDate')} />
-          <Input label="Nacionalidad" {...register('nationality')} />
-          <Select label="Nivel educativo" options={educationOptions} {...register('educationLevel')} />
-          <Select label="Provincia" options={provinciaOptions} {...register('province')} />
-          <Input label="Distrito" {...register('district')} />
-          <Input label="Correo electrónico" type="email" error={errors.email?.message} {...register('email')} className="sm:col-span-2" />
+          <Select
+            label="Nacionalidad"
+            options={nationalitySelectOptions}
+            error={errors.nationalityCode?.message}
+            {...register('nationalityCode')}
+          />
+          <LocationCascadeFields register={register} watch={watch} setValue={setValue} />
+          <Input
+            label="Correo electrónico"
+            type="email"
+            error={errors.email?.message}
+            {...register('email')}
+            className="sm:col-span-2"
+          />
           <Input label="Teléfono / Celular" {...register('phone')} />
           <Input label="Dirección" {...register('address')} />
           <div className="sm:col-span-2">

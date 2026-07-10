@@ -5,6 +5,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/database';
 import { EstablishmentQueryInput } from './establishment.validator';
+import { toProvinciaCode } from '../../shared/utils/division-politica';
 import {
   EntityWithEstablishment,
   ESTABLISHMENT_LIST_INCLUDES,
@@ -46,7 +47,10 @@ export const establishmentRepository = {
     if (filters.status) where.status = filters.status;
     else where.status = { not: 'MERGED' };
 
-    if (filters.province) where.province = { contains: filters.province, mode: 'insensitive' };
+    if (filters.province) {
+      const code = toProvinciaCode(filters.province);
+      if (code) where.province = code;
+    }
 
     const estabWhere: Prisma.EstablishmentWhereInput = {};
     if (filters.establishmentType) {
@@ -88,6 +92,18 @@ export const establishmentRepository = {
     });
   },
 
+  /** Aviso de operación único (deduplicación al validar intake). */
+  async findByNoticeOfOperation(notice: string) {
+    return prisma.entity.findFirst({
+      where: {
+        entityType: 'ESTABLISHMENT',
+        status: { not: 'MERGED' },
+        establishment: { noticeOfOperation: notice },
+      },
+      select: { id: true, displayName: true },
+    });
+  },
+
   async create(data: {
     displayName: string;
     province?: string;
@@ -121,10 +137,10 @@ export const establishmentRepository = {
 
   async update(
     entityId: string,
-    entityData: Prisma.EntityUpdateInput,
+    entityData: Prisma.EntityUncheckedUpdateInput,
     estabData?: Prisma.EstablishmentUpdateWithoutEntityInput
   ): Promise<EntityWithEstablishment> {
-    const updateData: Prisma.EntityUpdateInput = { ...entityData };
+    const updateData: Prisma.EntityUncheckedUpdateInput = { ...entityData };
     if (estabData && Object.keys(estabData).length > 0) {
       updateData.establishment = { update: estabData };
     }

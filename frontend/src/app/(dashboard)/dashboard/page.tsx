@@ -254,16 +254,16 @@ export default function DashboardPage() {
           <Card title="Acciones rápidas" description="Operaciones frecuentes">
             <div className="space-y-3">
               <QuickAction
-                title="Registrar persona"
-                description="Agregar un nuevo emprendedor"
-                href="/dashboard/persons?action=create"
+                title="Ver personas"
+                description="Consultar emprendedores registrados"
+                href="/dashboard/persons"
                 icon={Users}
                 color="bg-blue-500"
               />
               <QuickAction
-                title="Registrar empresa"
-                description="Agregar una nueva empresa"
-                href="/dashboard/companies?action=create"
+                title="Ver empresas"
+                description="Consultar empresas registradas"
+                href="/dashboard/companies"
                 icon={Building}
                 color="bg-emerald-500"
               />

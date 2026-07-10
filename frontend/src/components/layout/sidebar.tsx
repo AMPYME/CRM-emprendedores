@@ -12,6 +12,7 @@ import {
   CalendarDays,
   Briefcase,
   FileSpreadsheet,
+  RadioTower,
   Settings,
   LogOut,
   ChevronLeft,
@@ -28,6 +29,7 @@ const navigation = [
   { id: 'events', name: 'Eventos', href: '/dashboard/events', icon: CalendarDays },
   { id: 'portfolio', name: 'Cartera', href: '/dashboard/portfolio', icon: Briefcase },
   { id: 'imports', name: 'Importaciones', href: '/dashboard/imports', icon: FileSpreadsheet },
+  { id: 'intake', name: 'Ingesta en vivo', href: '/dashboard/intake', icon: RadioTower },
 ] as const;
 
 type NavItem = (typeof navigation)[number];

@@ -8,8 +8,14 @@ import { Modal } from '@/components/ui/modal';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { LocationCascadeFields } from '@/components/forms/location-cascade-fields';
 import { useCreateCompany, useUpdateCompany, useCompany } from '@/hooks/use-companies';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import {
+  toProvinciaCode,
+  toDistritoCode,
+  toCorregimientoCode,
+} from '@/lib/division-politica';
 
 const companySchema = z.object({
   legalName: z.string().min(2, 'El nombre legal es requerido'),
@@ -22,6 +28,7 @@ const companySchema = z.object({
   employeeCount: z.string().optional(),
   province: z.string().optional(),
   district: z.string().optional(),
+  corregimiento: z.string().optional(),
   address: z.string().optional(),
   notes: z.string().optional(),
   email: z.string().email('Correo inválido').optional().or(z.literal('')),
@@ -46,23 +53,6 @@ const companyTypeOptions = [
   { value: 'Otro', label: 'Otro' },
 ];
 
-const provinciaOptions = [
-  { value: '', label: 'Seleccionar' },
-  { value: 'Bocas del Toro', label: 'Bocas del Toro' },
-  { value: 'Coclé', label: 'Coclé' },
-  { value: 'Colón', label: 'Colón' },
-  { value: 'Chiriquí', label: 'Chiriquí' },
-  { value: 'Darién', label: 'Darién' },
-  { value: 'Herrera', label: 'Herrera' },
-  { value: 'Los Santos', label: 'Los Santos' },
-  { value: 'Panamá', label: 'Panamá' },
-  { value: 'Panamá Oeste', label: 'Panamá Oeste' },
-  { value: 'Veraguas', label: 'Veraguas' },
-  { value: 'Guna Yala', label: 'Guna Yala' },
-  { value: 'Emberá-Wounaan', label: 'Emberá-Wounaan' },
-  { value: 'Ngäbe-Buglé', label: 'Ngäbe-Buglé' },
-];
-
 export function CompanyFormModal({ isOpen, onClose, editId }: CompanyFormModalProps) {
   const isEdit = !!editId;
   const companyQuery = useCompany(editId ?? undefined);
@@ -73,6 +63,8 @@ export function CompanyFormModal({ isOpen, onClose, editId }: CompanyFormModalPr
     register,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<CompanyForm>({
     resolver: zodResolver(companySchema),
@@ -82,6 +74,13 @@ export function CompanyFormModal({ isOpen, onClose, editId }: CompanyFormModalPr
     if (isEdit && companyQuery.data) {
       const data = companyQuery.data;
       const c = data.company;
+      const provinceCode = toProvinciaCode(data.province);
+      const districtCode = toDistritoCode(data.province, data.district);
+      const corregimientoCode = toCorregimientoCode(
+        data.province,
+        data.district,
+        data.corregimiento
+      );
       reset({
         legalName: c?.legalName || '',
         tradeName: c?.tradeName || '',
@@ -89,18 +88,35 @@ export function CompanyFormModal({ isOpen, onClose, editId }: CompanyFormModalPr
         dv: c?.dv || '',
         companyType: c?.companyType || '',
         economicActivity: c?.economicActivity || '',
-        province: data.province || '',
-        district: data.district || '',
+        foundedDate: c?.foundedDate?.split('T')[0] || '',
+        employeeCount: c?.employeeCount != null ? String(c.employeeCount) : '',
+        province: provinceCode,
+        district: districtCode,
+        corregimiento: corregimientoCode,
         address: data.address || '',
         notes: data.notes || '',
         email: data.contacts?.find((co) => co.contactType === 'EMAIL')?.contactValue || '',
-        phone: data.contacts?.find((co) => co.contactType === 'PHONE' || co.contactType === 'MOBILE')?.contactValue || '',
+        phone:
+          data.contacts?.find((co) => co.contactType === 'PHONE' || co.contactType === 'MOBILE')
+            ?.contactValue || '',
       });
     } else if (!isEdit) {
       reset({
-        legalName: '', tradeName: '', ruc: '', dv: '', companyType: '',
-        economicActivity: '', province: '', district: '', address: '',
-        notes: '', email: '', phone: '',
+        legalName: '',
+        tradeName: '',
+        ruc: '',
+        dv: '',
+        companyType: '',
+        economicActivity: '',
+        foundedDate: '',
+        employeeCount: '',
+        province: '',
+        district: '',
+        corregimiento: '',
+        address: '',
+        notes: '',
+        email: '',
+        phone: '',
       });
     }
   }, [isEdit, companyQuery.data, reset]);
@@ -118,9 +134,10 @@ export function CompanyFormModal({ isOpen, onClose, editId }: CompanyFormModalPr
       companyType: formData.companyType || undefined,
       economicActivity: formData.economicActivity || undefined,
       foundedDate: formData.foundedDate || undefined,
-      employeeCount: formData.employeeCount ? parseInt(formData.employeeCount) : undefined,
+      employeeCount: formData.employeeCount ? parseInt(formData.employeeCount, 10) : undefined,
       province: formData.province || undefined,
       district: formData.district || undefined,
+      corregimiento: formData.corregimiento || undefined,
       address: formData.address || undefined,
       notes: formData.notes || undefined,
       contacts: contacts.length > 0 ? contacts : undefined,
@@ -133,7 +150,9 @@ export function CompanyFormModal({ isOpen, onClose, editId }: CompanyFormModalPr
         await createMutation.mutateAsync(payload);
       }
       onClose();
-    } catch { /* handled by toast */ }
+    } catch {
+      /* handled by toast */
+    }
   };
 
   const isBusy = createMutation.isPending || updateMutation.isPending;
@@ -147,7 +166,9 @@ export function CompanyFormModal({ isOpen, onClose, editId }: CompanyFormModalPr
       size="lg"
       footer={
         <div className="flex gap-2">
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
           <Button onClick={handleSubmit(onSubmit)} isLoading={isBusy}>
             {isEdit ? 'Guardar cambios' : 'Crear empresa'}
           </Button>
@@ -155,7 +176,9 @@ export function CompanyFormModal({ isOpen, onClose, editId }: CompanyFormModalPr
       }
     >
       {isEdit && companyQuery.isLoading ? (
-        <div className="flex justify-center py-8"><LoadingSpinner text="Cargando datos..." /></div>
+        <div className="flex justify-center py-8">
+          <LoadingSpinner text="Cargando datos..." />
+        </div>
       ) : (
         <form className="grid grid-cols-1 gap-4 sm:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
           <Input label="Nombre legal *" error={errors.legalName?.message} {...register('legalName')} />
@@ -166,8 +189,7 @@ export function CompanyFormModal({ isOpen, onClose, editId }: CompanyFormModalPr
           <Input label="Actividad económica" {...register('economicActivity')} />
           <Input label="Fecha de fundación" type="date" {...register('foundedDate')} />
           <Input label="# Empleados" type="number" {...register('employeeCount')} />
-          <Select label="Provincia" options={provinciaOptions} {...register('province')} />
-          <Input label="Distrito" {...register('district')} />
+          <LocationCascadeFields register={register} watch={watch} setValue={setValue} />
           <Input label="Correo electrónico" type="email" error={errors.email?.message} {...register('email')} />
           <Input label="Teléfono" {...register('phone')} />
           <div className="sm:col-span-2">

@@ -1,29 +1,30 @@
 'use client';
 
-import React from 'react';
+import React, { createElement, isValidElement } from 'react';
 import { cn } from '@/lib/utils';
 import { InboxIcon } from 'lucide-react';
 
 interface EmptyStateProps {
-  /** Pass JSX like <Icon className="h-8 w-8" /> or a Component reference like {Calendar} */
-  icon?: React.ReactNode | React.ComponentType<{ className?: string }>;
+  /** JSX (<Icon />) o componente Lucide ({ RadioTower }) */
+  icon?: React.ReactNode | React.ElementType;
   title: string;
   description?: string;
   action?: React.ReactNode;
   className?: string;
 }
 
-export function EmptyState({ icon, title, description, action, className }: EmptyStateProps) {
-  // Handle both JSX elements and component references
-  let renderedIcon: React.ReactNode;
+function renderEmptyIcon(icon: EmptyStateProps['icon']): React.ReactNode {
   if (!icon) {
-    renderedIcon = <InboxIcon className="h-8 w-8" />;
-  } else if (typeof icon === 'function') {
-    const IconComponent = icon as React.ComponentType<{ className?: string }>;
-    renderedIcon = <IconComponent className="h-8 w-8" />;
-  } else {
-    renderedIcon = icon;
+    return <InboxIcon className="h-8 w-8" />;
   }
+  if (isValidElement(icon)) {
+    return icon;
+  }
+  return createElement(icon as React.ElementType, { className: 'h-8 w-8' });
+}
+
+export function EmptyState({ icon, title, description, action, className }: EmptyStateProps) {
+  const renderedIcon = renderEmptyIcon(icon);
 
   return (
     <div className={cn('flex flex-col items-center justify-center py-12 text-center', className)}>

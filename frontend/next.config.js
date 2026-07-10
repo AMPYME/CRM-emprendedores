@@ -7,6 +7,12 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_API_URL:
       process.env.NEXT_PUBLIC_API_URL || 'http://192.168.99.60:4000/api/v1',
+    // WebSocket de intake (si se omite, se deriva de NEXT_PUBLIC_API_URL).
+    NEXT_PUBLIC_WS_URL:
+      process.env.NEXT_PUBLIC_WS_URL || 'ws://192.168.99.60:4000/ws/intake',
+    // Enlace público del formulario PHP que se comparte al emprendedor.
+    NEXT_PUBLIC_INTAKE_FORM_URL:
+      process.env.NEXT_PUBLIC_INTAKE_FORM_URL || 'http://192.168.99.60/emprendedores/',
   },
 };
 

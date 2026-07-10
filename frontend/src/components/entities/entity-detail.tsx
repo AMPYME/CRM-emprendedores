@@ -17,6 +17,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Modal } from '@/components/ui/modal';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { nationalityLabel } from '@/lib/nationalities';
 import { EntitySearchSelect, type EntityOption } from '@/components/ui/entity-search-select';
 import {
   Table, TableHead, TableBody, TableRow, TableHeaderCell, TableCell,
@@ -25,6 +26,11 @@ import { useEntity, useEntityContacts } from '@/hooks/use-entities';
 import { useEntityRelationships } from '@/hooks/use-relationships';
 import { useEntityPortfolios } from '@/hooks/use-portfolio';
 import { formatDate, formatDateShort, cn } from '@/lib/utils';
+import {
+  provinciaNombre,
+  distritoNombre,
+  corregimientoNombre,
+} from '@/lib/division-politica';
 import type {
   EntityContact,
   EntityRelationship,
@@ -290,7 +296,7 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                   <InfoRow label="Cédula" value={person.cedula} mono />
                   <InfoRow label="Género" value={person.gender === 'MALE' ? 'Masculino' : person.gender === 'FEMALE' ? 'Femenino' : person.gender} />
                   <InfoRow label="Fecha de nacimiento" value={person.birthDate ? formatDateShort(person.birthDate) : null} />
-                  <InfoRow label="Nacionalidad" value={person.nationality} />
+                  <InfoRow label="Nacionalidad" value={nationalityLabel(person.nationalityCode)} />
                   <InfoRow label="Nivel educativo" value={person.educationLevel} />
                 </>
               )}
@@ -320,9 +326,12 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
           {/* Location / General info */}
           <Card title="Ubicación y notas">
             <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-              <InfoRow label="Provincia" value={entity.province} />
-              <InfoRow label="Distrito" value={entity.district} />
-              <InfoRow label="Corregimiento" value={entity.corregimiento} />
+              <InfoRow label="Provincia" value={provinciaNombre(entity.province)} />
+              <InfoRow label="Distrito" value={distritoNombre(entity.province, entity.district)} />
+              <InfoRow
+                label="Corregimiento"
+                value={corregimientoNombre(entity.province, entity.district, entity.corregimiento)}
+              />
               <InfoRow label="Dirección" value={entity.address} span2 />
               <InfoRow label="Origen de datos" value={entity.sourceOrigin} />
               <InfoRow label="Notas" value={entity.notes} span2 />

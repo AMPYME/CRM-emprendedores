@@ -8,8 +8,18 @@ import { Modal } from '@/components/ui/modal';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { useCreateEstablishment, useUpdateEstablishment, useEstablishment } from '@/hooks/use-establishments';
+import { LocationCascadeFields } from '@/components/forms/location-cascade-fields';
+import {
+  useCreateEstablishment,
+  useUpdateEstablishment,
+  useEstablishment,
+} from '@/hooks/use-establishments';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import {
+  toProvinciaCode,
+  toDistritoCode,
+  toCorregimientoCode,
+} from '@/lib/division-politica';
 
 const estabSchema = z.object({
   establishmentName: z.string().min(2, 'El nombre es requerido'),
@@ -18,6 +28,7 @@ const estabSchema = z.object({
   noticeOfOperation: z.string().optional(),
   province: z.string().optional(),
   district: z.string().optional(),
+  corregimiento: z.string().optional(),
   address: z.string().optional(),
   notes: z.string().optional(),
   email: z.string().email('Correo inválido').optional().or(z.literal('')),
@@ -42,30 +53,20 @@ const typeOptions = [
   { value: 'Otro', label: 'Otro' },
 ];
 
-const provinciaOptions = [
-  { value: '', label: 'Seleccionar' },
-  { value: 'Bocas del Toro', label: 'Bocas del Toro' },
-  { value: 'Coclé', label: 'Coclé' },
-  { value: 'Colón', label: 'Colón' },
-  { value: 'Chiriquí', label: 'Chiriquí' },
-  { value: 'Darién', label: 'Darién' },
-  { value: 'Herrera', label: 'Herrera' },
-  { value: 'Los Santos', label: 'Los Santos' },
-  { value: 'Panamá', label: 'Panamá' },
-  { value: 'Panamá Oeste', label: 'Panamá Oeste' },
-  { value: 'Veraguas', label: 'Veraguas' },
-  { value: 'Guna Yala', label: 'Guna Yala' },
-  { value: 'Emberá-Wounaan', label: 'Emberá-Wounaan' },
-  { value: 'Ngäbe-Buglé', label: 'Ngäbe-Buglé' },
-];
-
 export function EstablishmentFormModal({ isOpen, onClose, editId }: Props) {
   const isEdit = !!editId;
   const estabQuery = useEstablishment(editId ?? undefined);
   const createMutation = useCreateEstablishment();
   const updateMutation = useUpdateEstablishment();
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<EstabForm>({
+  const {
+    register,
+    handleSubmit,
+    reset,
+    watch,
+    setValue,
+    formState: { errors },
+  } = useForm<EstabForm>({
     resolver: zodResolver(estabSchema),
   });
 
@@ -73,23 +74,41 @@ export function EstablishmentFormModal({ isOpen, onClose, editId }: Props) {
     if (isEdit && estabQuery.data) {
       const data = estabQuery.data;
       const e = data.establishment;
+      const provinceCode = toProvinciaCode(data.province);
+      const districtCode = toDistritoCode(data.province, data.district);
+      const corregimientoCode = toCorregimientoCode(
+        data.province,
+        data.district,
+        data.corregimiento
+      );
       reset({
         establishmentName: e?.establishmentName || '',
         establishmentType: e?.establishmentType || '',
         economicActivity: e?.economicActivity || '',
         noticeOfOperation: e?.noticeOfOperation || '',
-        province: data.province || '',
-        district: data.district || '',
+        province: provinceCode,
+        district: districtCode,
+        corregimiento: corregimientoCode,
         address: data.address || '',
         notes: data.notes || '',
         email: data.contacts?.find((c) => c.contactType === 'EMAIL')?.contactValue || '',
-        phone: data.contacts?.find((c) => c.contactType === 'PHONE' || c.contactType === 'MOBILE')?.contactValue || '',
+        phone:
+          data.contacts?.find((c) => c.contactType === 'PHONE' || c.contactType === 'MOBILE')
+            ?.contactValue || '',
       });
     } else if (!isEdit) {
       reset({
-        establishmentName: '', establishmentType: '', economicActivity: '',
-        noticeOfOperation: '', province: '', district: '', address: '',
-        notes: '', email: '', phone: '',
+        establishmentName: '',
+        establishmentType: '',
+        economicActivity: '',
+        noticeOfOperation: '',
+        province: '',
+        district: '',
+        corregimiento: '',
+        address: '',
+        notes: '',
+        email: '',
+        phone: '',
       });
     }
   }, [isEdit, estabQuery.data, reset]);
@@ -106,6 +125,7 @@ export function EstablishmentFormModal({ isOpen, onClose, editId }: Props) {
       noticeOfOperation: formData.noticeOfOperation || undefined,
       province: formData.province || undefined,
       district: formData.district || undefined,
+      corregimiento: formData.corregimiento || undefined,
       address: formData.address || undefined,
       notes: formData.notes || undefined,
       contacts: contacts.length > 0 ? contacts : undefined,
@@ -118,20 +138,25 @@ export function EstablishmentFormModal({ isOpen, onClose, editId }: Props) {
         await createMutation.mutateAsync(payload);
       }
       onClose();
-    } catch { /* toast in hook */ }
+    } catch {
+      /* toast in hook */
+    }
   };
 
   const isBusy = createMutation.isPending || updateMutation.isPending;
 
   return (
     <Modal
-      isOpen={isOpen} onClose={onClose}
+      isOpen={isOpen}
+      onClose={onClose}
       title={isEdit ? 'Editar establecimiento' : 'Nuevo establecimiento'}
       description={isEdit ? 'Actualizar datos del establecimiento' : 'Registrar un nuevo establecimiento'}
       size="lg"
       footer={
         <div className="flex gap-2">
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
           <Button onClick={handleSubmit(onSubmit)} isLoading={isBusy}>
             {isEdit ? 'Guardar cambios' : 'Crear establecimiento'}
           </Button>
@@ -139,19 +164,28 @@ export function EstablishmentFormModal({ isOpen, onClose, editId }: Props) {
       }
     >
       {isEdit && estabQuery.isLoading ? (
-        <div className="flex justify-center py-8"><LoadingSpinner text="Cargando datos..." /></div>
+        <div className="flex justify-center py-8">
+          <LoadingSpinner text="Cargando datos..." />
+        </div>
       ) : (
         <form className="grid grid-cols-1 gap-4 sm:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
-          <Input label="Nombre *" error={errors.establishmentName?.message} {...register('establishmentName')} />
+          <Input
+            label="Nombre *"
+            error={errors.establishmentName?.message}
+            {...register('establishmentName')}
+          />
           <Select label="Tipo" options={typeOptions} {...register('establishmentType')} />
           <Input label="Actividad económica" {...register('economicActivity')} />
           <Input label="Aviso de operación" {...register('noticeOfOperation')} />
-          <Select label="Provincia" options={provinciaOptions} {...register('province')} />
-          <Input label="Distrito" {...register('district')} />
+          <LocationCascadeFields register={register} watch={watch} setValue={setValue} />
           <Input label="Correo electrónico" type="email" error={errors.email?.message} {...register('email')} />
           <Input label="Teléfono" {...register('phone')} />
-          <div className="sm:col-span-2"><Input label="Dirección" {...register('address')} /></div>
-          <div className="sm:col-span-2"><Input label="Notas" {...register('notes')} /></div>
+          <div className="sm:col-span-2">
+            <Input label="Dirección" {...register('address')} />
+          </div>
+          <div className="sm:col-span-2">
+            <Input label="Notas" {...register('notes')} />
+          </div>
         </form>
       )}
     </Modal>

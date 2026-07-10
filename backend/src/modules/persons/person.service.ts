@@ -8,6 +8,8 @@ import { PersonQueryInput, CreatePersonInput, UpdatePersonInput } from './person
 import { NotFoundError, ConflictError } from '../../shared/errors/app-error';
 import { PaginationMeta } from '../../shared/types/api-response.types';
 import { titleCase } from '../../shared/utils/string.utils';
+import { locationInputToCodes } from '../../shared/utils/division-politica';
+import { DEFAULT_NATIONALITY_CODE } from '../../shared/utils/nationality';
 
 // ── Helpers ───────────────────────────────────────────────────────
 
@@ -63,12 +65,13 @@ export const personService = {
     }
 
     const displayName = buildDisplayName(input.firstName, input.lastName, input.secondLastName);
+    const loc = locationInputToCodes(input);
 
     return personRepository.create({
       displayName,
-      province: input.province,
-      district: input.district,
-      corregimiento: input.corregimiento,
+      province: loc.province,
+      district: loc.district,
+      corregimiento: loc.corregimiento,
       address: input.address,
       notes: input.notes,
       sourceOrigin: input.sourceOrigin || 'MANUAL',
@@ -79,7 +82,7 @@ export const personService = {
         cedula: input.cedula,
         gender: input.gender as any,
         birthDate: input.birthDate ? new Date(input.birthDate) : undefined,
-        nationality: input.nationality,
+        nationalityCode: input.nationalityCode ?? DEFAULT_NATIONALITY_CODE,
         educationLevel: input.educationLevel,
         occupation: input.occupation,
         businessName: input.businessName,
@@ -110,10 +113,21 @@ export const personService = {
     }
 
     // Datos de entidad (Entity)
-    const entityData: Prisma.EntityUpdateInput = {};
-    if (input.province !== undefined) entityData.province = input.province;
-    if (input.district !== undefined) entityData.district = input.district;
-    if (input.corregimiento !== undefined) entityData.corregimiento = input.corregimiento;
+    const entityData: Prisma.EntityUncheckedUpdateInput = {};
+    if (
+      input.province !== undefined ||
+      input.district !== undefined ||
+      input.corregimiento !== undefined
+    ) {
+      const loc = locationInputToCodes({
+        province: input.province ?? current.province,
+        district: input.district ?? current.district,
+        corregimiento: input.corregimiento ?? current.corregimiento,
+      });
+      if (input.province !== undefined) entityData.province = loc.province ?? null;
+      if (input.district !== undefined) entityData.district = loc.district ?? null;
+      if (input.corregimiento !== undefined) entityData.corregimiento = loc.corregimiento ?? null;
+    }
     if (input.address !== undefined) entityData.address = input.address;
     if (input.notes !== undefined) entityData.notes = input.notes;
 
@@ -125,7 +139,7 @@ export const personService = {
     if (input.cedula !== undefined) personData.cedula = input.cedula;
     if (input.gender !== undefined) personData.gender = input.gender as any;
     if (input.birthDate !== undefined) personData.birthDate = new Date(input.birthDate);
-    if (input.nationality !== undefined) personData.nationality = input.nationality;
+    if (input.nationalityCode !== undefined) personData.nationalityCode = input.nationalityCode;
     if (input.educationLevel !== undefined) personData.educationLevel = input.educationLevel;
     if (input.occupation !== undefined) personData.occupation = input.occupation;
     if (input.businessName !== undefined) personData.businessName = input.businessName;

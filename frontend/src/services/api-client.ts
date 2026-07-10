@@ -116,3 +116,11 @@ export function getApiErrorMessage(error: unknown): string {
   }
   return 'Error inesperado';
 }
+
+/** Detalles adicionales del error (p. ej. existingEntityId en duplicados). */
+export function getApiErrorDetails(error: unknown): Record<string, unknown> | undefined {
+  if (axios.isAxiosError(error)) {
+    return error.response?.data?.error?.details as Record<string, unknown> | undefined;
+  }
+  return undefined;
+}

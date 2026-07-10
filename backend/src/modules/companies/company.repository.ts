@@ -5,6 +5,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/database';
 import { CompanyQueryInput } from './company.validator';
+import { toProvinciaCode } from '../../shared/utils/division-politica';
 import {
   EntityWithCompany,
   COMPANY_LIST_INCLUDES,
@@ -47,7 +48,10 @@ export const companyRepository = {
     if (filters.status) where.status = filters.status;
     else where.status = { not: 'MERGED' };
 
-    if (filters.province) where.province = { contains: filters.province, mode: 'insensitive' };
+    if (filters.province) {
+      const code = toProvinciaCode(filters.province);
+      if (code) where.province = code;
+    }
 
     const companyWhere: Prisma.CompanyWhereInput = {};
     if (filters.ruc) companyWhere.ruc = { contains: filters.ruc };
@@ -132,10 +136,10 @@ export const companyRepository = {
 
   async update(
     entityId: string,
-    entityData: Prisma.EntityUpdateInput,
+    entityData: Prisma.EntityUncheckedUpdateInput,
     companyData?: Prisma.CompanyUpdateWithoutEntityInput
   ): Promise<EntityWithCompany> {
-    const updateData: Prisma.EntityUpdateInput = { ...entityData };
+    const updateData: Prisma.EntityUncheckedUpdateInput = { ...entityData };
     if (companyData && Object.keys(companyData).length > 0) {
       updateData.company = { update: companyData };
     }

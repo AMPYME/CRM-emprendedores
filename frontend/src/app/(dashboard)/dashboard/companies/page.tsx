@@ -2,8 +2,7 @@
 
 import React, { useState, useCallback } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Building, Plus, Eye, Edit, Trash2 } from 'lucide-react';
+import { Building, Eye, Edit, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,33 +23,18 @@ import {
 import { useCompanies, useDeleteCompany } from '@/hooks/use-companies';
 import { usePagination } from '@/hooks/use-pagination';
 import { CompanyFormModal } from './company-form-modal';
+import { getProvinciaOptions, provinciaNombre } from '@/lib/division-politica';
 
 const provinciaOptions = [
   { value: '', label: 'Todas las provincias' },
-  { value: 'Bocas del Toro', label: 'Bocas del Toro' },
-  { value: 'Coclé', label: 'Coclé' },
-  { value: 'Colón', label: 'Colón' },
-  { value: 'Chiriquí', label: 'Chiriquí' },
-  { value: 'Darién', label: 'Darién' },
-  { value: 'Herrera', label: 'Herrera' },
-  { value: 'Los Santos', label: 'Los Santos' },
-  { value: 'Panamá', label: 'Panamá' },
-  { value: 'Panamá Oeste', label: 'Panamá Oeste' },
-  { value: 'Veraguas', label: 'Veraguas' },
-  { value: 'Guna Yala', label: 'Guna Yala' },
-  { value: 'Emberá-Wounaan', label: 'Emberá-Wounaan' },
-  { value: 'Ngäbe-Buglé', label: 'Ngäbe-Buglé' },
+  ...getProvinciaOptions().filter((o) => o.value !== ''),
 ];
 
 export default function CompaniesPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const showCreateModal = searchParams.get('action') === 'create';
-
   const { page, limit, setPage, searchQuery, setSearchQuery } = usePagination();
   const [province, setProvince] = useState('');
   const [editId, setEditId] = useState<string | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(showCreateModal);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const { data, isLoading, error } = useCompanies({
     page,
@@ -72,12 +56,10 @@ export default function CompaniesPage() {
     }
   };
 
-  const openCreate = () => { setEditId(null); setIsModalOpen(true); };
   const openEdit = (id: string) => { setEditId(id); setIsModalOpen(true); };
   const closeModal = () => {
     setIsModalOpen(false);
     setEditId(null);
-    if (searchParams.get('action')) router.replace('/dashboard/companies');
   };
 
   const companies = data?.data ?? [];
@@ -85,15 +67,7 @@ export default function CompaniesPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Empresas"
-        description="Gestión de empresas registradas"
-        actions={
-          <Button icon={<Plus className="h-4 w-4" />} onClick={openCreate}>
-            Nueva empresa
-          </Button>
-        }
-      />
+      <PageHeader title="Empresas" description="Gestión de empresas registradas" />
 
       <Card>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
@@ -117,8 +91,7 @@ export default function CompaniesPage() {
           <EmptyState
             icon={Building}
             title="No hay empresas registradas"
-            description={searchQuery ? 'No se encontraron resultados.' : 'Comienza registrando una nueva empresa.'}
-            action={!searchQuery && <Button icon={<Plus className="h-4 w-4" />} onClick={openCreate}>Nueva empresa</Button>}
+            description={searchQuery ? 'No se encontraron resultados.' : 'Los registros se crean desde el formulario de intake.'}
           />
         ) : (
           <>
@@ -146,7 +119,7 @@ export default function CompaniesPage() {
                     </TableCell>
                       <TableCell><span className="font-mono text-sm">{c?.ruc || '—'}</span></TableCell>
                       <TableCell>{c?.companyType || '—'}</TableCell>
-                      <TableCell>{item.province || '—'}</TableCell>
+                      <TableCell>{provinciaNombre(item.province) || '—'}</TableCell>
                     <TableCell>
                         <Badge variant={item.status === 'ACTIVE' ? 'success' : 'default'}>
                           {item.status === 'ACTIVE' ? 'Activo' : item.status || '—'}
@@ -187,7 +160,9 @@ export default function CompaniesPage() {
         )}
       </Card>
 
-      <CompanyFormModal isOpen={isModalOpen} onClose={closeModal} editId={editId} />
+      {editId && (
+        <CompanyFormModal isOpen={isModalOpen} onClose={closeModal} editId={editId} />
+      )}
     </div>
   );
 }

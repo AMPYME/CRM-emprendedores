@@ -72,12 +72,26 @@ export const config = {
    * El usuario debe tener al menos uno (se normaliza a mayúsculas para comparar).
    * AD_SKIP_ROLE_CHECK=true desactiva la validación (solo desarrollo).
    */
-  adRequiredAppRoleSlugs: (process.env.AD_REQUIRED_APP_ROLES || 'BD_EMPREND')
+  adRequiredAppRoleSlugs: (process.env.AD_REQUIRED_APP_ROLES || 'BD_EMPREND,ADMIN,SUPER_ADMIN')
     .split(',')
     .map((s) => s.trim().toUpperCase())
     .filter(Boolean),
 
   adSkipRoleCheck: process.env.AD_SKIP_ROLE_CHECK === 'true',
+
+  // ── Intake de Emprendedores (MySQL temporal → WebSocket → PostgreSQL) ──
+  /** MySQL temporal `emprendedores_intake` (la misma BD que usa la app PHP). */
+  tempDbHost: requiredEnv('TEMP_DB_HOST', 'host.docker.internal'),
+  tempDbPort: parseInt(requiredEnv('TEMP_DB_PORT', '3306'), 10),
+  tempDbUser: requiredEnv('TEMP_DB_USER', 'emprendedores_app'),
+  tempDbPassword: requiredEnv('TEMP_DB_PASSWORD', 'Empr3nd3dor3s2026*'),
+  tempDbName: requiredEnv('TEMP_DB_NAME', 'emprendedores_intake'),
+
+  /** Ruta del servidor WebSocket de intake. */
+  wsPath: requiredEnv('WS_PATH', '/ws/intake'),
+
+  /** Minutos de inactividad tras los que expira una sesión de intake. */
+  intakeSessionTtlMin: parseInt(requiredEnv('INTAKE_SESSION_TTL_MIN', '20'), 10),
 } as const;
 
 export type Config = typeof config;

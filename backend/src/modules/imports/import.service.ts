@@ -32,6 +32,8 @@ import {
 import { PaginationMeta } from '../../shared/types/api-response.types';
 import { config } from '../../config/environment';
 import { logger } from '../../shared/logger/logger';
+import { locationInputToCodes } from '../../shared/utils/division-politica';
+import { resolveNationalityCode } from '../../shared/utils/nationality';
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -717,7 +719,7 @@ export const importService = {
           cedula: fields.extractedCedula,
           gender: normalizeGender(get('gender')) as any,
           birthDate: get('birthDate'),
-          nationality: get('nationality'),
+          nationalityCode: resolveNationalityCode(get('nationality')),
           educationLevel: get('educationLevel'),
           occupation: get('occupation'),
           businessName: fields.extractedBusinessName,
@@ -755,14 +757,15 @@ export const importService = {
    * Usa transaccion Prisma para crear entity + subtipo + contactos.
    */
   async createEntityFromStaging(data: StagingToEntityData) {
+    const loc = locationInputToCodes(data);
     return prisma.entity.create({
       data: {
         entityType: data.entityType as EntityType,
         status: 'ACTIVE',
         displayName: data.displayName,
-        province: data.province,
-        district: data.district,
-        corregimiento: data.corregimiento,
+        province: loc.province,
+        district: loc.district,
+        corregimiento: loc.corregimiento,
         address: data.address,
         sourceOrigin: data.sourceOrigin,
         importBatchId: data.importBatchId,
@@ -777,7 +780,7 @@ export const importService = {
                 cedula: data.person.cedula,
                 gender: data.person.gender as any,
                 birthDate: data.person.birthDate ? new Date(data.person.birthDate) : undefined,
-                nationality: data.person.nationality,
+                nationalityCode: resolveNationalityCode(data.person.nationalityCode),
                 educationLevel: data.person.educationLevel,
                 occupation: data.person.occupation,
                 businessName: data.person.businessName,

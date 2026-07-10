@@ -23,9 +23,9 @@ export interface Entity {
   entityType: EntityType;
   status: EntityStatus;
   displayName: string;
-  province: string | null;
-  district: string | null;
-  corregimiento: string | null;
+  province: string | null; // codProv (2 dígitos)
+  district: string | null; // codDist (4 dígitos)
+  corregimiento: string | null; // codCorr (6 dígitos)
   address: string | null;
   notes: string | null;
   sourceOrigin: string | null;
@@ -48,7 +48,7 @@ export interface Person {
   secondLastName: string | null;
   gender: Gender | null;
   birthDate: string | null;
-  nationality: string | null;
+  nationalityCode: string;
   educationLevel: string | null;
   entity?: Entity;
 }

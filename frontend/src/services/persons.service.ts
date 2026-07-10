@@ -29,7 +29,7 @@ export interface CreatePersonInput {
   cedula?: string;
   gender?: string;
   birthDate?: string;
-  nationality?: string;
+  nationalityCode?: string;
   educationLevel?: string;
   province?: string;
   district?: string;

@@ -1,0 +1,119 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: emprendedores-db-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: emprendedores_db
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── MySQL TEMPORAL de intake (la app PHP escribe aquí; el CRM lee por mysql2) ──
+  mysql-intake:
+    image: mysql:8.0
+    container_name: emprendedores-mysql-intake-dev
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: emprendedores_intake
+    ports:
+      - '3307:3306'
+    volumes:
+      - mysql_intake_data_dev:/var/lib/mysql
+      # Inicializa el esquema en el primer arranque (DB vacía).
+      - ../ampyme-sistemas-web/emprendedores/sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'mysqladmin ping -h localhost -uroot -prootpass || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ── phpMyAdmin para inspeccionar la MySQL temporal ──
+  phpmyadmin:
+    image: phpmyadmin:5
+    container_name: emprendedores-phpmyadmin-dev
+    restart: unless-stopped
+    depends_on:
+      mysql-intake:
+        condition: service_healthy
+    environment:
+      PMA_HOST: mysql-intake
+      PMA_PORT: 3306
+      UPLOAD_LIMIT: 64M
+    ports:
+      - '8081:80'
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: emprendedores-backend-dev
+    restart: unless-stopped
+    working_dir: /app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mysql-intake:
+        condition: service_healthy
+    env_file:
+      - ./backend/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    dns_search:
+      - ampyme.local
+    environment:
+      # Sobrescribe .env si hace falta; DATABASE_URL debe usar host postgres en la red compose
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/emprendedores_db?schema=public
+      # MySQL temporal de intake (servicio mysql-intake en la red compose)
+      TEMP_DB_HOST: mysql-intake
+      TEMP_DB_PORT: '3306'
+      TEMP_DB_USER: emprendedores_app
+      TEMP_DB_PASSWORD: Empr3nd3dor3s2026*
+      TEMP_DB_NAME: emprendedores_intake
+      WS_PATH: /ws/intake
+      INTAKE_SESSION_TTL_MIN: '20'
+      CHOKIDAR_USEPOLLING: 'true'
+      CHOKIDAR_INTERVAL: 1000
+    command: sh -c "npm install && npx prisma generate && npx prisma migrate deploy && npm run dev"
+    volumes:
+      - ./backend:/app
+      - backend_node_modules:/app/node_modules
+    ports:
+      - '4000:4000'
+
+  frontend:
+    image: node:20-alpine
+    container_name: emprendedores-frontend-dev
+    restart: unless-stopped
+    working_dir: /app
+    depends_on:
+      - backend
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api/v1
+      NEXT_PUBLIC_WS_URL: ws://localhost:4000/ws/intake
+      # Enlace público del formulario PHP (Apache en el host) compartido al emprendedor.
+      NEXT_PUBLIC_INTAKE_FORM_URL: http://localhost:8000/emprendedores/
+      WATCHPACK_POLLING: 'true'
+      CHOKIDAR_USEPOLLING: 'true'
+    command: sh -c "npm install && npm run dev -- --hostname 0.0.0.0 --port 3000"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    ports:
+      - '3000:3000'
+
+volumes:
+  postgres_data_dev:
+  mysql_intake_data_dev:
+  backend_node_modules:
+  frontend_node_modules:

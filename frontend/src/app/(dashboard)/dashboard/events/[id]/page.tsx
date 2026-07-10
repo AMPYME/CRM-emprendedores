@@ -25,6 +25,7 @@ import {
 import { useEntities } from '@/hooks/use-entities';
 import { usePagination } from '@/hooks/use-pagination';
 import { formatDate, formatDateShort } from '@/lib/utils';
+import { provinciaNombre } from '@/lib/division-politica';
 import type { EventStatus, RegistrationStatus } from '@/types/entities.types';
 
 const statusBadge: Record<string, 'default' | 'primary' | 'success' | 'warning' | 'danger'> = {
@@ -365,7 +366,7 @@ export default function EventDetailPage() {
                     onClick={() => setSelectedEntityId(ent.id)}
                   >
                     <p className="font-medium text-gray-900">{ent.displayName}</p>
-                    <p className="text-xs text-gray-400">{ent.entityType} · {ent.province || 'Sin provincia'}</p>
+                    <p className="text-xs text-gray-400">{ent.entityType} · {provinciaNombre(ent.province) || 'Sin provincia'}</p>
                   </button>
                 ))
               )}

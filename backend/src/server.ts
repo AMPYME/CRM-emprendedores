@@ -5,11 +5,15 @@
  * El servidor arranca incluso si la BD no está disponible,
  * pero marca el estado como "degraded" para que healthcheck lo reporte.
  */
+import http from 'http';
 import { config } from './config/environment';
 import { createApp } from './app';
 import { logger } from './shared/logger/logger';
 import { prisma } from './config/database';
 import { appState } from './shared/state/app-state';
+import { closeTempDb } from './config/temp-db';
+import { intakeWs } from './modules/intake/intake.ws';
+import { intakeService } from './modules/intake/intake.service';
 
 async function bootstrap(): Promise<void> {
   // Intentar conexión a base de datos (no bloquea el arranque)
@@ -29,9 +33,15 @@ async function bootstrap(): Promise<void> {
   try {
     const app = createApp();
 
-    app.listen(config.port, () => {
+    // Servidor HTTP explícito para poder adjuntar el WebSocket de intake.
+    const server = http.createServer(app);
+    intakeWs.init(server);
+    intakeService.startExpirySweep();
+
+    server.listen(config.port, () => {
       logger.info(`🚀 Servidor corriendo en http://localhost:${config.port}`);
       logger.info(`📋 API disponible en http://localhost:${config.port}${config.apiPrefix}`);
+      logger.info(`🔌 WebSocket en ws://localhost:${config.port}${config.wsPath}`);
       logger.info(`🌍 Entorno: ${config.nodeEnv}`);
       if (!appState.isDatabaseConnected) {
         logger.warn('⚠️ Servidor en modo degradado (sin conexión a BD)');
@@ -48,12 +58,14 @@ async function bootstrap(): Promise<void> {
 process.on('SIGTERM', async () => {
   logger.info('SIGTERM recibido. Cerrando servidor...');
   await prisma.$disconnect().catch(() => {});
+  await closeTempDb();
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
   logger.info('SIGINT recibido. Cerrando servidor...');
   await prisma.$disconnect().catch(() => {});
+  await closeTempDb();
   process.exit(0);
 });
 

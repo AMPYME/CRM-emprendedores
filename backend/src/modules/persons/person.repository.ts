@@ -5,6 +5,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/database';
 import { PersonQueryInput, CreatePersonInput } from './person.validator';
+import { toProvinciaCode } from '../../shared/utils/division-politica';
 import {
   EntityWithPerson,
   PERSON_LIST_INCLUDES,
@@ -50,7 +51,10 @@ export const personRepository = {
     if (filters.status) where.status = filters.status;
     else where.status = { not: 'MERGED' };
 
-    if (filters.province) where.province = { contains: filters.province, mode: 'insensitive' };
+    if (filters.province) {
+      const code = toProvinciaCode(filters.province);
+      if (code) where.province = code;
+    }
 
     // Filtros específicos de persona
     const personWhere: Prisma.PersonWhereInput = {};
@@ -150,10 +154,10 @@ export const personRepository = {
    */
   async update(
     entityId: string,
-    entityData: Prisma.EntityUpdateInput,
+    entityData: Prisma.EntityUncheckedUpdateInput,
     personData?: Prisma.PersonUpdateWithoutEntityInput
   ): Promise<EntityWithPerson> {
-    const updateData: Prisma.EntityUpdateInput = { ...entityData };
+    const updateData: Prisma.EntityUncheckedUpdateInput = { ...entityData };
     if (personData && Object.keys(personData).length > 0) {
       updateData.person = { update: personData };
     }

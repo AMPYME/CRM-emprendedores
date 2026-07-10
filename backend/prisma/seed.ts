@@ -1,11 +1,79 @@
 /**
  * Seed de base de datos.
- * Crea usuarios iniciales y datos de ejemplo para desarrollo.
+ * Crea catálogo de división política, usuarios iniciales y datos de ejemplo.
  */
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import fs from 'fs';
+import path from 'path';
 
 const prisma = new PrismaClient();
+
+/** Códigos de ubicación para entidades de ejemplo (catálogo oficial). */
+const LOC = {
+  PANAMA: '08',
+  PANAMA_DIST: '0808',
+  BETANIA: '080806',
+  BELLA_VISTA: '080807',
+  CHIRIQUI: '04',
+  DAVID: '0406',
+  DAVID_CORR: '040601',
+  VERAGUAS: '09',
+  SANTIAGO: '0910',
+  SANTIAGO_CORR: '091001',
+} as const;
+
+type DivisionTree = Record<
+  string,
+  {
+    nombre: string;
+    distritos: Record<string, { nombre: string; corregimientos: Record<string, string> }>;
+  }
+>;
+
+async function seedDivisionPolitica(client: PrismaClient = prisma): Promise<void> {
+  const filePath = path.join(__dirname, 'data', 'division_politica_panama.json');
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`No se encontró ${filePath}`);
+  }
+
+  const tree = JSON.parse(fs.readFileSync(filePath, 'utf8')) as DivisionTree;
+
+  let provCount = 0;
+  let distCount = 0;
+  let corrCount = 0;
+
+  for (const [codProv, provincia] of Object.entries(tree)) {
+    await client.provincia.upsert({
+      where: { codProv },
+      create: { codProv, nombre: provincia.nombre },
+      update: { nombre: provincia.nombre },
+    });
+    provCount += 1;
+
+    for (const [codDist, distrito] of Object.entries(provincia.distritos || {})) {
+      await client.distrito.upsert({
+        where: { codDist },
+        create: { codDist, nombre: distrito.nombre, codProv },
+        update: { nombre: distrito.nombre, codProv },
+      });
+      distCount += 1;
+
+      for (const [codCorr, nombre] of Object.entries(distrito.corregimientos || {})) {
+        await client.corregimiento.upsert({
+          where: { codCorr },
+          create: { codCorr, nombre, codDist },
+          update: { nombre, codDist },
+        });
+        corrCount += 1;
+      }
+    }
+  }
+
+  console.log(
+    `  ✅ División política: ${provCount} provincias, ${distCount} distritos, ${corrCount} corregimientos`
+  );
+}
 
 /** Slugs de eventos creados por este seed (para poder borrarlos al re-ejecutar). */
 const SEED_EVENT_SLUGS = [
@@ -42,6 +110,9 @@ async function clearPreviousSeed(): Promise<void> {
 
 async function main() {
   console.log('🌱 Ejecutando seeds...\n');
+
+  console.log('── División política ─────────────────────────────────');
+  await seedDivisionPolitica(prisma);
 
   await clearPreviousSeed();
 
@@ -82,9 +153,9 @@ async function main() {
       entityType: 'PERSON',
       status: 'ACTIVE',
       displayName: 'María González Rodríguez',
-      province: 'Panamá',
-      district: 'Panamá',
-      corregimiento: 'Bethania',
+      province: LOC.PANAMA,
+      district: LOC.PANAMA_DIST,
+      corregimiento: LOC.BETANIA,
       sourceOrigin: 'SEED',
       person: {
         create: {
@@ -93,7 +164,7 @@ async function main() {
           secondLastName: 'Rodríguez',
           cedula: '8-900-1234',
           gender: 'FEMALE',
-          nationality: 'Panameña',
+          nationalityCode: 'PAN',
           occupation: 'Emprendedora',
           businessName: 'Artesanías María',
           economicActivity: 'Artesanías y manualidades',
@@ -115,8 +186,9 @@ async function main() {
       entityType: 'PERSON',
       status: 'ACTIVE',
       displayName: 'Carlos Mendoza',
-      province: 'Chiriquí',
-      district: 'David',
+      province: LOC.CHIRIQUI,
+      district: LOC.DAVID,
+      corregimiento: LOC.DAVID_CORR,
       sourceOrigin: 'SEED',
       person: {
         create: {
@@ -145,8 +217,9 @@ async function main() {
       entityType: 'PERSON',
       status: 'ACTIVE',
       displayName: 'Ana Lucía Vega',
-      province: 'Veraguas',
-      district: 'Santiago',
+      province: LOC.VERAGUAS,
+      district: LOC.SANTIAGO,
+      corregimiento: LOC.SANTIAGO_CORR,
       sourceOrigin: 'SEED',
       person: {
         create: {
@@ -173,8 +246,8 @@ async function main() {
       entityType: 'COMPANY',
       status: 'ACTIVE',
       displayName: 'Innovación Digital S.A.',
-      province: 'Panamá',
-      district: 'Panamá',
+      province: LOC.PANAMA,
+      district: LOC.PANAMA_DIST,
       sourceOrigin: 'SEED',
       company: {
         create: {
@@ -204,8 +277,9 @@ async function main() {
       entityType: 'COMPANY',
       status: 'ACTIVE',
       displayName: 'Cooperativa Agrícola de Chiriquí',
-      province: 'Chiriquí',
-      district: 'David',
+      province: LOC.CHIRIQUI,
+      district: LOC.DAVID,
+      corregimiento: LOC.DAVID_CORR,
       sourceOrigin: 'SEED',
       company: {
         create: {
@@ -231,9 +305,9 @@ async function main() {
       entityType: 'ESTABLISHMENT',
       status: 'ACTIVE',
       displayName: 'Panadería El Buen Pan - Vía España',
-      province: 'Panamá',
-      district: 'Panamá',
-      corregimiento: 'Bella Vista',
+      province: LOC.PANAMA,
+      district: LOC.PANAMA_DIST,
+      corregimiento: LOC.BELLA_VISTA,
       address: 'Vía España, local 45',
       sourceOrigin: 'SEED',
       establishment: {
@@ -262,8 +336,9 @@ async function main() {
       entityType: 'ESTABLISHMENT',
       status: 'ACTIVE',
       displayName: 'Minisuper Don Pepe - Santiago',
-      province: 'Veraguas',
-      district: 'Santiago',
+      province: LOC.VERAGUAS,
+      district: LOC.SANTIAGO,
+      corregimiento: LOC.SANTIAGO_CORR,
       address: 'Calle Central, local 12',
       sourceOrigin: 'SEED',
       establishment: {

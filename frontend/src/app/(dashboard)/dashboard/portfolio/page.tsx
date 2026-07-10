@@ -2,7 +2,8 @@
 
 import React, { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { FolderKanban, Plus, Eye, AlertTriangle, Clock } from 'lucide-react';
+import { FolderKanban, Plus, Eye, AlertTriangle } from 'lucide-react';
+import { useForm } from 'react-hook-form';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,12 +13,17 @@ import { Select } from '@/components/ui/select';
 import { EmptyState } from '@/components/ui/empty-state';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Pagination } from '@/components/ui/pagination';
+import { Modal } from '@/components/ui/modal';
+import { Input } from '@/components/ui/input';
 import {
   Table, TableHead, TableBody, TableRow, TableHeaderCell, TableCell,
 } from '@/components/ui/table';
-import { usePortfolios, usePortfolioStats } from '@/hooks/use-portfolio';
+import { usePortfolios, usePortfolioStats, useCreatePortfolio } from '@/hooks/use-portfolio';
+import { useEntities } from '@/hooks/use-entities';
 import { usePagination } from '@/hooks/use-pagination';
 import { formatDateShort } from '@/lib/utils';
+import { provinciaNombre } from '@/lib/division-politica';
+import { portfolioCategoryOptions } from '@/lib/portfolio.constants';
 
 const statusOptions = [
   { value: '', label: 'Todos los estados' },
@@ -35,6 +41,8 @@ const priorityOptions = [
   { value: 'HIGH', label: 'Alta' },
   { value: 'URGENT', label: 'Urgente' },
 ];
+
+const createPriorityOptions = priorityOptions.filter((o) => o.value !== '');
 
 const statusBadge: Record<string, 'default' | 'primary' | 'success' | 'warning' | 'danger'> = {
   NEW: 'primary',
@@ -60,11 +68,22 @@ const priorityLabel: Record<string, string> = {
   LOW: 'Baja', MEDIUM: 'Media', HIGH: 'Alta', URGENT: 'Urgente',
 };
 
+interface CreatePortfolioForm {
+  subject: string;
+  priority: string;
+  category: string;
+  description: string;
+  nextFollowUpDate: string;
+}
+
 export default function PortfolioPage() {
   const router = useRouter();
   const { page, limit, setPage, searchQuery, setSearchQuery } = usePagination();
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [entitySearch, setEntitySearch] = useState('');
+  const [selectedEntityId, setSelectedEntityId] = useState('');
 
   const { data, isLoading, error } = usePortfolios({
     page, limit,
@@ -74,11 +93,48 @@ export default function PortfolioPage() {
   });
 
   const stats = usePortfolioStats();
+  const createMutation = useCreatePortfolio();
+  const entities = useEntities({ search: entitySearch || undefined, limit: 10 });
+
+  const { register, handleSubmit, reset, formState: { errors: formErrors } } = useForm<CreatePortfolioForm>({
+    defaultValues: {
+      subject: '',
+      priority: 'MEDIUM',
+      category: '',
+      description: '',
+      nextFollowUpDate: '',
+    },
+  });
 
   const handleSearch = useCallback((q: string) => {
     setSearchQuery(q);
     setPage(1);
   }, [setSearchQuery, setPage]);
+
+  const openCreate = () => {
+    reset();
+    setEntitySearch('');
+    setSelectedEntityId('');
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => setIsModalOpen(false);
+
+  const onSubmit = async (formData: CreatePortfolioForm) => {
+    if (!selectedEntityId) return;
+    try {
+      const record = await createMutation.mutateAsync({
+        entityId: selectedEntityId,
+        subject: formData.subject,
+        priority: formData.priority || undefined,
+        category: formData.category || undefined,
+        description: formData.description || undefined,
+        nextFollowUpDate: formData.nextFollowUpDate || undefined,
+      });
+      closeModal();
+      router.push(`/dashboard/portfolio/${record.id}`);
+    } catch { /* toast */ }
+  };
 
   const records = data?.data ?? [];
   const meta = data?.meta;
@@ -88,6 +144,11 @@ export default function PortfolioPage() {
       <PageHeader
         title="Cartera de Seguimiento"
         description="Gestión de casos y seguimiento de emprendedores"
+        actions={
+          <Button icon={<Plus className="h-4 w-4" />} onClick={openCreate}>
+            Nuevo registro
+          </Button>
+        }
       />
 
       {/* Quick stats */}
@@ -137,7 +198,12 @@ export default function PortfolioPage() {
           <EmptyState
             icon={FolderKanban}
             title="No hay registros en cartera"
-            description={searchQuery ? 'No se encontraron resultados.' : 'La cartera de seguimiento está vacía.'}
+            description={searchQuery ? 'No se encontraron resultados.' : 'Comienza creando un nuevo registro de seguimiento.'}
+            action={!searchQuery && (
+              <Button icon={<Plus className="h-4 w-4" />} onClick={openCreate}>
+                Nuevo registro
+              </Button>
+            )}
           />
         ) : (
           <>
@@ -218,6 +284,103 @@ export default function PortfolioPage() {
           </>
         )}
       </Card>
+
+      <Modal
+        isOpen={isModalOpen}
+        onClose={closeModal}
+        title="Nuevo registro de cartera"
+        description="Crear un caso de seguimiento vinculado a un emprendedor"
+        size="lg"
+        footer={
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={closeModal}>Cancelar</Button>
+            <Button
+              onClick={handleSubmit(onSubmit)}
+              isLoading={createMutation.isPending}
+              disabled={!selectedEntityId}
+            >
+              Crear registro
+            </Button>
+          </div>
+        }
+      >
+        <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
+          <div>
+            <Input
+              label="Buscar entidad *"
+              placeholder="Nombre, cédula o RUC..."
+              value={entitySearch}
+              onChange={(e) => {
+                setEntitySearch(e.target.value);
+                setSelectedEntityId('');
+              }}
+            />
+            {entities.data && (
+              <div className="mt-2 max-h-48 space-y-1 overflow-y-auto rounded-lg border p-2">
+                {entities.data.data.length === 0 ? (
+                  <p className="py-4 text-center text-sm text-gray-400">Sin resultados</p>
+                ) : (
+                  entities.data.data.map((ent) => (
+                    <button
+                      key={ent.id}
+                      type="button"
+                      className={`w-full rounded-lg p-2 text-left text-sm transition hover:bg-gray-100 ${
+                        selectedEntityId === ent.id ? 'bg-primary-50 ring-1 ring-primary-500' : ''
+                      }`}
+                      onClick={() => setSelectedEntityId(ent.id)}
+                    >
+                      <p className="font-medium text-gray-900">{ent.displayName}</p>
+                      <p className="text-xs text-gray-400">
+                        {ent.entityType} · {provinciaNombre(ent.province) || 'Sin provincia'}
+                      </p>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+            {entities.isLoading && <LoadingSpinner size="sm" text="Buscando..." />}
+            {!selectedEntityId && entitySearch && !entities.isLoading && (
+              <p className="mt-1 text-xs text-gray-500">Selecciona una entidad de la lista.</p>
+            )}
+          </div>
+
+          <Input
+            label="Asunto *"
+            placeholder="Motivo del seguimiento..."
+            error={formErrors.subject?.message}
+            {...register('subject', { required: 'Requerido' })}
+          />
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Select
+              label="Prioridad"
+              options={createPriorityOptions}
+              {...register('priority')}
+            />
+            <Select
+              label="Categoría"
+              options={portfolioCategoryOptions}
+              {...register('category')}
+            />
+          </div>
+
+          <Input
+            label="Próximo seguimiento"
+            type="date"
+            {...register('nextFollowUpDate')}
+          />
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Descripción</label>
+            <textarea
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
+              rows={3}
+              placeholder="Detalles del caso..."
+              {...register('description')}
+            />
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

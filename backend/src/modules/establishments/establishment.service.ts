@@ -11,6 +11,7 @@ import {
 } from './establishment.validator';
 import { NotFoundError } from '../../shared/errors/app-error';
 import { PaginationMeta } from '../../shared/types/api-response.types';
+import { locationInputToCodes } from '../../shared/utils/division-politica';
 
 // ── Helpers ───────────────────────────────────────────────────────
 
@@ -56,12 +57,13 @@ export const establishmentService = {
       input.establishmentName,
       input.address || input.corregimiento
     );
+    const loc = locationInputToCodes(input);
 
     return establishmentRepository.create({
       displayName,
-      province: input.province,
-      district: input.district,
-      corregimiento: input.corregimiento,
+      province: loc.province,
+      district: loc.district,
+      corregimiento: loc.corregimiento,
       address: input.address,
       notes: input.notes,
       sourceOrigin: input.sourceOrigin || 'MANUAL',
@@ -87,10 +89,21 @@ export const establishmentService = {
     }
 
     // Datos de entidad
-    const entityData: Prisma.EntityUpdateInput = {};
-    if (input.province !== undefined) entityData.province = input.province;
-    if (input.district !== undefined) entityData.district = input.district;
-    if (input.corregimiento !== undefined) entityData.corregimiento = input.corregimiento;
+    const entityData: Prisma.EntityUncheckedUpdateInput = {};
+    if (
+      input.province !== undefined ||
+      input.district !== undefined ||
+      input.corregimiento !== undefined
+    ) {
+      const loc = locationInputToCodes({
+        province: input.province ?? current.province,
+        district: input.district ?? current.district,
+        corregimiento: input.corregimiento ?? current.corregimiento,
+      });
+      if (input.province !== undefined) entityData.province = loc.province ?? null;
+      if (input.district !== undefined) entityData.district = loc.district ?? null;
+      if (input.corregimiento !== undefined) entityData.corregimiento = loc.corregimiento ?? null;
+    }
     if (input.address !== undefined) entityData.address = input.address;
     if (input.notes !== undefined) entityData.notes = input.notes;
 

@@ -2,6 +2,13 @@
  * Validadores Zod para el módulo de personas.
  */
 import { z } from 'zod';
+import { isNationalityCode } from '../../shared/utils/nationality';
+
+const nationalityCodeSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .refine((v) => isNationalityCode(v), { message: 'Código de nacionalidad ISO Alpha-3 inválido' });
 
 // ── Schema de contacto embebido ───────────────────────────────────
 const contactSchema = z.object({
@@ -28,7 +35,7 @@ export const createPersonSchema = z.object({
   cedula: z.string().max(20).trim().optional(),
   gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional(),
   birthDate: z.string().optional(),
-  nationality: z.string().max(50).trim().optional(),
+  nationalityCode: nationalityCodeSchema.optional(),
   educationLevel: z.string().max(100).trim().optional(),
   occupation: z.string().max(100).trim().optional(),
   businessName: z.string().max(200).trim().optional(),

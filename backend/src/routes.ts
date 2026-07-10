@@ -27,6 +27,8 @@ import {
 
 import { importRoutes } from './modules/imports/import.routes';
 
+import { intakeRoutes } from './modules/intake/intake.routes';
+
 import { authRoutes } from './modules/auth/auth.routes';
 
 export const apiRouter = Router();
@@ -61,6 +63,9 @@ apiRouter.use('/relationships', relationshipRoutes);
 
 // ── Importaciones (FASE 7) ────────────────────────────────────
 apiRouter.use('/imports', importRoutes);
+
+// ── Intake de emprendedores (MySQL temporal → WebSocket → PostgreSQL) ──
+apiRouter.use('/intake', intakeRoutes);
 
 // ── Autenticación y autorización (FASE 8) ───────────────────────
 apiRouter.use('/auth', authRoutes);

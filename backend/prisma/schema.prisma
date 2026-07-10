@@ -6,7 +6,8 @@
 // ============================================================================
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -167,10 +168,10 @@ model Entity {
   status          EntityStatus @default(ACTIVE)
   displayName     String       @map("display_name")
 
-  // Ubicación geográfica (común a todos los tipos)
-  province        String?
-  district        String?
-  corregimiento   String?
+  // Ubicación geográfica — códigos FK al catálogo (codProv 2, codDist 4, codCorr 6)
+  province        String?   @db.Char(2)  @map("cod_prov")
+  district        String?   @db.Char(4)  @map("cod_dist")
+  corregimiento   String?   @db.Char(6)  @map("cod_corr")
   address         String?
 
   // Trazabilidad
@@ -197,6 +198,9 @@ model Entity {
   mergedFrom      Entity[]       @relation("MergedEntity")
   createdBy       User?          @relation("CreatedBy", fields: [createdById], references: [id])
   stagingRows     StagingRow[]   @relation("MatchedEntity")
+  provinciaCatalog     Provincia?     @relation("EntityProvincia", fields: [province], references: [codProv], onDelete: SetNull)
+  distritoCatalog      Distrito?      @relation("EntityDistrito", fields: [district], references: [codDist], onDelete: SetNull)
+  corregimientoCatalog Corregimiento? @relation("EntityCorregimiento", fields: [corregimiento], references: [codCorr], onDelete: SetNull)
 
   @@index([entityType])
   @@index([status])
@@ -217,7 +221,7 @@ model Person {
   secondLastName  String?   @map("second_last_name")
   gender          Gender?
   birthDate       DateTime? @map("birth_date")
-  nationality     String?
+  nationalityCode String    @default("PAN") @map("nationality_code") @db.Char(3)
   educationLevel  String?   @map("education_level")
 
   // Datos laborales/emprendimiento (opcionales, útil para CRM)
@@ -545,4 +549,45 @@ model StagingRow {
   @@index([extractedEmail])
   @@index([extractedPhone])
   @@map("staging_rows")
+}
+
+// ============================================================================
+// DIVISIÓN POLÍTICA DE PANAMÁ (catálogo)
+// IDs = códigos del JSON oficial (codProv 2, codDist 4, codCorr 6).
+// ============================================================================
+
+model Provincia {
+  codProv   String     @id @db.Char(2)
+  nombre    String     @db.VarChar(100)
+
+  distritos Distrito[]
+  entities  Entity[]   @relation("EntityProvincia")
+
+  @@map("provincias")
+}
+
+model Distrito {
+  codDist   String    @id @db.Char(4)
+  nombre    String    @db.VarChar(100)
+
+  codProv   String    @db.Char(2)
+  provincia Provincia @relation(fields: [codProv], references: [codProv], onDelete: Restrict)
+
+  corregimientos Corregimiento[]
+  entities       Entity[]        @relation("EntityDistrito")
+
+  @@index([codProv])
+  @@map("distritos")
+}
+
+model Corregimiento {
+  codCorr  String   @id @db.Char(6)
+  nombre   String   @db.VarChar(150)
+
+  codDist  String   @db.Char(4)
+  distrito Distrito @relation(fields: [codDist], references: [codDist], onDelete: Restrict)
+  entities Entity[] @relation("EntityCorregimiento")
+
+  @@index([codDist])
+  @@map("corregimientos")
 }

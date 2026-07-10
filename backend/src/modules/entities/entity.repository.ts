@@ -5,6 +5,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/database';
 import { EntityQueryInput } from './entity.validator';
+import { toProvinciaCode } from '../../shared/utils/division-politica';
 import {
   EntityWithRelations,
   EntityDetail,
@@ -36,7 +37,10 @@ export const entityRepository = {
     if (filters.entityType) where.entityType = filters.entityType;
     if (filters.status) where.status = filters.status;
     else where.status = { not: 'MERGED' };
-    if (filters.province) where.province = { contains: filters.province, mode: 'insensitive' };
+    if (filters.province) {
+      const code = toProvinciaCode(filters.province);
+      if (code) where.province = code;
+    }
 
     // Búsqueda unificada: nombre, cédula, RUC, contacto, nombre de negocio
     if (filters.search) {

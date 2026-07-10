@@ -21,6 +21,17 @@ import { Modal } from '@/components/ui/modal';
 import { Input } from '@/components/ui/input';
 import { useForm } from 'react-hook-form';
 import { formatDate } from '@/lib/utils';
+import { getProvinciaOptions, provinciaNombre } from '@/lib/division-politica';
+
+const eventTypeOptions = [
+  { value: '', label: 'Seleccionar' },
+  { value: 'Feria', label: 'Feria' },
+  { value: 'Capacitación', label: 'Capacitación' },
+  { value: 'Soltando Cinta', label: 'Soltando Cinta' },
+  { value: 'Expo', label: 'Expo' },
+];
+
+const provinciaFormOptions = getProvinciaOptions();
 
 const statusOptions = [
   { value: '', label: 'Todos los estados' },
@@ -166,7 +177,9 @@ export default function EventsPage() {
                     <TableCell>
                       <div>
                         <p className="text-sm">{event.location || '—'}</p>
-                        {event.province && <p className="text-xs text-gray-400">{event.province}</p>}
+                        {event.province && (
+                          <p className="text-xs text-gray-400">{provinciaNombre(event.province)}</p>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -224,12 +237,12 @@ export default function EventsPage() {
           <div className="sm:col-span-2">
             <Input label="Descripción" {...register('description')} />
           </div>
-          <Input label="Tipo de evento" placeholder="Capacitación, Feria, etc." {...register('eventType')} />
+          <Select label="Tipo de evento" options={eventTypeOptions} {...register('eventType')} />
           <Input label="Capacidad máxima" type="number" {...register('maxCapacity')} />
           <Input label="Fecha inicio" type="date" {...register('startDate')} />
           <Input label="Fecha fin" type="date" {...register('endDate')} />
           <Input label="Ubicación" {...register('location')} />
-          <Input label="Provincia" {...register('province')} />
+          <Select label="Provincia" options={provinciaFormOptions} {...register('province')} />
         </form>
       </Modal>
     </div>

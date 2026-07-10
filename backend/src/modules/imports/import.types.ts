@@ -198,7 +198,7 @@ export interface StagingToEntityData {
     cedula?: string;
     gender?: string;
     birthDate?: string;
-    nationality?: string;
+    nationalityCode?: string;
     educationLevel?: string;
     occupation?: string;
     businessName?: string;

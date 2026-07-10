@@ -2,8 +2,7 @@
 
 import React, { useState, useCallback } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Users, Plus, Eye, Edit, Trash2, Search } from 'lucide-react';
+import { Users, Eye, Edit, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,35 +22,19 @@ import {
 } from '@/components/ui/table';
 import { usePersons, useDeletePerson } from '@/hooks/use-persons';
 import { usePagination } from '@/hooks/use-pagination';
-import { cn } from '@/lib/utils';
 import { PersonFormModal } from './person-form-modal';
+import { getProvinciaOptions, provinciaNombre } from '@/lib/division-politica';
 
-const provincias = [
+const provinciaOptions = [
   { value: '', label: 'Todas las provincias' },
-  { value: 'Bocas del Toro', label: 'Bocas del Toro' },
-  { value: 'Coclé', label: 'Coclé' },
-  { value: 'Colón', label: 'Colón' },
-  { value: 'Chiriquí', label: 'Chiriquí' },
-  { value: 'Darién', label: 'Darién' },
-  { value: 'Herrera', label: 'Herrera' },
-  { value: 'Los Santos', label: 'Los Santos' },
-  { value: 'Panamá', label: 'Panamá' },
-  { value: 'Panamá Oeste', label: 'Panamá Oeste' },
-  { value: 'Veraguas', label: 'Veraguas' },
-  { value: 'Guna Yala', label: 'Guna Yala' },
-  { value: 'Emberá-Wounaan', label: 'Emberá-Wounaan' },
-  { value: 'Ngäbe-Buglé', label: 'Ngäbe-Buglé' },
+  ...getProvinciaOptions().filter((o) => o.value !== ''),
 ];
 
 export default function PersonsPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const showCreateModal = searchParams.get('action') === 'create';
-
   const { page, limit, setPage, searchQuery, setSearchQuery } = usePagination();
   const [province, setProvince] = useState('');
   const [editId, setEditId] = useState<string | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(showCreateModal);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const { data, isLoading, error } = usePersons({
     page,
@@ -73,11 +56,6 @@ export default function PersonsPage() {
     }
   };
 
-  const openCreate = () => {
-    setEditId(null);
-    setIsModalOpen(true);
-  };
-
   const openEdit = (id: string) => {
     setEditId(id);
     setIsModalOpen(true);
@@ -86,10 +64,6 @@ export default function PersonsPage() {
   const closeModal = () => {
     setIsModalOpen(false);
     setEditId(null);
-    // Clean query param
-    if (searchParams.get('action')) {
-      router.replace('/dashboard/persons');
-    }
   };
 
   const persons = data?.data ?? [];
@@ -100,11 +74,6 @@ export default function PersonsPage() {
       <PageHeader
         title="Personas"
         description="Gestión de emprendedores registrados"
-        actions={
-          <Button icon={<Plus className="h-4 w-4" />} onClick={openCreate}>
-            Nueva persona
-          </Button>
-        }
       />
 
       {/* Filters */}
@@ -119,7 +88,7 @@ export default function PersonsPage() {
           </div>
           <div className="w-full sm:w-56">
             <Select
-              options={provincias}
+              options={provinciaOptions}
               value={province}
               onChange={(e) => {
                 setProvince(e.target.value);
@@ -145,14 +114,7 @@ export default function PersonsPage() {
           <EmptyState
             icon={Users}
             title="No hay personas registradas"
-            description={searchQuery ? 'No se encontraron resultados para tu búsqueda.' : 'Comienza registrando un nuevo emprendedor.'}
-            action={
-              !searchQuery && (
-                <Button icon={<Plus className="h-4 w-4" />} onClick={openCreate}>
-                  Nueva persona
-                </Button>
-              )
-            }
+            description={searchQuery ? 'No se encontraron resultados para tu búsqueda.' : 'Los registros se crean desde el formulario de intake.'}
           />
         ) : (
           <>
@@ -191,7 +153,7 @@ export default function PersonsPage() {
                         <span className="font-mono text-sm">{p?.cedula || '—'}</span>
                       </TableCell>
                       <TableCell>
-                        {item.province || '—'}
+                        {provinciaNombre(item.province) || '—'}
                       </TableCell>
                       <TableCell>
                         <div className="space-y-0.5">
@@ -260,12 +222,13 @@ export default function PersonsPage() {
         )}
       </Card>
 
-      {/* Create/Edit Modal */}
-      <PersonFormModal
-        isOpen={isModalOpen}
-        onClose={closeModal}
-        editId={editId}
-      />
+      {editId && (
+        <PersonFormModal
+          isOpen={isModalOpen}
+          onClose={closeModal}
+          editId={editId}
+        />
+      )}
     </div>
   );
 }
