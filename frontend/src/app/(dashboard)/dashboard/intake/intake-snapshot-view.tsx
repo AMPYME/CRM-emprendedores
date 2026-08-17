@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import type { IntakeSnapshot } from '@/types/intake.types';
 import { nationalityLabel } from '@/lib/nationalities';
+import { COMPANY_TYPE_OPTIONS, companyTypeLabel } from '@/lib/company-types';
 import {
   provinciaNombre,
   distritoNombre,
@@ -16,14 +17,7 @@ const genderOptions = [
   { value: 'OTHER', label: 'Otro' },
 ];
 
-const companyTypeOptions = [
-  { value: 'Persona Natural', label: 'Persona Natural' },
-  { value: 'Sociedad Anónima', label: 'Sociedad Anónima' },
-  { value: 'Sociedad de Responsabilidad Limitada', label: 'S.R.L.' },
-  { value: 'Cooperativa', label: 'Cooperativa' },
-  { value: 'Fundación', label: 'Fundación' },
-  { value: 'Otro', label: 'Otro' },
-];
+const companyTypeOptions = COMPANY_TYPE_OPTIONS.filter((o) => o.value);
 
 const establishmentTypeOptions = [
   { value: 'Local comercial', label: 'Local comercial' },
@@ -150,11 +144,11 @@ function PersonFields({ v }: { v: FormValues }) {
 function CompanyFields({ v }: { v: FormValues }) {
   return (
     <>
-      <ReadOnlyField label="Nombre legal *" value={v.legalName} />
+      <ReadOnlyField label="Razón Social *" value={v.legalName} />
       <ReadOnlyField label="Nombre comercial" value={v.tradeName} />
       <ReadOnlyField label="RUC" value={v.ruc} />
       <ReadOnlyField label="DV" value={v.dv} className="max-w-[100px]" />
-      <ReadOnlyField label="Tipo de empresa" value={optionLabel(companyTypeOptions, v.companyType)} />
+      <ReadOnlyField label="Tipo de Sociedad" value={companyTypeLabel(v.companyType) || optionLabel(companyTypeOptions, v.companyType)} />
       <ReadOnlyField label="Actividad económica" value={v.economicActivity} />
       <ReadOnlyField label="Fecha de fundación" value={v.foundedDate} />
       <ReadOnlyField label="# Empleados" value={v.employeeCount} />

@@ -64,7 +64,7 @@ apiRouter.use('/relationships', relationshipRoutes);
 // ── Importaciones (FASE 7) ────────────────────────────────────
 apiRouter.use('/imports', importRoutes);
 
-// ── Intake de emprendedores (MySQL temporal → WebSocket → PostgreSQL) ──
+// ── Intake de emprendedores (PostgreSQL temporal → WebSocket → CRM) ──
 apiRouter.use('/intake', intakeRoutes);
 
 // ── Autenticación y autorización (FASE 8) ───────────────────────

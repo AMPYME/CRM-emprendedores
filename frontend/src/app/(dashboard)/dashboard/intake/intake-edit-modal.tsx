@@ -14,6 +14,7 @@ import {
   DEFAULT_NATIONALITY_CODE,
   nationalitySelectOptions,
 } from '@/lib/nationalities';
+import { COMPANY_TYPE_OPTIONS } from '@/lib/company-types';
 import {
   toProvinciaCode,
   toDistritoCode,
@@ -27,15 +28,7 @@ const genderOptions = [
   { value: 'OTHER', label: 'Otro' },
 ];
 
-const companyTypeOptions = [
-  { value: '', label: 'Seleccionar' },
-  { value: 'Persona Natural', label: 'Persona Natural' },
-  { value: 'Sociedad Anónima', label: 'Sociedad Anónima' },
-  { value: 'Sociedad de Responsabilidad Limitada', label: 'S.R.L.' },
-  { value: 'Cooperativa', label: 'Cooperativa' },
-  { value: 'Fundación', label: 'Fundación' },
-  { value: 'Otro', label: 'Otro' },
-];
+const companyTypeOptions = COMPANY_TYPE_OPTIONS;
 
 const establishmentTypeOptions = [
   { value: '', label: 'Seleccionar' },
@@ -247,11 +240,11 @@ export function IntakeEditModal({ isOpen, onClose, sessionId, snapshot, accessCo
         )}
         {type === 'COMPANY' && (
           <>
-            <Input label="Nombre legal *" {...register('legalName', { required: true })} />
+            <Input label="Razón Social *" {...register('legalName', { required: true })} />
             <Input label="Nombre comercial" {...register('tradeName')} />
             <Input label="RUC" {...register('ruc')} />
             <Input label="DV" {...register('dv')} />
-            <Select label="Tipo de empresa" options={companyTypeOptions} {...register('companyType')} />
+            <Select label="Tipo de Sociedad" options={companyTypeOptions} {...register('companyType')} />
             <Input label="Actividad económica" {...register('economicActivity')} />
             <Input label="Fecha de fundación" type="date" {...register('foundedDate')} />
             <Input label="N.º de empleados" type="number" {...register('employeeCount')} />

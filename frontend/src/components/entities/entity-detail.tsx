@@ -31,6 +31,10 @@ import {
   distritoNombre,
   corregimientoNombre,
 } from '@/lib/division-politica';
+import {
+  relationshipTargetsBySource,
+  relationshipTargetPlaceholder,
+} from '@/lib/relationship-rules';
 import type {
   EntityContact,
   EntityRelationship,
@@ -77,6 +81,9 @@ const relationshipTypeLabel: Record<RelationshipType, string> = {
   PARTNER: 'Socio(a)',
   BRANCH: 'Sucursal',
   REPRESENTATIVE: 'Representante',
+  RELATED: 'Relacionado(a)',
+  SUBSIDIARY: 'Subsidiaria',
+  AFFILIATED: 'Afiliado(a)',
   OTHER: 'Otra',
 };
 const relationshipTypeOptions = [
@@ -85,8 +92,12 @@ const relationshipTypeOptions = [
   { value: 'PARTNER', label: relationshipTypeLabel.PARTNER },
   { value: 'BRANCH', label: relationshipTypeLabel.BRANCH },
   { value: 'REPRESENTATIVE', label: relationshipTypeLabel.REPRESENTATIVE },
+  { value: 'RELATED', label: relationshipTypeLabel.RELATED },
+  { value: 'SUBSIDIARY', label: relationshipTypeLabel.SUBSIDIARY },
+  { value: 'AFFILIATED', label: relationshipTypeLabel.AFFILIATED },
   { value: 'OTHER', label: relationshipTypeLabel.OTHER },
 ];
+
 /** Mapa de tipo de entidad → segmento de ruta para navegación */
 const entityRouteMap: Record<EntityType, string> = {
   PERSON: 'persons',
@@ -176,12 +187,16 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
         role: relationshipForm.role || undefined,
       });
       qc.invalidateQueries({ queryKey: ['relationships', entityId] });
+      if (selectedEntity?.id) {
+        qc.invalidateQueries({ queryKey: ['relationships', selectedEntity.id] });
+      }
       toast.success('Relación creada');
       setAddRelationshipOpen(false);
       setSelectedEntity(null);
       setRelationshipForm({ relationshipType: 'OWNER', role: '' });
-    } catch {
-      toast.error('Error al crear relación');
+    } catch (err) {
+      const { getApiErrorMessage } = await import('@/services/api-client');
+      toast.error(getApiErrorMessage(err) || 'Error al crear relación');
     } finally {
       setSavingRelationship(false);
     }
@@ -193,6 +208,10 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
       const { relationshipsService } = await import('@/services/relationships.service');
       await relationshipsService.remove(rel.id);
       qc.invalidateQueries({ queryKey: ['relationships', entityId] });
+      const otherId = rel.fromEntityId === entityId ? rel.toEntityId : rel.fromEntityId;
+      if (otherId) {
+        qc.invalidateQueries({ queryKey: ['relationships', otherId] });
+      }
       toast.success('Relación eliminada');
     } catch {
       toast.error('Error al eliminar relación');
@@ -302,11 +321,11 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
               )}
               {entityType === 'COMPANY' && company && (
                 <>
-                  <InfoRow label="Nombre legal" value={company.legalName} />
+                  <InfoRow label="Razón Social" value={company.legalName} />
                   <InfoRow label="Nombre comercial" value={company.tradeName} />
                   <InfoRow label="RUC" value={company.ruc} mono />
                   <InfoRow label="DV" value={company.dv} />
-                  <InfoRow label="Tipo de empresa" value={company.companyType} />
+                  <InfoRow label="Tipo de Sociedad" value={company.companyType} />
                   <InfoRow label="Actividad económica" value={company.economicActivity} />
                   <InfoRow label="Fecha de fundación" value={company.foundedDate ? formatDateShort(company.foundedDate) : null} />
                   <InfoRow label="# Empleados" value={company.employeeCount} />
@@ -603,7 +622,8 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
               setRelationshipForm({ relationshipType: 'OWNER', role: '' });
             }}
             title="Agregar relación"
-            size="sm"
+            description="Vincula esta ficha con otra entidad ya creada en el CRM."
+            size="md"
             footer={
               <div className="flex gap-2">
                 <Button
@@ -629,10 +649,14 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
             <div className="space-y-4">
               <EntitySearchSelect
                 label="Entidad destino *"
-                placeholder="Buscar persona, empresa o establecimiento..."
+                placeholder={relationshipTargetPlaceholder[entityType]}
                 value={selectedEntity}
                 onSelect={setSelectedEntity}
+                allowedEntityTypes={relationshipTargetsBySource[entityType]}
                 excludeEntityId={entityId}
+                excludeEntityIds={(relationships.data ?? []).flatMap((rel) =>
+                  [rel.fromEntityId, rel.toEntityId].filter((id) => id !== entityId)
+                )}
                 error={!selectedEntity && savingRelationship ? 'Selecciona una entidad' : undefined}
               />
               <Select

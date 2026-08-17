@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getIntakeWsUrl } from '@/services/intake.service';
+import { getIntakeWsUrl, getPublicIntakeWsUrl } from '@/services/intake.service';
 import type { IntakeSnapshot, IntakeWsEvent } from '@/types/intake.types';
 
 export type IntakeStreamStatus = 'connecting' | 'live' | 'expired' | 'validated' | 'closed' | 'access_denied';
@@ -23,7 +23,11 @@ function closeSocket(ws: WebSocket): void {
   }
 }
 
-export function useIntakeStream(sessionId: string | undefined, accessCode: string | undefined): UseIntakeStream {
+export function useIntakeStream(
+  sessionId: string | undefined,
+  accessCode: string | undefined,
+  mode: 'operator' | 'public' = 'operator'
+): UseIntakeStream {
   const [snapshot, setSnapshot] = useState<IntakeSnapshot | null>(null);
   const [status, setStatus] = useState<IntakeStreamStatus>('connecting');
   const [connected, setConnected] = useState(false);
@@ -46,7 +50,9 @@ export function useIntakeStream(sessionId: string | undefined, accessCode: strin
       if (cancelled) return;
 
       try {
-        ws = new WebSocket(getIntakeWsUrl());
+        ws = new WebSocket(
+          mode === 'public' ? getPublicIntakeWsUrl(sessionId, accessCode) : getIntakeWsUrl()
+        );
       } catch {
         if (!cancelled) setStatus('closed');
         return;
@@ -126,7 +132,7 @@ export function useIntakeStream(sessionId: string | undefined, accessCode: strin
       if (reconnectTimer) clearTimeout(reconnectTimer);
       if (ws) closeSocket(ws);
     };
-  }, [sessionId, accessCode]);
+  }, [sessionId, accessCode, mode]);
 
   return { snapshot, status, connected, errorMessage };
 }

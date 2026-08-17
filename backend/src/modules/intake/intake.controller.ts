@@ -34,6 +34,15 @@ export const intakeController = {
     sendSuccess(res, snapshot);
   },
 
+  /** GET /intake/public/sessions/:id — snapshot + metadatos para el formulario público. */
+  async getPublic(req: Request, res: Response): Promise<void> {
+    const result = await intakeService.getPublicSession(
+      req.params.id as string,
+      req.query.accessCode as string | undefined
+    );
+    sendSuccess(res, result);
+  },
+
   /** POST /intake/sessions/:id/verify-access — valida el código de acceso. */
   async verifyAccess(req: Request, res: Response): Promise<void> {
     const id = req.params.id as string;
@@ -48,7 +57,7 @@ export const intakeController = {
     sendSuccess(res, { sessionId: id, ...result }, 201);
   },
 
-  /** POST /intake/sessions/:id/validate — migra a PostgreSQL y borra de MySQL. */
+  /** POST /intake/sessions/:id/validate — migra a entidades definitivas y borra el temporal. */
   async validate(req: Request, res: Response): Promise<void> {
     const id = req.params.id as string;
     const result = await intakeService.validateAndMigrate(
@@ -60,17 +69,31 @@ export const intakeController = {
     sendSuccess(res, result, 201);
   },
 
-  /** PATCH /intake/sessions/:id — edita datos en MySQL temporal. */
+  /** PATCH /intake/sessions/:id — edita datos temporales. */
   async update(req: Request, res: Response): Promise<void> {
     const id = req.params.id as string;
-    const snapshot = await intakeService.updateSnapshot(id, req.body, req.body.accessCode as string | undefined);
+    const snapshot = await intakeService.updateSnapshot(
+      id,
+      req.body,
+      req.body.accessCode as string | undefined
+    );
+    intakeWs.notifySnapshot(snapshot);
     sendSuccess(res, snapshot);
+  },
+
+  /** POST /intake/public/sessions/:id/submit — el emprendedor envía el formulario. */
+  async submit(req: Request, res: Response): Promise<void> {
+    const id = req.params.id as string;
+    const snapshot = await intakeService.submitSession(id, req.body.accessCode as string | undefined);
+    intakeWs.notifySnapshot(snapshot);
+    sendSuccess(res, { sessionId: id, status: snapshot.status, snapshot });
   },
 
   /** DELETE /intake/sessions/:id — elimina sesión temporal. */
   async remove(req: Request, res: Response): Promise<void> {
     const id = req.params.id as string;
     await intakeService.deleteSession(id);
+    intakeWs.notifyExpired(id);
     sendSuccess(res, { sessionId: id, deleted: true });
   },
 };

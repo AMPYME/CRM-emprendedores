@@ -1,5 +1,5 @@
 /**
- * Mapeo snapshot de MySQL temporal → modelos Prisma del CRM.
+ * Mapeo snapshot de intake temporal → modelos Prisma del CRM.
  */
 import { Gender, ContactType } from '@prisma/client';
 import {

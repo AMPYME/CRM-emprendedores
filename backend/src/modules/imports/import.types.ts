@@ -46,7 +46,7 @@ export const SYSTEM_FIELDS = {
   dv: 'Dígito Verificador',
   legalName: 'Razón Social',
   tradeName: 'Nombre Comercial',
-  companyType: 'Tipo de Empresa',
+  companyType: 'Tipo de Sociedad',
   employeeCount: 'Cantidad de Empleados',
 
   // Establecimiento

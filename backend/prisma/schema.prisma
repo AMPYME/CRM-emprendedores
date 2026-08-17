@@ -42,12 +42,22 @@ enum ContactType {
   OTHER
 }
 
+/// Tipos de vínculo entre entidades (personas, empresas, establecimientos).
+/// Pares soportados:
+/// - PERSON → PERSON
+/// - ESTABLISHMENT → PERSON | ESTABLISHMENT
+/// - COMPANY → COMPANY | PERSON | ESTABLISHMENT
+/// Unicidad: a lo sumo un vínculo por par de entidades (también se rechaza el inverso).
+/// Una entidad puede vincularse a múltiples destinos permitidos sin repetir el mismo par.
 enum RelationshipType {
-  OWNER
-  EMPLOYEE
-  PARTNER
-  BRANCH
-  REPRESENTATIVE
+  OWNER           // Dueño(a) — tip. persona→empresa/establecimiento
+  EMPLOYEE        // Empleado(a) — tip. persona→empresa/establecimiento
+  PARTNER         // Socio(a) — persona↔empresa o empresa↔empresa
+  BRANCH          // Sucursal — tip. establecimiento→empresa (o establecimiento→establecimiento)
+  REPRESENTATIVE  // Representante legal / comercial
+  RELATED         // Relacionado (persona↔persona, genérico entre entidades)
+  SUBSIDIARY      // Subsidiaria / filiar — tip. empresa→empresa o establecimiento→empresa
+  AFFILIATED      // Afiliado — tip. empresa↔empresa o establecimiento↔establecimiento
   OTHER
 }
 
@@ -246,7 +256,7 @@ model Company {
   dv               String?   // Dígito verificador
   legalName        String    @map("legal_name")
   tradeName        String?   @map("trade_name")
-  companyType      String?   @map("company_type")      // SA, SRL, Cooperativa, etc.
+  companyType      String?   @map("company_type")      // S.A., S.EP., INC., Corp., S.R.L.
   economicActivity String?   @map("economic_activity")
   foundedDate      DateTime? @map("founded_date")
   employeeCount    Int?      @map("employee_count")
@@ -306,7 +316,11 @@ model EntityContact {
   @@map("entity_contacts")
 }
 
-/// Relaciones entre entidades (persona→empresa, empresa→establecimiento, etc.).
+/// Relaciones dirigidas entre entidades polimórficas (`entities`).
+/// Unicidad en DB: una fila por par lógico, sin importar si se intenta A→B o B→A.
+/// El índice funcional `entity_relationships_unordered_pair_key` se define en
+/// la migración porque Prisma no representa índices sobre LEAST/GREATEST.
+/// Cada entidad puede tener múltiples vínculos con destinos distintos.
 model EntityRelationship {
   id               String           @id @default(uuid())
   fromEntityId     String           @map("from_entity_id")
@@ -324,9 +338,10 @@ model EntityRelationship {
   fromEntity       Entity           @relation("RelationFrom", fields: [fromEntityId], references: [id], onDelete: Cascade)
   toEntity         Entity           @relation("RelationTo", fields: [toEntityId], references: [id], onDelete: Cascade)
 
-  @@unique([fromEntityId, toEntityId, relationshipType])
+  @@unique([fromEntityId, toEntityId])
   @@index([fromEntityId])
   @@index([toEntityId])
+  @@index([relationshipType])
   @@map("entity_relationships")
 }
 
@@ -590,4 +605,150 @@ model Corregimiento {
 
   @@index([codDist])
   @@map("corregimientos")
+}
+
+// ============================================================================
+// INTAKE TEMPORAL (formulario público → validación CRM)
+// ============================================================================
+
+enum IntakeSessionStatus {
+  DRAFT
+  SUBMITTED
+  VALIDATED
+  EXPIRED
+}
+
+/// Sesión pública de captura. El enlace usa `id` (sid); todas las lecturas
+/// y escrituras exigen el código de 6 dígitos (hash SHA-256).
+model IntakeSession {
+  id             String              @id @default(uuid())
+  entityType     EntityType          @default(PERSON) @map("entity_type")
+  status         IntakeSessionStatus @default(DRAFT)
+  createdBy      String?             @map("created_by") @db.VarChar(120)
+  accessCodeHash String?             @map("access_code_hash") @db.Char(64)
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+  lastActivityAt DateTime            @default(now()) @map("last_activity_at")
+  expiresAt      DateTime            @map("expires_at")
+
+  entities       IntakeEntity[]
+
+  @@index([status])
+  @@index([expiresAt])
+  @@index([lastActivityAt])
+  @@index([createdBy])
+  @@map("intake_sessions")
+}
+
+model IntakeEntity {
+  id            String     @id @default(uuid())
+  sessionId     String     @map("session_id")
+  entityType    EntityType @default(PERSON) @map("entity_type")
+  displayName   String?    @map("display_name") @db.VarChar(255)
+  province      String?    @db.VarChar(120)
+  district      String?    @db.VarChar(120)
+  corregimiento String?    @db.VarChar(120)
+  address       String?
+  notes         String?
+  sourceOrigin  String     @default("EMPRENDEDORES_INTAKE") @map("source_origin") @db.VarChar(120)
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  session         IntakeSession          @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  person          IntakePerson?
+  company         IntakeCompany?
+  establishment   IntakeEstablishment?
+  contacts        IntakeContact[]
+  relationshipsFrom IntakeRelationship[] @relation("IntakeRelationFrom")
+  relationshipsTo   IntakeRelationship[] @relation("IntakeRelationTo")
+
+  @@index([sessionId])
+  @@index([entityType])
+  @@map("intake_entities")
+}
+
+model IntakePerson {
+  id               String    @id @default(uuid())
+  intakeEntityId   String    @unique @map("intake_entity_id")
+  cedula           String?   @db.VarChar(40)
+  firstName        String?   @map("first_name") @db.VarChar(120)
+  lastName         String?   @map("last_name") @db.VarChar(120)
+  secondLastName   String?   @map("second_last_name") @db.VarChar(120)
+  gender           Gender?
+  birthDate        DateTime? @map("birth_date") @db.Date
+  nationalityCode  String    @default("PAN") @map("nationality_code") @db.Char(3)
+  educationLevel   String?   @map("education_level") @db.VarChar(120)
+  occupation       String?   @db.VarChar(160)
+  businessName     String?   @map("business_name") @db.VarChar(200)
+  economicActivity String?   @map("economic_activity") @db.VarChar(200)
+
+  entity IntakeEntity @relation(fields: [intakeEntityId], references: [id], onDelete: Cascade)
+
+  @@map("intake_persons")
+}
+
+model IntakeCompany {
+  id               String    @id @default(uuid())
+  intakeEntityId   String    @unique @map("intake_entity_id")
+  ruc              String?   @db.VarChar(60)
+  dv               String?   @db.VarChar(10)
+  legalName        String?   @map("legal_name") @db.VarChar(200)
+  tradeName        String?   @map("trade_name") @db.VarChar(200)
+  companyType      String?   @map("company_type") @db.VarChar(80)
+  economicActivity String?   @map("economic_activity") @db.VarChar(200)
+  foundedDate      DateTime? @map("founded_date") @db.Date
+  employeeCount    Int?      @map("employee_count")
+
+  entity IntakeEntity @relation(fields: [intakeEntityId], references: [id], onDelete: Cascade)
+
+  @@map("intake_companies")
+}
+
+model IntakeEstablishment {
+  id                 String  @id @default(uuid())
+  intakeEntityId     String  @unique @map("intake_entity_id")
+  establishmentName  String? @map("establishment_name") @db.VarChar(200)
+  establishmentType  String? @map("establishment_type") @db.VarChar(120)
+  economicActivity   String? @map("economic_activity") @db.VarChar(200)
+  noticeOfOperation  String? @map("notice_of_operation") @db.VarChar(120)
+  latitude           Float?
+  longitude          Float?
+
+  entity IntakeEntity @relation(fields: [intakeEntityId], references: [id], onDelete: Cascade)
+
+  @@map("intake_establishments")
+}
+
+model IntakeContact {
+  id             String      @id @default(uuid())
+  intakeEntityId String      @map("intake_entity_id")
+  contactType    ContactType @map("contact_type")
+  contactValue   String      @map("contact_value")
+  label          String?
+  isPrimary      Boolean     @default(false) @map("is_primary")
+
+  entity IntakeEntity @relation(fields: [intakeEntityId], references: [id], onDelete: Cascade)
+
+  @@index([intakeEntityId])
+  @@map("intake_contacts")
+}
+
+model IntakeRelationship {
+  id               String           @id @default(uuid())
+  fromEntityId     String           @map("from_entity_id")
+  toEntityId       String           @map("to_entity_id")
+  relationshipType RelationshipType @map("relationship_type")
+  role             String?
+  startDate        DateTime?        @map("start_date")
+  endDate          DateTime?        @map("end_date")
+  isActive         Boolean          @default(true) @map("is_active")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  fromEntity IntakeEntity @relation("IntakeRelationFrom", fields: [fromEntityId], references: [id], onDelete: Cascade)
+  toEntity   IntakeEntity @relation("IntakeRelationTo", fields: [toEntityId], references: [id], onDelete: Cascade)
+
+  @@index([fromEntityId])
+  @@index([toEntityId])
+  @@map("intake_relationships")
 }

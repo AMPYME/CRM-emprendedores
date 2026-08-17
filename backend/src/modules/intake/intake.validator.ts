@@ -37,7 +37,12 @@ export const updateSessionSchema = z.object({
       cedula: z.string().optional(),
       gender: z.string().optional(),
       birthDate: z.string().optional(),
-      nationalityCode: z.string().trim().toUpperCase().length(3).optional(),
+      nationalityCode: z
+        .string()
+        .trim()
+        .toUpperCase()
+        .refine((v) => v === '' || v.length === 3, 'Código de nacionalidad inválido')
+        .optional(),
       educationLevel: z.string().optional(),
     })
     .optional(),

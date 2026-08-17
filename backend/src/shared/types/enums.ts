@@ -28,11 +28,14 @@ export enum ContactType {
 }
 
 export enum RelationshipType {
-  OWNER = 'OWNER',           // Persona es dueña de empresa/establecimiento
-  EMPLOYEE = 'EMPLOYEE',     // Persona trabaja en empresa
-  PARTNER = 'PARTNER',       // Persona es socia de empresa
-  BRANCH = 'BRANCH',         // Establecimiento es sucursal de empresa
-  REPRESENTATIVE = 'REPRESENTATIVE', // Persona representa a empresa
+  OWNER = 'OWNER',                     // Dueño(a) — tip. persona→empresa/establecimiento
+  EMPLOYEE = 'EMPLOYEE',               // Empleado(a)
+  PARTNER = 'PARTNER',                 // Socio(a) — persona↔empresa o empresa↔empresa
+  BRANCH = 'BRANCH',                   // Sucursal — tip. establecimiento→empresa
+  REPRESENTATIVE = 'REPRESENTATIVE',   // Representante
+  RELATED = 'RELATED',                 // Relacionado — tip. persona↔persona / genérico
+  SUBSIDIARY = 'SUBSIDIARY',           // Subsidiaria — tip. empresa→empresa
+  AFFILIATED = 'AFFILIATED',           // Afiliado — tip. empresa↔empresa o establecimiento↔establecimiento
   OTHER = 'OTHER',
 }
 

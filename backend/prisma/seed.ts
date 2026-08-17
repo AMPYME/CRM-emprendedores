@@ -2,12 +2,46 @@
  * Seed de base de datos.
  * Crea catálogo de división política, usuarios iniciales y datos de ejemplo.
  */
-import { PrismaClient } from '@prisma/client';
+import { EntityType, PrismaClient, RelationshipType } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import path from 'path';
+import { isAllowedRelationshipPair } from '../src/modules/relationships/relationship.rules';
 
 const prisma = new PrismaClient();
+
+type SeedEntity = {
+  id: string;
+  entityType: EntityType;
+  displayName: string;
+};
+
+/**
+ * Crea relaciones de semilla usando la misma matriz que el backend.
+ * Así el seed falla inmediatamente si se agrega un par no permitido.
+ */
+async function createSeedRelationship(
+  fromEntity: SeedEntity,
+  toEntity: SeedEntity,
+  relationshipType: RelationshipType,
+  role?: string
+): Promise<void> {
+  if (!isAllowedRelationshipPair(fromEntity.entityType, toEntity.entityType)) {
+    throw new Error(
+      `Relación seed no permitida: ${fromEntity.entityType} → ${toEntity.entityType}`
+    );
+  }
+
+  await prisma.entityRelationship.create({
+    data: {
+      fromEntityId: fromEntity.id,
+      toEntityId: toEntity.id,
+      relationshipType,
+      role,
+      isActive: true,
+    },
+  });
+}
 
 /** Códigos de ubicación para entidades de ejemplo (catálogo oficial). */
 const LOC = {
@@ -255,7 +289,7 @@ async function main() {
           tradeName: 'InnovaDigital',
           ruc: '155600-1-12345',
           dv: '78',
-          companyType: 'SA',
+          companyType: 'S.A.',
           economicActivity: 'Tecnología y desarrollo de software',
           employeeCount: 25,
         },
@@ -271,22 +305,22 @@ async function main() {
   });
   console.log(`  ✅ Empresa: ${company1.displayName}`);
 
-  // ── Empresa 2 (sin RUC — caso real) ─────────────────────────────
+  // ── Empresa 2 (S.R.L. sin RUC — caso real) ──────────────────────
   const company2 = await prisma.entity.create({
     data: {
       entityType: 'COMPANY',
       status: 'ACTIVE',
-      displayName: 'Cooperativa Agrícola de Chiriquí',
+      displayName: 'Agroexport Chiriquí S.R.L.',
       province: LOC.CHIRIQUI,
       district: LOC.DAVID,
       corregimiento: LOC.DAVID_CORR,
       sourceOrigin: 'SEED',
       company: {
         create: {
-          legalName: 'Cooperativa Agrícola de Chiriquí R.L.',
-          tradeName: 'CoopAgri',
-          companyType: 'Cooperativa',
-          economicActivity: 'Agricultura cooperativa',
+          legalName: 'Agroexport Chiriquí S.R.L.',
+          tradeName: 'AgroChiriquí',
+          companyType: 'S.R.L.',
+          economicActivity: 'Comercialización agrícola',
           employeeCount: 50,
         },
       },
@@ -358,26 +392,54 @@ async function main() {
   console.log(`  ✅ Establecimiento: ${estab2.displayName}`);
 
   // ── Relaciones entre entidades ─────────────────────────────────
-  await prisma.entityRelationship.create({
-    data: {
-      fromEntityId: person1.id,
-      toEntityId: company1.id,
-      relationshipType: 'EMPLOYEE',
-      role: 'Gerente de Proyectos',
-      isActive: true,
-    },
-  });
-  console.log('  ✅ Relación: María González → Innovación Digital (Empleada)');
+  // Cubren la matriz vigente:
+  // persona→persona, establecimiento→persona/establecimiento,
+  // empresa→persona/establecimiento/empresa.
+  await createSeedRelationship(
+    company1,
+    person1,
+    'EMPLOYEE',
+    'Gerente de Proyectos'
+  );
+  console.log('  ✅ Relación: Innovación Digital → María González (Empleada)');
 
-  await prisma.entityRelationship.create({
-    data: {
-      fromEntityId: person2.id,
-      toEntityId: estab1.id,
-      relationshipType: 'OWNER',
-      isActive: true,
-    },
-  });
-  console.log('  ✅ Relación: Carlos Mendoza → Panadería El Buen Pan (Dueño)');
+  await createSeedRelationship(estab1, person2, 'OWNER', 'Dueño');
+  console.log('  ✅ Relación: Panadería El Buen Pan → Carlos Mendoza (Dueño)');
+
+  await createSeedRelationship(
+    person1,
+    person3,
+    'RELATED',
+    'Referido / contacto'
+  );
+  console.log('  ✅ Relación: María González → Ana Lucía Vega (Relacionada)');
+
+  await createSeedRelationship(
+    company2,
+    person3,
+    'REPRESENTATIVE',
+    'Representante comercial'
+  );
+  console.log('  ✅ Relación: AgroChiriquí → Ana Lucía Vega (Representante)');
+
+  await createSeedRelationship(
+    company2,
+    estab2,
+    'BRANCH',
+    'Punto de venta afiliado'
+  );
+  console.log('  ✅ Relación: AgroChiriquí → Minisuper Don Pepe (Sucursal)');
+
+  await createSeedRelationship(
+    estab1,
+    estab2,
+    'AFFILIATED',
+    'Red de comercios locales'
+  );
+  console.log('  ✅ Relación: Panadería El Buen Pan → Minisuper Don Pepe (Afiliado)');
+
+  await createSeedRelationship(company2, company1, 'PARTNER', 'Alianza comercial');
+  console.log('  ✅ Relación: AgroChiriquí → Innovación Digital (Socio)');
 
   // ── Eventos (FASE 5) ──────────────────────────────────────────────
   console.log('');
@@ -622,7 +684,7 @@ async function main() {
   });
   console.log('    ✅ 2 acciones de seguimiento registradas');
 
-  // Caso 4: Cooperativa con seguimiento vencido (overdue)
+  // Caso 4: S.R.L. con seguimiento vencido (overdue)
   const portfolio4 = await prisma.portfolioRecord.create({
     data: {
       entityId: company2.id,
@@ -631,7 +693,8 @@ async function main() {
       priority: 'URGENT',
       category: 'Capacitación',
       subject: 'Programa de capacitación grupal pendiente',
-      description: 'La cooperativa solicitó capacitación en contabilidad para 15 miembros. Pendiente coordinar fecha.',
+      description:
+        'La empresa solicitó capacitación en contabilidad para 15 colaboradores. Pendiente coordinar fecha.',
       nextFollowUpDate: new Date('2026-02-15T10:00:00Z'), // Vencido (en el pasado)
     },
   });
@@ -642,8 +705,8 @@ async function main() {
       portfolioId: portfolio4.id,
       performedById: operator.id,
       actionType: 'VISIT',
-      description: 'Visita a la sede de la cooperativa para evaluar necesidades de capacitación.',
-      result: 'Se identificó que 15 miembros necesitan formación en contabilidad básica.',
+      description: 'Visita a la sede de AgroChiriquí para evaluar necesidades de capacitación.',
+      result: 'Se identificó que 15 colaboradores necesitan formación en contabilidad básica.',
       nextSteps: 'Coordinar con facilitador y definir fecha.',
       actionDate: new Date('2026-02-10T09:00:00Z'),
     },

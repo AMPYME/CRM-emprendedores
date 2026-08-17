@@ -1,12 +1,21 @@
 /**
- * Rutas del módulo intake (todas protegidas con JWT del CRM).
+ * Rutas del módulo intake.
  *
- *   POST /api/v1/intake/sessions              - abrir sesión (devuelve sessionId + código)
- *   GET  /api/v1/intake/sessions              - listar sesiones activas
- *   GET  /api/v1/intake/sessions/:id          - snapshot de una sesión
- *   POST /api/v1/intake/sessions/:id/verify-access - valida el código de acceso
- *   POST /api/v1/intake/sessions/:id/regenerate-access-code - genera un código nuevo
- *   POST /api/v1/intake/sessions/:id/validate - migrar a PostgreSQL + borrar de MySQL
+ * Operador (JWT):
+ *   POST /api/v1/intake/sessions
+ *   GET  /api/v1/intake/sessions
+ *   GET  /api/v1/intake/sessions/:id
+ *   POST /api/v1/intake/sessions/:id/verify-access
+ *   POST /api/v1/intake/sessions/:id/regenerate-access-code
+ *   POST /api/v1/intake/sessions/:id/validate
+ *   PATCH /api/v1/intake/sessions/:id
+ *   DELETE /api/v1/intake/sessions/:id
+ *
+ * Público (sin JWT; sid + accessCode):
+ *   GET  /api/v1/intake/public/sessions/:id
+ *   POST /api/v1/intake/public/sessions/:id/verify-access
+ *   PATCH /api/v1/intake/public/sessions/:id
+ *   POST /api/v1/intake/public/sessions/:id/submit
  */
 import { Router } from 'express';
 import { intakeController } from './intake.controller';
@@ -25,6 +34,38 @@ import {
 
 export const intakeRoutes = Router();
 
+const updateWithAccess = updateSessionSchema.merge(accessCodeBodySchema);
+
+// ── Público (sin JWT) ───────────────────────────────────────────
+intakeRoutes.get(
+  '/public/sessions/:id',
+  validate(sessionIdParamSchema, 'params'),
+  validate(accessCodeQuerySchema, 'query'),
+  asyncHandler(intakeController.getPublic)
+);
+
+intakeRoutes.post(
+  '/public/sessions/:id/verify-access',
+  validate(sessionIdParamSchema, 'params'),
+  validate(accessCodeBodySchema, 'body'),
+  asyncHandler(intakeController.verifyAccess)
+);
+
+intakeRoutes.patch(
+  '/public/sessions/:id',
+  validate(sessionIdParamSchema, 'params'),
+  validate(updateWithAccess, 'body'),
+  asyncHandler(intakeController.update)
+);
+
+intakeRoutes.post(
+  '/public/sessions/:id/submit',
+  validate(sessionIdParamSchema, 'params'),
+  validate(accessCodeBodySchema, 'body'),
+  asyncHandler(intakeController.submit)
+);
+
+// ── Operador (JWT) ──────────────────────────────────────────────
 intakeRoutes.post(
   '/sessions',
   protect,
@@ -75,7 +116,7 @@ intakeRoutes.patch(
   '/sessions/:id',
   protect,
   validate(sessionIdParamSchema, 'params'),
-  validate(updateSessionSchema.merge(accessCodeBodySchema), 'body'),
+  validate(updateWithAccess, 'body'),
   asyncHandler(intakeController.update)
 );
 

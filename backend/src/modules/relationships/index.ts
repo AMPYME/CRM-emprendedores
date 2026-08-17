@@ -15,3 +15,4 @@ export * from './relationship.controller';
 export * from './relationship.service';
 export * from './relationship.repository';
 export * from './relationship.validator';
+export * from './relationship.rules';

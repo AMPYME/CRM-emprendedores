@@ -43,6 +43,7 @@ export function createApp(): Application {
       max: config.rateLimitMaxRequests,
       standardHeaders: true,
       legacyHeaders: false,
+      skip: (req) => req.path.includes('/intake/public'),
     })
   );
 

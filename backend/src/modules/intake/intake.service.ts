@@ -1,18 +1,18 @@
 /**
- * Servicio del módulo intake.
+ * Servicio del módulo intake (PostgreSQL temporal → CRM).
  */
+import { Prisma } from '@prisma/client';
 import { logger } from '../../shared/logger/logger';
 import {
   BadRequestError,
   NotFoundError,
   ConflictError,
   UnauthorizedError,
+  GoneError,
 } from '../../shared/errors/app-error';
-import { tempDb } from '../../config/temp-db';
-import { personService } from '../persons/person.service';
-import { companyService } from '../companies/company.service';
-import { establishmentService } from '../establishments/establishment.service';
-import { establishmentRepository } from '../establishments/establishment.repository';
+import { prisma } from '../../config/database';
+import { config } from '../../config/environment';
+import { titleCase } from '../../shared/utils/string.utils';
 import { intakeRepository } from './intake.repository';
 import {
   IntakeSnapshot,
@@ -20,6 +20,7 @@ import {
   IntakeMigrateResult,
   IntakeStatus,
   IntakeEntityType,
+  IntakePublicSessionResult,
 } from './intake.types';
 import {
   validateSnapshot,
@@ -32,11 +33,15 @@ import {
 } from './intake.mapper';
 import {
   replaceIntakeSnapshot,
-  assertIntakeSessionActive,
+  markIntakeSubmitted,
   IntakeUpdateBody,
 } from './intake.writer';
 
 const DUPLICATE_MSG = 'Este usuario ya está creado en el sistema.';
+
+function isExpired(session: { status: string; expires_at: string }): boolean {
+  return session.status === 'EXPIRED' || new Date(session.expires_at) < new Date();
+}
 
 export const intakeService = {
   async createSession(
@@ -69,6 +74,7 @@ export const intakeService = {
   async verifyAccess(sessionId: string, accessCode: string): Promise<void> {
     const session = await intakeRepository.getSession(sessionId);
     if (!session) throw new NotFoundError('Sesión de intake', sessionId);
+    if (isExpired(session)) throw new GoneError('La sesión ha expirado');
     const ok = await intakeRepository.verifySessionAccess(sessionId, accessCode);
     if (!ok) throw new UnauthorizedError('Código de acceso incorrecto');
   },
@@ -95,31 +101,49 @@ export const intakeService = {
     return snapshot;
   },
 
-  /** Actualiza datos en MySQL temporal (no toca PostgreSQL). */
+  async getPublicSession(sessionId: string, accessCode?: string): Promise<IntakePublicSessionResult> {
+    const snapshot = await this.getSnapshot(sessionId, accessCode);
+    return {
+      session: {
+        sessionId: snapshot.sessionId,
+        entityType: snapshot.entityType,
+        status: snapshot.status,
+        expiresAt: snapshot.expiresAt,
+        ttlMinutes: config.intakeSessionTtlMin,
+      },
+      snapshot,
+    };
+  },
+
+  /** Actualiza datos temporales en PostgreSQL (no crea entidades definitivas). */
   async updateSnapshot(
     sessionId: string,
     body: IntakeUpdateBody,
     accessCode?: string
   ): Promise<IntakeSnapshot> {
     await this.assertAccess(sessionId, accessCode);
-    const db = tempDb();
-    let sessionRow;
-    try {
-      sessionRow = await assertIntakeSessionActive(db, sessionId);
-    } catch (e) {
-      const code = e instanceof Error ? e.message : '';
-      if (code === 'SESSION_NOT_FOUND') throw new NotFoundError('Sesión de intake', sessionId);
-      if (code === 'SESSION_EXPIRED') throw new BadRequestError('La sesión ha expirado');
-      throw e;
-    }
-    const entityType = (sessionRow.entity_type as IntakeEntityType) || 'PERSON';
-    await replaceIntakeSnapshot(db, sessionId, entityType, body);
+    const session = await intakeRepository.getSession(sessionId);
+    if (!session) throw new NotFoundError('Sesión de intake', sessionId);
+    if (isExpired(session)) throw new GoneError('La sesión ha expirado');
+    const entityType = session.entity_type || 'PERSON';
+    await replaceIntakeSnapshot(sessionId, entityType, body, session.status);
     const updated = await intakeRepository.getSnapshot(sessionId);
     if (!updated) throw new NotFoundError('Sesión de intake', sessionId);
     return updated;
   },
 
-  /** Elimina la sesión de MySQL temporal (no toca PostgreSQL). */
+  async submitSession(sessionId: string, accessCode?: string): Promise<IntakeSnapshot> {
+    await this.assertAccess(sessionId, accessCode);
+    const session = await intakeRepository.getSession(sessionId);
+    if (!session) throw new NotFoundError('Sesión de intake', sessionId);
+    if (isExpired(session)) throw new GoneError('La sesión ha expirado');
+    await markIntakeSubmitted(sessionId);
+    const updated = await intakeRepository.getSnapshot(sessionId);
+    if (!updated) throw new NotFoundError('Sesión de intake', sessionId);
+    return updated;
+  },
+
+  /** Elimina la sesión temporal (no toca entidades definitivas). */
   async deleteSession(sessionId: string): Promise<void> {
     const session = await intakeRepository.getSession(sessionId);
     if (!session) throw new NotFoundError('Sesión de intake', sessionId);
@@ -127,8 +151,8 @@ export const intakeService = {
   },
 
   /**
-   * Valida el snapshot y lo migra a PostgreSQL usando los mismos servicios CRUD
-   * del CRM (deduplicación por cédula / RUC / aviso de operación).
+   * Valida el snapshot y lo migra a entidades definitivas del CRM
+   * en una sola transacción PostgreSQL.
    */
   async validateAndMigrate(
     sessionId: string,
@@ -145,35 +169,183 @@ export const intakeService = {
     }
 
     const primary = snapshot.entityType;
-    const created: IntakeMigrateResult['entities'] = [];
+    void createdById;
 
     try {
-      if (primary === 'PERSON' && hasPerson(snapshot.person)) {
-        const e = await personService.create(snapshotToCreatePerson(snapshot));
-        created.push({ id: e.id, entityType: 'PERSON', displayName: e.displayName });
-      } else if (primary === 'COMPANY' && hasCompany(snapshot.company)) {
-        const e = await companyService.create(snapshotToCreateCompany(snapshot));
-        created.push({ id: e.id, entityType: 'COMPANY', displayName: e.displayName });
-      } else if (primary === 'ESTABLISHMENT' && hasEstablishment(snapshot.establishment)) {
-        const notice = snapshot.establishment?.notice_of_operation?.trim();
-        if (notice) {
-          const existing = await establishmentRepository.findByNoticeOfOperation(notice);
-          if (existing) {
-            throw new ConflictError(DUPLICATE_MSG, {
-              existingEntityId: existing.id,
-              existingName: existing.displayName,
+      const created = await prisma.$transaction(async (tx) => {
+        const entities: IntakeMigrateResult['entities'] = [];
+
+        if (primary === 'PERSON' && hasPerson(snapshot.person)) {
+          const input = snapshotToCreatePerson(snapshot);
+          if (input.cedula) {
+            const existing = await tx.entity.findFirst({
+              where: {
+                entityType: 'PERSON',
+                status: { not: 'MERGED' },
+                person: { cedula: input.cedula },
+              },
+              select: { id: true, displayName: true },
             });
+            if (existing) {
+              throw new ConflictError(DUPLICATE_MSG, {
+                existingEntityId: existing.id,
+                existingName: existing.displayName,
+                entityType: 'PERSON',
+              });
+            }
           }
+          const displayName = [titleCase(input.firstName), titleCase(input.lastName)]
+            .concat(input.secondLastName ? [titleCase(input.secondLastName)] : [])
+            .join(' ');
+          const entity = await tx.entity.create({
+            data: {
+              entityType: 'PERSON',
+              status: 'ACTIVE',
+              displayName,
+              province: input.province,
+              district: input.district,
+              corregimiento: input.corregimiento,
+              address: input.address,
+              notes: input.notes,
+              sourceOrigin: input.sourceOrigin || 'EMPRENDEDORES_INTAKE',
+              createdById,
+              person: {
+                create: {
+                  firstName: input.firstName,
+                  lastName: input.lastName,
+                  secondLastName: input.secondLastName,
+                  cedula: input.cedula,
+                  gender: input.gender,
+                  birthDate: input.birthDate ? new Date(input.birthDate) : undefined,
+                  nationalityCode: input.nationalityCode,
+                  educationLevel: input.educationLevel,
+                },
+              },
+              contacts: input.contacts?.length
+                ? { create: input.contacts as Prisma.EntityContactCreateWithoutEntityInput[] }
+                : undefined,
+            },
+          });
+          entities.push({ id: entity.id, entityType: 'PERSON', displayName: entity.displayName });
+        } else if (primary === 'COMPANY' && hasCompany(snapshot.company)) {
+          const input = snapshotToCreateCompany(snapshot);
+          if (input.ruc) {
+            const existing = await tx.entity.findFirst({
+              where: {
+                entityType: 'COMPANY',
+                status: { not: 'MERGED' },
+                company: { ruc: input.ruc },
+              },
+              select: { id: true, displayName: true },
+            });
+            if (existing) {
+              throw new ConflictError(DUPLICATE_MSG, {
+                existingEntityId: existing.id,
+                existingName: existing.displayName,
+                entityType: 'COMPANY',
+              });
+            }
+          }
+          const displayName = input.tradeName
+            ? `${input.tradeName} (${input.legalName})`
+            : input.legalName;
+          const entity = await tx.entity.create({
+            data: {
+              entityType: 'COMPANY',
+              status: 'ACTIVE',
+              displayName,
+              province: input.province,
+              district: input.district,
+              corregimiento: input.corregimiento,
+              address: input.address,
+              notes: input.notes,
+              sourceOrigin: input.sourceOrigin || 'EMPRENDEDORES_INTAKE',
+              createdById,
+              company: {
+                create: {
+                  legalName: input.legalName,
+                  tradeName: input.tradeName,
+                  ruc: input.ruc,
+                  dv: input.dv,
+                  companyType: input.companyType,
+                  economicActivity: input.economicActivity,
+                  foundedDate: input.foundedDate ? new Date(input.foundedDate) : undefined,
+                  employeeCount: input.employeeCount,
+                },
+              },
+              contacts: input.contacts?.length
+                ? { create: input.contacts as Prisma.EntityContactCreateWithoutEntityInput[] }
+                : undefined,
+            },
+          });
+          entities.push({ id: entity.id, entityType: 'COMPANY', displayName: entity.displayName });
+        } else if (primary === 'ESTABLISHMENT' && hasEstablishment(snapshot.establishment)) {
+          const input = snapshotToCreateEstablishment(snapshot);
+          const notice = snapshot.establishment?.notice_of_operation?.trim();
+          if (notice) {
+            const existing = await tx.entity.findFirst({
+              where: {
+                entityType: 'ESTABLISHMENT',
+                status: { not: 'MERGED' },
+                establishment: { noticeOfOperation: notice },
+              },
+              select: { id: true, displayName: true },
+            });
+            if (existing) {
+              throw new ConflictError(DUPLICATE_MSG, {
+                existingEntityId: existing.id,
+                existingName: existing.displayName,
+                entityType: 'ESTABLISHMENT',
+              });
+            }
+          }
+          const displayName = input.address
+            ? `${input.establishmentName} - ${input.address}`
+            : input.establishmentName;
+          const entity = await tx.entity.create({
+            data: {
+              entityType: 'ESTABLISHMENT',
+              status: 'ACTIVE',
+              displayName,
+              province: input.province,
+              district: input.district,
+              corregimiento: input.corregimiento,
+              address: input.address,
+              notes: input.notes,
+              sourceOrigin: input.sourceOrigin || 'EMPRENDEDORES_INTAKE',
+              createdById,
+              establishment: {
+                create: {
+                  establishmentName: input.establishmentName,
+                  establishmentType: input.establishmentType,
+                  economicActivity: input.economicActivity,
+                  noticeOfOperation: input.noticeOfOperation,
+                },
+              },
+              contacts: input.contacts?.length
+                ? { create: input.contacts as Prisma.EntityContactCreateWithoutEntityInput[] }
+                : undefined,
+            },
+          });
+          entities.push({
+            id: entity.id,
+            entityType: 'ESTABLISHMENT',
+            displayName: entity.displayName,
+          });
+        } else {
+          throw new BadRequestError('No hay datos para migrar según el tipo de sesión.');
         }
-        const e = await establishmentService.create(snapshotToCreateEstablishment(snapshot));
-        created.push({
-          id: e.id,
-          entityType: 'ESTABLISHMENT',
-          displayName: e.displayName,
-        });
-      } else {
-        throw new BadRequestError('No hay datos para migrar según el tipo de sesión.');
-      }
+
+        await intakeRepository.deleteSession(sessionId, tx);
+        return entities;
+      });
+
+      logger.info('[intake] sesión migrada a PostgreSQL', {
+        sessionId,
+        entities: created.map((e) => e.id),
+      });
+
+      return { sessionId, entities: created };
     } catch (err) {
       if (err instanceof ConflictError) {
         throw new ConflictError(DUPLICATE_MSG, {
@@ -183,26 +355,16 @@ export const intakeService = {
       }
       throw err;
     }
-
-    void createdById; // reservado para trazabilidad futura en servicios CRUD
-
-    await intakeRepository.deleteSession(sessionId);
-
-    logger.info('[intake] sesión migrada a PostgreSQL', {
-      sessionId,
-      entities: created.map((e) => e.id),
-    });
-
-    return { sessionId, entities: created };
   },
 
-  startExpirySweep(): NodeJS.Timeout {
+  startExpirySweep(onExpired?: (sessionIds: string[]) => void): NodeJS.Timeout {
     const intervalMs = 60 * 1000;
     const timer = setInterval(async () => {
       try {
         const removed = await intakeRepository.cleanupExpired();
         if (removed.length > 0) {
           logger.info(`[intake] ${removed.length} sesión(es) expirada(s) eliminada(s)`);
+          onExpired?.(removed);
         }
       } catch (err) {
         logger.warn('[intake] error en barrido de expiración', {

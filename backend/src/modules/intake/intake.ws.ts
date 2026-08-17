@@ -1,12 +1,13 @@
 /**
  * WebSocket de intake.
  *
- * El frontend del CRM se conecta a `config.wsPath` con su JWT (?token=...) y
- * envía { action: 'subscribe', sessionId }. El servidor hace polling corto a la
- * MySQL temporal por ese sid y emite `snapshot` cuando hay cambios, además de
- * `expired` / `validated`.
+ * Operadores del dashboard se conectan con JWT (`?token=`) y se suscriben
+ * con `{ action: 'subscribe', sessionId, accessCode }`.
  *
- * PHP/Apache no mantiene WS persistentes, por eso vive aquí (Node).
+ * El formulario público se conecta sin JWT y se limita a una sola sesión
+ * mediante `sid` + `accessCode` (query o mensaje subscribe).
+ *
+ * Los eventos se emiten al guardar, enviar, expirar o validar — sin polling.
  */
 import { IncomingMessage } from 'http';
 import type { Server as HttpServer } from 'http';
@@ -15,29 +16,24 @@ import { config } from '../../config/environment';
 import { logger } from '../../shared/logger/logger';
 import { authService } from '../auth/auth.service';
 import { intakeRepository } from './intake.repository';
-import { intakeService } from './intake.service';
-import { IntakeWsEvent } from './intake.types';
-
-const POLL_MS = 1500;
+import { IntakeSnapshot, IntakeWsEvent } from './intake.types';
+import { verifyAccessCode } from './intake-access';
 
 interface IntakeClient extends WebSocket {
   isAlive?: boolean;
   sessionId?: string;
-  pollTimer?: ReturnType<typeof setInterval>;
-  lastSignature?: string;
+  role?: 'operator' | 'public';
 }
 
 class IntakeWsServer {
   private wss: WebSocketServer | null = null;
-  // Sesiones migradas recientemente, para distinguir validated de expired.
-  private validatedRecently = new Set<string>();
 
   init(server: HttpServer): void {
     if (this.wss) return;
     this.wss = new WebSocketServer({ server, path: config.wsPath });
 
     this.wss.on('connection', (ws: IntakeClient, req: IncomingMessage) => {
-      this.handleConnection(ws, req);
+      void this.handleConnection(ws, req);
     });
 
     const heartbeat = setInterval(() => {
@@ -62,10 +58,8 @@ class IntakeWsServer {
       ws.isAlive = true;
     });
 
-    // Registrar el handler antes de await: el cliente envía subscribe en onopen
-    // y puede llegar antes de que termine verifyAccessToken.
     const pending: Buffer[] = [];
-    let authed = false;
+    let ready = false;
 
     const handleMessage = (raw: Buffer) => {
       let msg: { action?: string; sessionId?: string; accessCode?: string };
@@ -77,88 +71,74 @@ class IntakeWsServer {
       if (msg.action === 'subscribe' && msg.sessionId) {
         void this.subscribe(ws, msg.sessionId, msg.accessCode);
       } else if (msg.action === 'unsubscribe') {
-        this.stopPolling(ws);
+        ws.sessionId = undefined;
       }
     };
 
     ws.on('message', (raw) => {
-      if (!authed) {
+      if (!ready) {
         pending.push(raw as Buffer);
         return;
       }
       handleMessage(raw as Buffer);
     });
 
-    ws.on('close', () => this.stopPolling(ws));
+    const url = new URL(req.url || '', 'http://localhost');
+    const token = url.searchParams.get('token') || '';
+    const sid = url.searchParams.get('sid') || '';
+    const accessCode = url.searchParams.get('accessCode') || '';
 
-    // Autenticación por JWT.
-    try {
-      const url = new URL(req.url || '', 'http://localhost');
-      const token = url.searchParams.get('token') || '';
-      if (!token) throw new Error('missing token');
-      await authService.verifyAccessToken(token);
-    } catch {
-      this.send(ws, { type: 'error', message: 'Token inválido' });
-      ws.close(4001, 'unauthorized');
-      return;
+    if (token) {
+      try {
+        await authService.verifyAccessToken(token);
+        ws.role = 'operator';
+      } catch {
+        this.send(ws, { type: 'error', message: 'Token inválido' });
+        ws.close(4001, 'unauthorized');
+        return;
+      }
+    } else {
+      ws.role = 'public';
     }
 
-    authed = true;
+    ready = true;
     for (const raw of pending) handleMessage(raw);
+
+    if (!token && sid && accessCode) {
+      void this.subscribe(ws, sid, accessCode);
+    }
   }
 
   private async subscribe(ws: IntakeClient, sessionId: string, accessCode?: string): Promise<void> {
-    this.stopPolling(ws);
-    try {
-      await intakeService.verifyAccess(sessionId, accessCode || '');
-    } catch {
+    if (ws.role === 'public' && ws.sessionId && ws.sessionId !== sessionId) {
+      this.send(ws, {
+        type: 'access_denied',
+        sessionId,
+        message: 'La suscripción pública está limitada a una sola sesión',
+      });
+      return;
+    }
+
+    const session = await intakeRepository.getSession(sessionId);
+    if (!session) {
+      this.send(ws, { type: 'access_denied', sessionId, message: 'Sesión no encontrada' });
+      return;
+    }
+    if (!verifyAccessCode(accessCode || '', session.access_code_hash)) {
       this.send(ws, { type: 'access_denied', sessionId, message: 'Código de acceso incorrecto' });
+      return;
+    }
+    if (session.status === 'EXPIRED' || new Date(session.expires_at) < new Date()) {
+      this.send(ws, { type: 'expired', sessionId });
       return;
     }
 
     ws.sessionId = sessionId;
-    ws.lastSignature = undefined;
     this.send(ws, { type: 'subscribed', sessionId });
 
-    const tick = async () => {
-      if (ws.readyState !== WebSocket.OPEN || ws.sessionId !== sessionId) return;
-      try {
-        const snapshot = await intakeRepository.getSnapshot(sessionId);
-
-        if (!snapshot) {
-          if (this.validatedRecently.has(sessionId)) {
-            this.send(ws, { type: 'validated', sessionId });
-          } else {
-            this.send(ws, { type: 'expired', sessionId });
-          }
-          this.stopPolling(ws);
-          return;
-        }
-
-        if (snapshot.status === 'EXPIRED') {
-          this.send(ws, { type: 'expired', sessionId });
-          this.stopPolling(ws);
-          return;
-        }
-
-        const signature = `${snapshot.status}|${snapshot.lastActivityAt}`;
-        if (signature !== ws.lastSignature) {
-          ws.lastSignature = signature;
-          this.send(ws, { type: 'snapshot', snapshot });
-        }
-      } catch (err) {
-        logger.debug('[intake.ws] poll error', { sessionId, error: err });
-      }
-    };
-
-    void tick();
-    ws.pollTimer = setInterval(tick, POLL_MS);
-  }
-
-  private stopPolling(ws: IntakeClient): void {
-    if (ws.pollTimer) {
-      clearInterval(ws.pollTimer);
-      ws.pollTimer = undefined;
+    const snapshot = await intakeRepository.getSnapshot(sessionId);
+    if (snapshot) {
+      this.send(ws, { type: 'snapshot', snapshot });
     }
   }
 
@@ -168,17 +148,30 @@ class IntakeWsServer {
     }
   }
 
-  /** Marca una sesión como recién validada (la llama el controller tras migrar). */
-  notifyValidated(sessionId: string): void {
-    this.validatedRecently.add(sessionId);
-    setTimeout(() => this.validatedRecently.delete(sessionId), 10000);
-    // Empuja inmediatamente a los suscriptores de esa sesión.
+  private forSession(sessionId: string, fn: (client: IntakeClient) => void): void {
     this.wss?.clients.forEach((client) => {
       const c = client as IntakeClient;
       if (c.sessionId === sessionId && c.readyState === WebSocket.OPEN) {
-        this.send(c, { type: 'validated', sessionId });
-        this.stopPolling(c);
+        fn(c);
       }
+    });
+  }
+
+  notifySnapshot(snapshot: IntakeSnapshot): void {
+    this.forSession(snapshot.sessionId, (c) => {
+      this.send(c, { type: 'snapshot', snapshot });
+    });
+  }
+
+  notifyExpired(sessionId: string): void {
+    this.forSession(sessionId, (c) => {
+      this.send(c, { type: 'expired', sessionId });
+    });
+  }
+
+  notifyValidated(sessionId: string): void {
+    this.forSession(sessionId, (c) => {
+      this.send(c, { type: 'validated', sessionId });
     });
   }
 }

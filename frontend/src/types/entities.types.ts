@@ -8,7 +8,16 @@ export type EntityType = 'PERSON' | 'COMPANY' | 'ESTABLISHMENT';
 export type EntityStatus = 'ACTIVE' | 'INACTIVE' | 'DUPLICATE' | 'MERGED';
 export type ContactType = 'EMAIL' | 'PHONE' | 'MOBILE' | 'WHATSAPP' | 'WEBSITE' | 'SOCIAL_MEDIA' | 'OTHER';
 export type Gender = 'MALE' | 'FEMALE' | 'OTHER';
-export type RelationshipType = 'OWNER' | 'EMPLOYEE' | 'PARTNER' | 'BRANCH' | 'REPRESENTATIVE' | 'OTHER';
+export type RelationshipType =
+  | 'OWNER'
+  | 'EMPLOYEE'
+  | 'PARTNER'
+  | 'BRANCH'
+  | 'REPRESENTATIVE'
+  | 'RELATED'
+  | 'SUBSIDIARY'
+  | 'AFFILIATED'
+  | 'OTHER';
 export type EventStatus = 'DRAFT' | 'PUBLISHED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 export type RegistrationStatus = 'REGISTERED' | 'CONFIRMED' | 'ATTENDED' | 'NO_SHOW' | 'CANCELLED';
 export type PortfolioStatus = 'NEW' | 'IN_PROGRESS' | 'WAITING' | 'RESOLVED' | 'CLOSED';

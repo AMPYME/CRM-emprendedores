@@ -1,7 +1,7 @@
 /**
- * Tipos del módulo de intake (MySQL temporal → WebSocket → PostgreSQL).
- * Las claves de los subtipos son snake_case porque vienen tal cual de MySQL
- * (cuyos nombres de columna = los @map de Prisma).
+ * Tipos del módulo de intake (PostgreSQL temporal → WebSocket → CRM).
+ * Las claves de los subtipos se exponen en snake_case para no romper
+ * el snapshot que ya consume el dashboard.
  */
 
 export type IntakeStatus = 'DRAFT' | 'SUBMITTED' | 'VALIDATED' | 'EXPIRED';
@@ -85,6 +85,19 @@ export interface IntakeSnapshot {
   company: IntakeCompanyRow | null;
   establishment: IntakeEstablishmentRow | null;
   contacts: IntakeContactRow[];
+}
+
+export interface IntakePublicSession {
+  sessionId: string;
+  entityType: IntakeEntityType;
+  status: IntakeStatus;
+  expiresAt: string;
+  ttlMinutes: number;
+}
+
+export interface IntakePublicSessionResult {
+  session: IntakePublicSession;
+  snapshot: IntakeSnapshot;
 }
 
 /** Resumen para el listado de sesiones activas. */

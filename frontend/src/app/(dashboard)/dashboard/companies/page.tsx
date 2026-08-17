@@ -98,7 +98,7 @@ export default function CompaniesPage() {
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableHeaderCell>Nombre Legal</TableHeaderCell>
+                  <TableHeaderCell>Razón Social</TableHeaderCell>
                   <TableHeaderCell>RUC</TableHeaderCell>
                   <TableHeaderCell>Tipo</TableHeaderCell>
                   <TableHeaderCell>Provincia</TableHeaderCell>

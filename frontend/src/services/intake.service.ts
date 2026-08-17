@@ -82,25 +82,37 @@ export const intakeService = {
   },
 };
 
-/** URL del WebSocket de intake (con el JWT como query param). */
-export function getIntakeWsUrl(): string {
+function intakeWsBase(): string {
   const explicit = process.env.NEXT_PUBLIC_WS_URL;
-  let base: string;
-  if (explicit) {
-    base = explicit.replace(/\/$/, '');
-  } else {
-    const api = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
-    base = api.replace(/\/api\/v1\/?$/, '').replace(/^http/, 'ws') + '/ws/intake';
-  }
+  if (explicit) return explicit.replace(/\/$/, '');
+  const api = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+  return api.replace(/\/api\/v1\/?$/, '').replace(/^http/, 'ws') + '/ws/intake';
+}
+
+/** URL del WebSocket de intake para operadores (JWT como query param). */
+export function getIntakeWsUrl(): string {
+  const base = intakeWsBase();
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
   return token ? `${base}?token=${encodeURIComponent(token)}` : base;
 }
 
-/** Enlace público que se comparte al usuario externo (app PHP). */
+/** URL del WebSocket público (sin JWT; sid + código en query). */
+export function getPublicIntakeWsUrl(sessionId: string, accessCode: string): string {
+  const params = new URLSearchParams({ sid: sessionId, accessCode });
+  return `${intakeWsBase()}?${params.toString()}`;
+}
+
+/** Enlace público del formulario de intake (sin login). */
 export function getIntakeFormUrl(sessionId: string): string {
-  const base = (
-    process.env.NEXT_PUBLIC_INTAKE_FORM_URL || 'http://localhost:8000/emprendedores/'
-  ).replace(/\/?$/, '/');
+  const configured = (process.env.NEXT_PUBLIC_INTAKE_FORM_URL || '').trim();
+  let base: string;
+  if (configured) {
+    base = configured.replace(/\/?$/, '/');
+  } else if (typeof window !== 'undefined') {
+    base = `${window.location.origin}/emprendedores/`;
+  } else {
+    base = '/emprendedores/';
+  }
   return `${base}?sid=${encodeURIComponent(sessionId)}`;
 }
 

@@ -66,3 +66,9 @@ export class BadRequestError extends AppError {
     super(message, 400, 'BAD_REQUEST', true, details);
   }
 }
+
+export class GoneError extends AppError {
+  constructor(message: string = 'El recurso ya no está disponible') {
+    super(message, 410, 'GONE');
+  }
+}

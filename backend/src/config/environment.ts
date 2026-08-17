@@ -79,14 +79,7 @@ export const config = {
 
   adSkipRoleCheck: process.env.AD_SKIP_ROLE_CHECK === 'true',
 
-  // ── Intake de Emprendedores (MySQL temporal → WebSocket → PostgreSQL) ──
-  /** MySQL temporal `emprendedores_intake` (la misma BD que usa la app PHP). */
-  tempDbHost: requiredEnv('TEMP_DB_HOST', 'host.docker.internal'),
-  tempDbPort: parseInt(requiredEnv('TEMP_DB_PORT', '3306'), 10),
-  tempDbUser: requiredEnv('TEMP_DB_USER', 'emprendedores_app'),
-  tempDbPassword: requiredEnv('TEMP_DB_PASSWORD', 'Empr3nd3dor3s2026*'),
-  tempDbName: requiredEnv('TEMP_DB_NAME', 'emprendedores_intake'),
-
+  // ── Intake de Emprendedores (PostgreSQL temporal → WebSocket → CRM) ──
   /** Ruta del servidor WebSocket de intake. */
   wsPath: requiredEnv('WS_PATH', '/ws/intake'),
 

@@ -1,11 +1,11 @@
 /**
- * Escritura del snapshot en MySQL temporal (espejo de save.php).
+ * Escritura del snapshot temporal de intake en PostgreSQL.
  */
-import { v4 as uuidv4 } from 'uuid';
-import type { Pool, RowDataPacket } from 'mysql2/promise';
-import { config } from '../../config/environment';
+import { ContactType, Gender, Prisma } from '@prisma/client';
+import { prisma } from '../../config/database';
 import { IntakeEntityType } from './intake.types';
 import { DEFAULT_NATIONALITY_CODE, resolveNationalityCode } from '../../shared/utils/nationality';
+import { ttlExpiresAt } from './intake-ttl';
 
 export interface IntakeUpdateBody {
   person?: Record<string, string | undefined>;
@@ -27,13 +27,33 @@ function clean(v: unknown): string | null {
   return t === '' ? null : t;
 }
 
-const CONTACT_TYPES = ['EMAIL', 'PHONE', 'MOBILE', 'WHATSAPP', 'WEBSITE', 'SOCIAL_MEDIA', 'OTHER'] as const;
+function parseDate(v: unknown): Date | null {
+  const s = clean(v);
+  if (!s) return null;
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+const CONTACT_TYPES: ContactType[] = [
+  'EMAIL',
+  'PHONE',
+  'MOBILE',
+  'WHATSAPP',
+  'WEBSITE',
+  'SOCIAL_MEDIA',
+  'OTHER',
+];
+
+function toContactType(value: string | undefined): ContactType {
+  const type = (value || 'OTHER').toUpperCase() as ContactType;
+  return CONTACT_TYPES.includes(type) ? type : 'OTHER';
+}
 
 export async function replaceIntakeSnapshot(
-  db: Pool,
   sessionId: string,
   entityType: IntakeEntityType,
-  body: IntakeUpdateBody
+  body: IntakeUpdateBody,
+  currentStatus: 'DRAFT' | 'SUBMITTED' | 'VALIDATED' | 'EXPIRED'
 ): Promise<void> {
   const person = body.person ?? {};
   const company = body.company ?? {};
@@ -42,55 +62,64 @@ export async function replaceIntakeSnapshot(
   const contacts = body.contacts ?? [];
   const notes = clean(body.notes);
 
-  const conn = await db.getConnection();
-  try {
-    await conn.beginTransaction();
-    await conn.execute('DELETE FROM intake_entity WHERE session_id = ?', [sessionId]);
+  await prisma.$transaction(async (tx) => {
+    await tx.intakeEntity.deleteMany({ where: { sessionId } });
 
-    let primaryEntityId: string | null = null;
+    const entityData: Prisma.IntakeEntityCreateInput = {
+      session: { connect: { id: sessionId } },
+      entityType,
+      province: clean(location.province),
+      district: clean(location.district),
+      corregimiento: clean(location.corregimiento),
+      address: clean(location.address),
+      notes,
+      sourceOrigin: 'EMPRENDEDORES_INTAKE',
+    };
+
+    const contactCreates = contacts
+      .map((c) => {
+        const val = clean(c.contactValue);
+        if (!val) return null;
+        return {
+          contactType: toContactType(c.contactType),
+          contactValue: val,
+          label: clean(c.label),
+          isPrimary: !!c.isPrimary,
+        };
+      })
+      .filter((c): c is NonNullable<typeof c> => c !== null);
 
     if (entityType === 'PERSON') {
-      primaryEntityId = uuidv4();
       const displayName =
         [clean(person.firstName), clean(person.lastName)].filter(Boolean).join(' ') || 'Sin nombre';
-      const gender = clean(person.gender)?.toUpperCase();
-      const genderVal =
-        gender === 'MALE' || gender === 'FEMALE' || gender === 'OTHER' ? gender : null;
+      const genderRaw = clean(person.gender)?.toUpperCase();
+      const gender: Gender | null =
+        genderRaw === 'MALE' || genderRaw === 'FEMALE' || genderRaw === 'OTHER'
+          ? genderRaw
+          : null;
 
-      await conn.execute(
-        `INSERT INTO intake_entity
-           (id, session_id, entity_type, display_name, province, district, corregimiento, address, notes, source_origin)
-         VALUES (?, ?, 'PERSON', ?, ?, ?, ?, ?, ?, 'EMPRENDEDORES_INTAKE')`,
-        [
-          primaryEntityId,
-          sessionId,
+      await tx.intakeEntity.create({
+        data: {
+          ...entityData,
           displayName,
-          clean(location.province),
-          clean(location.district),
-          clean(location.corregimiento),
-          clean(location.address),
-          notes,
-        ]
-      );
-      await conn.execute(
-        `INSERT INTO intake_person
-           (intake_entity_id, cedula, first_name, last_name, second_last_name, gender, birth_date,
-            nationality_code, education_level, occupation, business_name, economic_activity)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL)`,
-        [
-          primaryEntityId,
-          clean(person.cedula),
-          clean(person.firstName),
-          clean(person.lastName),
-          clean(person.secondLastName),
-          genderVal,
-          clean(person.birthDate),
-          resolveNationalityCode(clean(person.nationalityCode) ?? DEFAULT_NATIONALITY_CODE),
-          clean(person.educationLevel),
-        ]
-      );
+          person: {
+            create: {
+              cedula: clean(person.cedula),
+              firstName: clean(person.firstName),
+              lastName: clean(person.lastName),
+              secondLastName: clean(person.secondLastName),
+              gender,
+              birthDate: parseDate(person.birthDate),
+              nationalityCode: resolveNationalityCode(
+                clean(person.nationalityCode) ?? DEFAULT_NATIONALITY_CODE
+              ),
+              educationLevel: clean(person.educationLevel),
+            },
+          },
+          contacts: contactCreates.length ? { create: contactCreates } : undefined,
+        },
+      });
     } else if (entityType === 'COMPANY') {
-      primaryEntityId = uuidv4();
       const displayName =
         clean(company.tradeName) ?? clean(company.legalName) ?? 'Empresa sin nombre';
       const employeeCount =
@@ -98,116 +127,63 @@ export async function replaceIntakeSnapshot(
           ? parseInt(String(company.employeeCount), 10)
           : null;
 
-      await conn.execute(
-        `INSERT INTO intake_entity
-           (id, session_id, entity_type, display_name, province, district, corregimiento, address, notes, source_origin)
-         VALUES (?, ?, 'COMPANY', ?, ?, ?, ?, ?, ?, 'EMPRENDEDORES_INTAKE')`,
-        [
-          primaryEntityId,
-          sessionId,
+      await tx.intakeEntity.create({
+        data: {
+          ...entityData,
           displayName,
-          clean(location.province),
-          clean(location.district),
-          clean(location.corregimiento),
-          clean(location.address),
-          notes,
-        ]
-      );
-      await conn.execute(
-        `INSERT INTO intake_company
-           (intake_entity_id, ruc, dv, legal_name, trade_name, company_type, economic_activity, founded_date, employee_count)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          primaryEntityId,
-          clean(company.ruc),
-          clean(company.dv),
-          clean(company.legalName),
-          clean(company.tradeName),
-          clean(company.companyType),
-          clean(company.economicActivity),
-          clean(company.foundedDate),
-          Number.isFinite(employeeCount) ? employeeCount : null,
-        ]
-      );
+          company: {
+            create: {
+              ruc: clean(company.ruc),
+              dv: clean(company.dv),
+              legalName: clean(company.legalName),
+              tradeName: clean(company.tradeName),
+              companyType: clean(company.companyType),
+              economicActivity: clean(company.economicActivity),
+              foundedDate: parseDate(company.foundedDate),
+              employeeCount: Number.isFinite(employeeCount) ? employeeCount : null,
+            },
+          },
+          contacts: contactCreates.length ? { create: contactCreates } : undefined,
+        },
+      });
     } else if (entityType === 'ESTABLISHMENT') {
-      primaryEntityId = uuidv4();
       const displayName = clean(establishment.establishmentName) ?? 'Establecimiento sin nombre';
 
-      await conn.execute(
-        `INSERT INTO intake_entity
-           (id, session_id, entity_type, display_name, province, district, corregimiento, address, notes, source_origin)
-         VALUES (?, ?, 'ESTABLISHMENT', ?, ?, ?, ?, ?, ?, 'EMPRENDEDORES_INTAKE')`,
-        [
-          primaryEntityId,
-          sessionId,
+      await tx.intakeEntity.create({
+        data: {
+          ...entityData,
           displayName,
-          clean(location.province),
-          clean(location.district),
-          clean(location.corregimiento),
-          clean(location.address),
-          notes,
-        ]
-      );
-      await conn.execute(
-        `INSERT INTO intake_establishment
-           (intake_entity_id, establishment_name, establishment_type, economic_activity, notice_of_operation, latitude, longitude)
-         VALUES (?, ?, ?, ?, ?, NULL, NULL)`,
-        [
-          primaryEntityId,
-          clean(establishment.establishmentName),
-          clean(establishment.establishmentType),
-          clean(establishment.economicActivity),
-          clean(establishment.noticeOfOperation),
-        ]
-      );
+          establishment: {
+            create: {
+              establishmentName: clean(establishment.establishmentName),
+              establishmentType: clean(establishment.establishmentType),
+              economicActivity: clean(establishment.economicActivity),
+              noticeOfOperation: clean(establishment.noticeOfOperation),
+            },
+          },
+          contacts: contactCreates.length ? { create: contactCreates } : undefined,
+        },
+      });
     }
 
-    if (primaryEntityId) {
-      for (const c of contacts) {
-        const val = clean(c.contactValue);
-        if (!val) continue;
-        let type = (c.contactType || 'OTHER').toUpperCase();
-        if (!CONTACT_TYPES.includes(type as (typeof CONTACT_TYPES)[number])) type = 'OTHER';
-        await conn.execute(
-          `INSERT INTO intake_contact (id, intake_entity_id, contact_type, contact_value, label, is_primary)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          [uuidv4(), primaryEntityId, type, val, clean(c.label), c.isPrimary ? 1 : 0]
-        );
-      }
-    }
-
-    const ttl = config.intakeSessionTtlMin;
-    await conn.execute(
-      `UPDATE intake_session
-          SET status = IF(status='SUBMITTED','SUBMITTED','DRAFT'),
-              last_activity_at = NOW(),
-              expires_at = DATE_ADD(NOW(), INTERVAL ? MINUTE)
-        WHERE session_id = ?`,
-      [ttl, sessionId]
-    );
-
-    await conn.commit();
-  } catch (err) {
-    await conn.rollback();
-    throw err;
-  } finally {
-    conn.release();
-  }
+    await tx.intakeSession.update({
+      where: { id: sessionId },
+      data: {
+        status: currentStatus === 'SUBMITTED' ? 'SUBMITTED' : 'DRAFT',
+        lastActivityAt: new Date(),
+        expiresAt: ttlExpiresAt(),
+      },
+    });
+  });
 }
 
-/** Comprueba que la sesión exista y no esté expirada. */
-export async function assertIntakeSessionActive(
-  db: Pool,
-  sessionId: string
-): Promise<RowDataPacket> {
-  const [rows] = await db.execute<RowDataPacket[]>(
-    'SELECT * FROM intake_session WHERE session_id = ?',
-    [sessionId]
-  );
-  const row = rows[0];
-  if (!row) throw new Error('SESSION_NOT_FOUND');
-  if (row.status === 'EXPIRED' || new Date(row.expires_at) < new Date()) {
-    throw new Error('SESSION_EXPIRED');
-  }
-  return row;
+export async function markIntakeSubmitted(sessionId: string): Promise<void> {
+  await prisma.intakeSession.update({
+    where: { id: sessionId },
+    data: {
+      status: 'SUBMITTED',
+      lastActivityAt: new Date(),
+      expiresAt: ttlExpiresAt(),
+    },
+  });
 }

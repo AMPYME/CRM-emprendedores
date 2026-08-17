@@ -7,6 +7,11 @@ import { prisma } from '../../config/database';
 import { ENTITY_LIST_INCLUDES } from '../../shared/types/entity.types';
 import { RelationshipQueryInput } from './relationship.validator';
 
+const RELATION_INCLUDE = {
+  fromEntity: { include: ENTITY_LIST_INCLUDES },
+  toEntity: { include: ENTITY_LIST_INCLUDES },
+} as const;
+
 export const relationshipRepository = {
   /**
    * Verifica si una entidad existe.
@@ -20,15 +25,57 @@ export const relationshipRepository = {
   },
 
   /**
+   * Obtiene el tipo de entidad (PERSON | COMPANY | ESTABLISHMENT).
+   */
+  async getEntityType(entityId: string): Promise<string | null> {
+    const entity = await prisma.entity.findUnique({
+      where: { id: entityId },
+      select: { entityType: true },
+    });
+    return entity?.entityType ?? null;
+  },
+
+  /**
+   * Busca cualquier vínculo entre dos entidades (misma dirección o inversa).
+   */
+  async findLinkBetween(
+    entityAId: string,
+    entityBId: string
+  ): Promise<(EntityRelationship & { fromEntity: any; toEntity: any }) | null> {
+    return prisma.entityRelationship.findFirst({
+      where: {
+        OR: [
+          { fromEntityId: entityAId, toEntityId: entityBId },
+          { fromEntityId: entityBId, toEntityId: entityAId },
+        ],
+      },
+      include: RELATION_INCLUDE,
+      orderBy: [{ isActive: 'desc' }, { updatedAt: 'desc' }],
+    }) as any;
+  },
+
+  /**
+   * Relación exacta from → to (para unique / reactivación).
+   */
+  async findDirected(
+    fromEntityId: string,
+    toEntityId: string
+  ): Promise<(EntityRelationship & { fromEntity: any; toEntity: any }) | null> {
+    return prisma.entityRelationship.findUnique({
+      where: {
+        fromEntityId_toEntityId: { fromEntityId, toEntityId },
+      },
+      include: RELATION_INCLUDE,
+    }) as any;
+  },
+
+  /**
    * Busca una relación por ID, incluyendo entidades origen/destino.
    */
   async findById(id: string): Promise<EntityRelationship & { fromEntity: any; toEntity: any } | null> {
     return prisma.entityRelationship.findUnique({
       where: { id },
-      include: {
-        fromEntity: { include: ENTITY_LIST_INCLUDES },
-        toEntity: { include: ENTITY_LIST_INCLUDES },
-      },
+      include: RELATION_INCLUDE,
     }) as any;
   },
 
@@ -69,10 +116,7 @@ export const relationshipRepository = {
 
     return prisma.entityRelationship.findMany({
       where,
-      include: {
-        fromEntity: { include: ENTITY_LIST_INCLUDES },
-        toEntity: { include: ENTITY_LIST_INCLUDES },
-      },
+      include: RELATION_INCLUDE,
       orderBy: [
         { isActive: 'desc' },
         { createdAt: 'desc' },
@@ -86,10 +130,7 @@ export const relationshipRepository = {
   async create(data: Prisma.EntityRelationshipCreateInput) {
     return prisma.entityRelationship.create({
       data,
-      include: {
-        fromEntity: { include: ENTITY_LIST_INCLUDES },
-        toEntity: { include: ENTITY_LIST_INCLUDES },
-      },
+      include: RELATION_INCLUDE,
     }) as any;
   },
 
@@ -100,10 +141,7 @@ export const relationshipRepository = {
     return prisma.entityRelationship.update({
       where: { id },
       data,
-      include: {
-        fromEntity: { include: ENTITY_LIST_INCLUDES },
-        toEntity: { include: ENTITY_LIST_INCLUDES },
-      },
+      include: RELATION_INCLUDE,
     }) as any;
   },
 
@@ -120,4 +158,3 @@ export const relationshipRepository = {
     });
   },
 };
-

@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { LocationCascadeFields } from '@/components/forms/location-cascade-fields';
+import { COMPANY_TYPE_OPTIONS } from '@/lib/company-types';
 import { useCreateCompany, useUpdateCompany, useCompany } from '@/hooks/use-companies';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import {
@@ -18,7 +19,7 @@ import {
 } from '@/lib/division-politica';
 
 const companySchema = z.object({
-  legalName: z.string().min(2, 'El nombre legal es requerido'),
+  legalName: z.string().min(2, 'La razón social es requerida'),
   tradeName: z.string().optional(),
   ruc: z.string().optional(),
   dv: z.string().optional(),
@@ -43,15 +44,7 @@ interface CompanyFormModalProps {
   editId: string | null;
 }
 
-const companyTypeOptions = [
-  { value: '', label: 'Seleccionar' },
-  { value: 'Persona Natural', label: 'Persona Natural' },
-  { value: 'Sociedad Anónima', label: 'Sociedad Anónima' },
-  { value: 'Sociedad de Responsabilidad Limitada', label: 'S.R.L.' },
-  { value: 'Cooperativa', label: 'Cooperativa' },
-  { value: 'Fundación', label: 'Fundación' },
-  { value: 'Otro', label: 'Otro' },
-];
+const companyTypeOptions = COMPANY_TYPE_OPTIONS;
 
 export function CompanyFormModal({ isOpen, onClose, editId }: CompanyFormModalProps) {
   const isEdit = !!editId;
@@ -181,11 +174,11 @@ export function CompanyFormModal({ isOpen, onClose, editId }: CompanyFormModalPr
         </div>
       ) : (
         <form className="grid grid-cols-1 gap-4 sm:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
-          <Input label="Nombre legal *" error={errors.legalName?.message} {...register('legalName')} />
+          <Input label="Razón Social *" error={errors.legalName?.message} {...register('legalName')} />
           <Input label="Nombre comercial" {...register('tradeName')} />
           <Input label="RUC" {...register('ruc')} />
           <Input label="DV" {...register('dv')} className="max-w-[100px]" />
-          <Select label="Tipo de empresa" options={companyTypeOptions} {...register('companyType')} />
+          <Select label="Tipo de Sociedad" options={companyTypeOptions} {...register('companyType')} />
           <Input label="Actividad económica" {...register('economicActivity')} />
           <Input label="Fecha de fundación" type="date" {...register('foundedDate')} />
           <Input label="# Empleados" type="number" {...register('employeeCount')} />
