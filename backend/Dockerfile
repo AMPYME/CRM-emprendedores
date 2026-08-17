@@ -1,15 +1,13 @@
 # syntax=docker/dockerfile:1
 #
-# Contexto de build = este directorio (backend/), no la raíz del repo.
-# Dokploy:
-#   Docker File: Dockerfile
-#   Docker Context Path: .
-#   Docker Build Stage: runner
-#   Root Directory / Base Path: backend
-# o bien:
+# Dokploy clona el repo completo: el contexto de build es la RAÍZ,
+# no la carpeta backend/. Por eso los COPY van con el prefijo backend/.
+#
+# En Dokploy:
 #   Docker File: backend/Dockerfile
-#   Docker Context Path: backend
+#   Docker Context Path: .          (raíz del git, NO "backend")
 #   Docker Build Stage: runner
+#   Root Directory / Base Path: vacío (no pongas "backend")
 
 FROM node:20-bookworm-slim AS build
 WORKDIR /app
@@ -18,12 +16,12 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends openssl ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY backend/package.json ./
+RUN npm install
 
-COPY tsconfig.json ./
-COPY prisma ./prisma
-COPY src ./src
+COPY backend/tsconfig.json ./
+COPY backend/prisma ./prisma
+COPY backend/src ./src
 
 # prisma generate lee DATABASE_URL del schema; no se conecta a PostgreSQL
 ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/emprendedores_db?schema=public"
@@ -38,13 +36,13 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends openssl ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+COPY backend/package.json ./
+RUN npm install --omit=dev && npm cache clean --force
 
 COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build /app/node_modules/@prisma/client ./node_modules/@prisma/client
 COPY --from=build /app/dist ./dist
-COPY prisma ./prisma
+COPY --from=build /app/prisma ./prisma
 
 EXPOSE 4000
 
