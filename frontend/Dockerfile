@@ -32,7 +32,9 @@ ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
 ENV NEXT_PUBLIC_INTAKE_FORM_URL=$NEXT_PUBLIC_INTAKE_FORM_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN npm run build
+RUN npm run build \
+  && test -d .next/standalone \
+  || (echo "Falta .next/standalone. Revisa que next.config.js tenga output: 'standalone' y que ese archivo se haya copiado al build." && ls -la .next && cat next.config.js && exit 1)
 
 FROM node:20-bookworm-slim AS runner
 WORKDIR /app
