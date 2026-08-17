@@ -8,8 +8,9 @@
 #   Docker Build Stage: runner
 #   Root Directory / Base Path: vacío
 #
-# Build args (obligatorios en producción; Next los incrusta en el JS):
-#   NEXT_PUBLIC_API_URL=http://api-emprendedores.ampyme.local/api/v1
+# Build args (Dokploy → Build Arguments):
+#   BACKEND_ORIGIN=http://api-emprendedores.ampyme.local
+#   NEXT_PUBLIC_API_URL=/api/v1
 #   NEXT_PUBLIC_WS_URL=ws://api-emprendedores.ampyme.local/ws/intake
 #   NEXT_PUBLIC_INTAKE_FORM_URL=http://emprendedores.ampyme.local/emprendedores/
 
@@ -23,10 +24,12 @@ COPY frontend/tsconfig.json frontend/next.config.js frontend/next-env.d.ts ./
 COPY frontend/postcss.config.js frontend/tailwind.config.ts ./
 COPY frontend/src ./src
 
-ARG NEXT_PUBLIC_API_URL=http://api-emprendedores.ampyme.local/api/v1
+ARG BACKEND_ORIGIN=http://api-emprendedores.ampyme.local
+ARG NEXT_PUBLIC_API_URL=/api/v1
 ARG NEXT_PUBLIC_WS_URL=ws://api-emprendedores.ampyme.local/ws/intake
 ARG NEXT_PUBLIC_INTAKE_FORM_URL=http://emprendedores.ampyme.local/emprendedores/
 
+ENV BACKEND_ORIGIN=$BACKEND_ORIGIN
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
 ENV NEXT_PUBLIC_INTAKE_FORM_URL=$NEXT_PUBLIC_INTAKE_FORM_URL
@@ -42,6 +45,8 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 ENV NEXT_TELEMETRY_DISABLED=1
+# BACKEND_ORIGIN se aplica en `next build` (rewrites). Debe coincidir con el
+# dominio real del API en Dokploy (ampyme.local, no anpyme.local).
 
 RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nextjs

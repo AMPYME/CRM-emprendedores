@@ -17,24 +17,33 @@ import { apiRouter } from './routes';
 export function createApp(): Application {
   const app = express();
 
+  // Traefik/Dokploy envían X-Forwarded-For. Sin esto, express-rate-limit v7
+  // rechaza todas las peticiones (el login parece “no funcionar”).
+  app.set('trust proxy', 1);
+
   // ── Middlewares de seguridad ───────────────────────────────────
-  app.use(helmet());
-  // Soporta múltiples orígenes separados por coma en CORS_ORIGIN
+  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   const allowedOrigins = config.corsOrigin
     .split(',')
-    .map((o) => o.trim())
+    .map((o) => o.trim().replace(/\/$/, ''))
     .filter(Boolean);
 
   app.use(
     cors({
       origin(origin, callback) {
-        if (!origin || allowedOrigins.includes(origin)) {
+        if (!origin) {
           callback(null, true);
-        } else {
-          callback(new Error('Not allowed by CORS'));
+          return;
         }
+        const normalized = origin.replace(/\/$/, '');
+        if (allowedOrigins.includes(normalized)) {
+          callback(null, true);
+          return;
+        }
+        callback(null, false);
       },
       credentials: true,
+      allowedHeaders: ['Content-Type', 'Authorization'],
     })
   );
   app.use(
@@ -43,7 +52,16 @@ export function createApp(): Application {
       max: config.rateLimitMaxRequests,
       standardHeaders: true,
       legacyHeaders: false,
-      skip: (req) => req.path.includes('/intake/public'),
+      validate: { xForwardedForHeader: false },
+      skip: (req) => {
+        const p = req.path;
+        return (
+          p.includes('/intake/public') ||
+          p.includes('/health') ||
+          p.includes('/auth/login') ||
+          p.includes('/auth/refresh')
+        );
+      },
     })
   );
 
