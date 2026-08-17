@@ -1,7 +1,17 @@
 # syntax=docker/dockerfile:1
+#
+# Contexto de build = este directorio (backend/), no la raíz del repo.
+# Dokploy:
+#   Docker File: Dockerfile
+#   Docker Context Path: .
+#   Docker Build Stage: runner
+#   Root Directory / Base Path: backend
+# o bien:
+#   Docker File: backend/Dockerfile
+#   Docker Context Path: backend
+#   Docker Build Stage: runner
 
 FROM node:20-bookworm-slim AS build
-
 WORKDIR /app
 
 RUN apt-get update \
@@ -15,18 +25,12 @@ COPY tsconfig.json ./
 COPY prisma ./prisma
 COPY src ./src
 
-# Prisma necesita DATABASE_URL para generar el cliente,
-# pero no necesita conectarse realmente a PostgreSQL durante el build.
-ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/db-emprendedores?schema=public"
-
-RUN npx prisma generate
-RUN npm run build
-
+# prisma generate lee DATABASE_URL del schema; no se conecta a PostgreSQL
+ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/emprendedores_db?schema=public"
+RUN npx prisma generate && npm run build
 
 FROM node:20-bookworm-slim AS runner
-
 WORKDIR /app
-
 ENV NODE_ENV=production
 ENV PORT=4000
 
@@ -35,9 +39,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
-
-RUN npm ci --omit=dev \
-  && npm cache clean --force
+RUN npm ci --omit=dev && npm cache clean --force
 
 COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build /app/node_modules/@prisma/client ./node_modules/@prisma/client
