@@ -247,15 +247,6 @@ export const authService = {
         return loginWithLocalPassword(identifier, input.password);
       }
 
-      if (adOutcome.kind === 'unavailable') {
-        logger.error('Login abortado: API de usuarios AD no disponible', {
-          adApiBaseUrl: config.adApiBaseUrl,
-        });
-        throw new UnauthorizedError(
-          'No se pudo contactar el servicio de autenticación corporativa. Intente más tarde.'
-        );
-      }
-
       throw new UnauthorizedError('Credenciales inválidas');
     }
 

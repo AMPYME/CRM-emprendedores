@@ -103,19 +103,14 @@ export default function LoginPage() {
           </Button>
         </form>
 
-        {process.env.NODE_ENV !== 'production' ? (
-          <div className="mt-6 rounded-lg bg-gray-50 p-3">
-            <p className="text-xs font-medium text-gray-500">Credenciales de prueba:</p>
-            <div className="mt-1 space-y-0.5 text-xs text-gray-500">
-              <p><strong>Admin:</strong> admin@ampyme.gob.pa / Admin2026!</p>
-              <p><strong>Operador:</strong> operador@ampyme.gob.pa / Operador2026!</p>
-            </div>
+        {/* Demo credentials */}
+        <div className="mt-6 rounded-lg bg-gray-50 p-3">
+          <p className="text-xs font-medium text-gray-500">Credenciales de prueba:</p>
+          <div className="mt-1 space-y-0.5 text-xs text-gray-500">
+            <p><strong>Admin:</strong> admin@ampyme.gob.pa / Admin2026!</p>
+            <p><strong>Operador:</strong> operador@ampyme.gob.pa / Operador2026!</p>
           </div>
-        ) : (
-          <p className="mt-6 text-center text-xs text-gray-400">
-            Usa tu usuario de Active Directory (AMPYME).
-          </p>
-        )}
+        </div>
       </div>
     </div>
   );

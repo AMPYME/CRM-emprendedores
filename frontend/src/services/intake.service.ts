@@ -85,13 +85,8 @@ export const intakeService = {
 function intakeWsBase(): string {
   const explicit = process.env.NEXT_PUBLIC_WS_URL;
   if (explicit) return explicit.replace(/\/$/, '');
-  const api = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
-  if (api.startsWith('http://') || api.startsWith('https://')) {
-    return api.replace(/\/api\/v1\/?$/, '').replace(/^http/, 'ws') + '/ws/intake';
-  }
-  const proto =
-    typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${proto}//api-emprendedores.ampyme.local/ws/intake`;
+  const api = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+  return api.replace(/\/api\/v1\/?$/, '').replace(/^http/, 'ws') + '/ws/intake';
 }
 
 /** URL del WebSocket de intake para operadores (JWT como query param). */
