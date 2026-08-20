@@ -3,11 +3,15 @@
 /**
  * Layout del dashboard (con sidebar y header).
  * Protegido: redirige a /login si no hay sesión.
+ * También valida rutas según el rol (viewer / operador).
  */
+import { useEffect } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { PageLoading } from '@/components/ui/loading-spinner';
+import { canAccessPath } from '@/lib/roles';
 
 export default function DashboardLayout({
   children,
@@ -15,6 +19,15 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { isLoading, user } = useAuth({ requireAuth: true });
+  const pathname = usePathname();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!user || !pathname) return;
+    if (!canAccessPath(user.role, pathname)) {
+      router.replace('/dashboard');
+    }
+  }, [user, pathname, router]);
 
   if (isLoading) {
     return (
@@ -28,6 +41,14 @@ export default function DashboardLayout({
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <PageLoading text="Sesión no disponible. Redirigiendo a inicio de sesión..." />
+      </div>
+    );
+  }
+
+  if (pathname && !canAccessPath(user.role, pathname)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <PageLoading text="Redirigiendo..." />
       </div>
     );
   }

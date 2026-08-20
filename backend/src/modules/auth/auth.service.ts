@@ -12,7 +12,10 @@ import {
   resolveEmailForLocalUser,
   namesFromAdProfile,
   hasAnyRequiredAdRole,
+  mapAdRolesToCrmRole,
+  isFullAccessRole,
 } from './ad-auth.mapper';
+import { UserRole } from '@prisma/client';
 import {
   LoginInput,
   RegisterInput,
@@ -28,14 +31,24 @@ import {
 } from './auth.types';
 import {
   UnauthorizedError,
-  ConflictError,
   NotFoundError,
   ForbiddenError,
-  BadRequestError,
 } from '../../shared/errors/app-error';
 import { logger } from '../../shared/logger/logger';
+import { auditService } from '../audit/audit.service';
 
 const SALT_ROUNDS = 12;
+
+async function logLogin(user: SafeUser): Promise<void> {
+  await auditService.log({
+    action: 'LOGIN',
+    entityType: 'USER',
+    entityId: user.id,
+    entityLabel: user.email,
+    userId: user.id,
+    userEmail: user.email,
+  });
+}
 
 // ── Helpers de JWT ──────────────────────────────────────────────
 
@@ -96,195 +109,130 @@ function toAuthUser(user: SafeUser): AuthUser {
 
 // ── Servicio exportado ──────────────────────────────────────────
 
-async function loginWithLocalPassword(
-  email: string,
-  password: string
-): Promise<AuthTokenResponse> {
-  const user = await authRepository.findByEmail(email);
-
-  if (!user) {
-    throw new UnauthorizedError('Credenciales inválidas');
+/**
+ * Sincroniza el rol CRM desde AD.
+ * Si AD solo mapea a EMPREND_OPERADOR, no degrada un usuario local con acceso total.
+ */
+function resolveAdRoleSync(adRoles: string[], currentRole: UserRole): UserRole | undefined {
+  const mapped = mapAdRolesToCrmRole(adRoles) as UserRole;
+  if (mapped === 'EMPREND_OPERADOR' && isFullAccessRole(currentRole)) {
+    return undefined;
   }
-
-  if (!user.isActive) {
-    throw new ForbiddenError('Cuenta desactivada. Contacte al administrador');
-  }
-
-  const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
-  if (!isPasswordValid) {
-    throw new UnauthorizedError('Credenciales inválidas');
-  }
-
-  await authRepository.updateLastLogin(user.id);
-
-  const safeUser: SafeUser = {
-    id: user.id,
-    email: user.email,
-    firstName: user.firstName,
-    lastName: user.lastName,
-    role: user.role,
-    isActive: user.isActive,
-    lastLoginAt: new Date(),
-    createdAt: user.createdAt,
-    updatedAt: user.updatedAt,
-  };
-
-  const accessToken = generateAccessToken(safeUser);
-  const refreshToken = generateRefreshToken(safeUser);
-
-  logger.info('Login exitoso (local)', { userId: user.id, email: user.email });
-
-  return {
-    user: toAuthUser(safeUser),
-    accessToken,
-    refreshToken,
-  };
+  return mapped;
 }
 
 export const authService = {
   /**
-   * Login: si AD_API_BASE_URL está definida, valida primero contra la API interna de usuarios;
-   * si no hay AD o falla (según AD_AUTH_FALLBACK_LOCAL), usa usuario/contraseña locales.
+   * Login exclusivo vía Active Directory (AD-userAPI).
+   * No hay autenticación local por contraseña en el CRM.
    */
   async login(input: LoginInput): Promise<AuthTokenResponse> {
     const identifier = input.email;
 
-    if (config.adApiBaseUrl) {
-      const adOutcome = await adLogin(config.adApiBaseUrl, identifier, input.password);
+    if (!config.adApiBaseUrl) {
+      throw new UnauthorizedError(
+        'Autenticación no disponible: configure AD_API_BASE_URL (solo login corporativo).'
+      );
+    }
 
-      if (adOutcome.kind === 'success') {
-        const adTokens = adOutcome.tokens;
-        const me = await adGetMe(config.adApiBaseUrl, adTokens.accessToken);
-        if (!me) {
-          throw new UnauthorizedError(
-            'No se pudo obtener el perfil desde la API de usuarios corporativa'
-          );
-        }
+    const adOutcome = await adLogin(config.adApiBaseUrl, identifier, input.password);
 
-        const adRoles = me.roleNames ?? [];
-        if (
-          !config.adSkipRoleCheck &&
-          !hasAnyRequiredAdRole(adRoles, config.adRequiredAppRoleSlugs)
-        ) {
-          throw new ForbiddenError(
-            'No tiene acceso a este sistema. Se requiere el rol de aplicación adecuado (Emprendedores CRM).'
-          );
-        }
-
-        const emailResolved = resolveEmailForLocalUser(
-          me,
-          identifier,
-          config.adEmailDomain
-        );
-        if (!emailResolved) {
-          throw new UnauthorizedError(
-            'No se pudo determinar el correo del usuario. Configure AD_EMAIL_DOMAIN si usa solo nombre de usuario.'
-          );
-        }
-
-        let user = await authRepository.findByEmail(emailResolved);
-
-        if (!user) {
-          if (!config.adAutoProvision) {
-            throw new ForbiddenError(
-              'Usuario no registrado en el CRM. Solicite acceso al administrador.'
-            );
-          }
-          const { firstName, lastName } = namesFromAdProfile(me);
-          const placeholderHash = await bcrypt.hash(randomUUID(), 12);
-          const created = await authRepository.create({
-            email: emailResolved,
-            passwordHash: placeholderHash,
-            firstName,
-            lastName,
-            role: 'OPERATOR',
-          });
-          await authRepository.updateLastLogin(created.id);
-          const safe = await authRepository.findByIdSafe(created.id);
-          if (!safe) {
-            throw new UnauthorizedError('Error al crear sesión tras alta por AD');
-          }
-          const accessToken = generateAccessToken(safe);
-          const refreshToken = generateRefreshToken(safe);
-          logger.info('Login exitoso (AD + alta automática)', {
-            userId: safe.id,
-            email: safe.email,
-          });
-          return {
-            user: toAuthUser(safe),
-            accessToken,
-            refreshToken,
-          };
-        }
-
-        if (!user.isActive) {
-          throw new ForbiddenError('Cuenta desactivada. Contacte al administrador');
-        }
-
-        await authRepository.updateLastLogin(user.id);
-        const safeUser: SafeUser = {
-          id: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          role: user.role,
-          isActive: user.isActive,
-          lastLoginAt: new Date(),
-          createdAt: user.createdAt,
-          updatedAt: user.updatedAt,
-        };
-        const accessToken = generateAccessToken(safeUser);
-        const refreshToken = generateRefreshToken(safeUser);
-        logger.info('Login exitoso (AD)', { userId: user.id, email: user.email });
-        return {
-          user: toAuthUser(safeUser),
-          accessToken,
-          refreshToken,
-        };
-      }
-
-      if (config.adAuthFallbackLocal) {
-        return loginWithLocalPassword(identifier, input.password);
-      }
-
+    if (adOutcome.kind === 'invalid_credentials') {
       throw new UnauthorizedError('Credenciales inválidas');
     }
 
-    return loginWithLocalPassword(identifier, input.password);
-  },
-
-  /**
-   * Registro: crea un nuevo usuario y retorna tokens.
-   */
-  async register(input: RegisterInput): Promise<AuthTokenResponse> {
-    // Verificar que el email no esté en uso
-    const emailExists = await authRepository.existsByEmail(input.email);
-    if (emailExists) {
-      throw new ConflictError('Ya existe un usuario con ese correo electrónico');
+    if (adOutcome.kind === 'unavailable') {
+      throw new UnauthorizedError(
+        'No se pudo contactar el servicio de autenticación corporativa. Intente más tarde.'
+      );
     }
 
-    // Hash de contraseña
-    const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
+    const adTokens = adOutcome.tokens;
+    const me = await adGetMe(config.adApiBaseUrl, adTokens.accessToken);
+    if (!me) {
+      throw new UnauthorizedError(
+        'No se pudo obtener el perfil desde la API de usuarios corporativa'
+      );
+    }
 
-    // Crear usuario
-    const newUser = await authRepository.create({
-      email: input.email,
-      passwordHash,
-      firstName: input.firstName,
-      lastName: input.lastName,
-      role: input.role,
-    });
+    const adRoles = me.roleNames ?? [];
+    if (
+      !config.adSkipRoleCheck &&
+      !hasAnyRequiredAdRole(adRoles, config.adRequiredAppRoleSlugs)
+    ) {
+      throw new ForbiddenError(
+        'No tiene acceso a este sistema. Se requiere el rol de aplicación adecuado (Emprendedores CRM).'
+      );
+    }
 
-    const accessToken = generateAccessToken(newUser);
-    const refreshToken = generateRefreshToken(newUser);
+    const emailResolved = resolveEmailForLocalUser(
+      me,
+      identifier,
+      config.adEmailDomain
+    );
+    if (!emailResolved) {
+      throw new UnauthorizedError(
+        'No se pudo determinar el correo del usuario. Configure AD_EMAIL_DOMAIN si usa solo nombre de usuario.'
+      );
+    }
 
-    logger.info('Registro exitoso', { userId: newUser.id, email: newUser.email });
+    let user = await authRepository.findByEmail(emailResolved);
 
+    if (!user) {
+      if (!config.adAutoProvision) {
+        throw new ForbiddenError(
+          'Usuario no registrado en el CRM. Solicite acceso al administrador.'
+        );
+      }
+      const { firstName, lastName } = namesFromAdProfile(me);
+      const placeholderHash = await bcrypt.hash(randomUUID(), 12);
+      const crmRole = mapAdRolesToCrmRole(adRoles);
+      const created = await authRepository.create({
+        email: emailResolved,
+        passwordHash: placeholderHash,
+        firstName,
+        lastName,
+        role: crmRole,
+      });
+      const safe = await authRepository.updateLastLogin(created.id);
+      const accessToken = generateAccessToken(safe);
+      const refreshToken = generateRefreshToken(safe);
+      logger.info('Login exitoso (AD + alta automática)', {
+        userId: safe.id,
+        email: safe.email,
+      });
+      await logLogin(safe);
+      return {
+        user: toAuthUser(safe),
+        accessToken,
+        refreshToken,
+      };
+    }
+
+    if (!user.isActive) {
+      throw new ForbiddenError('Cuenta desactivada. Contacte al administrador');
+    }
+
+    const roleSync = resolveAdRoleSync(adRoles, user.role);
+    const safeUser = await authRepository.updateLastLogin(user.id, roleSync);
+    const accessToken = generateAccessToken(safeUser);
+    const refreshToken = generateRefreshToken(safeUser);
+    logger.info('Login exitoso (AD)', { userId: user.id, email: user.email });
+    await logLogin(safeUser);
     return {
-      user: toAuthUser(newUser),
+      user: toAuthUser(safeUser),
       accessToken,
       refreshToken,
     };
+  },
+
+  /**
+   * Registro local deshabilitado: el alta de usuarios es vía AD + provisionamiento.
+   */
+  async register(_input: RegisterInput): Promise<AuthTokenResponse> {
+    throw new ForbiddenError(
+      'El registro local está deshabilitado. Use el inicio de sesión corporativo (Active Directory).'
+    );
   },
 
   /**
@@ -331,25 +279,12 @@ export const authService = {
   },
 
   /**
-   * Cambiar contraseña del usuario autenticado.
+   * Cambio de contraseña deshabilitado: la contraseña se gestiona en Active Directory.
    */
-  async changePassword(userId: string, input: ChangePasswordInput): Promise<void> {
-    const user = await authRepository.findById(userId);
-    if (!user) {
-      throw new NotFoundError('Usuario', userId);
-    }
-
-    // Verificar contraseña actual
-    const isCurrentValid = await bcrypt.compare(input.currentPassword, user.passwordHash);
-    if (!isCurrentValid) {
-      throw new BadRequestError('La contraseña actual es incorrecta');
-    }
-
-    // Hash de nueva contraseña
-    const newHash = await bcrypt.hash(input.newPassword, SALT_ROUNDS);
-    await authRepository.updatePassword(userId, newHash);
-
-    logger.info('Contraseña cambiada', { userId });
+  async changePassword(_userId: string, _input: ChangePasswordInput): Promise<void> {
+    throw new ForbiddenError(
+      'La contraseña se gestiona en Active Directory. No se puede cambiar desde el CRM.'
+    );
   },
 
   /**

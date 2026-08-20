@@ -43,10 +43,12 @@ COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build /app/node_modules/@prisma/client ./node_modules/@prisma/client
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/prisma ./prisma
+COPY backend/scripts/prod-entrypoint.sh ./scripts/prod-entrypoint.sh
+RUN chmod +x ./scripts/prod-entrypoint.sh
 
 EXPOSE 4000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||4000)+'/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
-CMD ["node", "dist/server.js"]
+CMD ["./scripts/prod-entrypoint.sh"]

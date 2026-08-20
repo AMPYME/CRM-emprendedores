@@ -15,6 +15,7 @@ import {
   BadRequestError,
 } from '../../shared/errors/app-error';
 import { PaginationMeta } from '../../shared/types/api-response.types';
+import { auditService, AuditActor } from '../audit/audit.service';
 
 // ── Helpers ───────────────────────────────────────────────────────
 
@@ -101,7 +102,7 @@ export const portfolioService = {
   /**
    * Actualizar registro de cartera.
    */
-  async update(id: string, input: UpdatePortfolioInput) {
+  async update(id: string, input: UpdatePortfolioInput, actor?: AuditActor) {
     const current = await portfolioRepository.findById(id);
     if (!current) {
       throw new NotFoundError('Registro de cartera', id);
@@ -142,7 +143,19 @@ export const portfolioService = {
       }
     }
 
-    return portfolioRepository.update(id, data);
+    const record = await portfolioRepository.update(id, data);
+
+    await auditService.log({
+      action: 'UPDATE',
+      entityType: 'PORTFOLIO',
+      entityId: record.id,
+      entityLabel: record.subject,
+      userId: actor?.userId,
+      userEmail: actor?.userEmail,
+      metadata: { fields: Object.keys(input) },
+    });
+
+    return record;
   },
 
   /**

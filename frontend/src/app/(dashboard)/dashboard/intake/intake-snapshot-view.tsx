@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import type { IntakeSnapshot } from '@/types/intake.types';
 import { nationalityLabel } from '@/lib/nationalities';
 import { COMPANY_TYPE_OPTIONS, companyTypeLabel } from '@/lib/company-types';
+import { companySizeClassLabel } from '@/lib/company-size-class';
 import {
   provinciaNombre,
   distritoNombre,
@@ -19,13 +20,9 @@ const genderOptions = [
 
 const companyTypeOptions = COMPANY_TYPE_OPTIONS.filter((o) => o.value);
 
-const establishmentTypeOptions = [
-  { value: 'Local comercial', label: 'Local comercial' },
-  { value: 'Oficina', label: 'Oficina' },
-  { value: 'Taller', label: 'Taller' },
-  { value: 'Restaurante', label: 'Restaurante' },
-  { value: 'Kiosco', label: 'Kiosco' },
-  { value: 'Otro', label: 'Otro' },
+const yesNoOptions = [
+  { value: 'true', label: 'Sí' },
+  { value: 'false', label: 'No' },
 ];
 
 type FormValues = Record<string, string>;
@@ -70,31 +67,21 @@ function snapshotToForm(s: IntakeSnapshot): FormValues {
       gender: p?.gender ?? '',
       birthDate: p?.birth_date?.split('T')[0] ?? p?.birth_date ?? '',
       nationalityCode: p?.nationality_code ?? '',
+      hasArtisanCard:
+        p?.has_artisan_card === true ? 'true' : p?.has_artisan_card === false ? 'false' : '',
     };
   }
 
-  if (s.entityType === 'COMPANY') {
-    const c = s.company;
-    return {
-      ...base,
-      legalName: c?.legal_name ?? '',
-      tradeName: c?.trade_name ?? '',
-      ruc: c?.ruc ?? '',
-      dv: c?.dv ?? '',
-      companyType: c?.company_type ?? '',
-      economicActivity: c?.economic_activity ?? '',
-      foundedDate: c?.founded_date?.split('T')[0] ?? c?.founded_date ?? '',
-      employeeCount: c?.employee_count != null ? String(c.employee_count) : '',
-    };
-  }
-
-  const e = s.establishment;
+  const c = s.company;
   return {
     ...base,
-    establishmentName: e?.establishment_name ?? '',
-    establishmentType: e?.establishment_type ?? '',
-    economicActivity: e?.economic_activity ?? '',
-    noticeOfOperation: e?.notice_of_operation ?? '',
+    legalName: c?.legal_name ?? '',
+    tradeName: c?.trade_name ?? '',
+    ruc: c?.ruc ?? '',
+    dv: c?.dv ?? '',
+    companyType: c?.company_type ?? '',
+    companySizeClass: c?.company_size_class ?? '',
+    foundedDate: c?.founded_date?.split('T')[0] ?? c?.founded_date ?? '',
   };
 }
 
@@ -128,6 +115,7 @@ function PersonFields({ v }: { v: FormValues }) {
       <ReadOnlyField label="Género" value={optionLabel(genderOptions, v.gender)} />
       <ReadOnlyField label="Fecha de nacimiento" value={v.birthDate} />
       <ReadOnlyField label="Nacionalidad" value={nationalityLabel(v.nationalityCode)} />
+      <ReadOnlyField label="Carnet de artesano" value={optionLabel(yesNoOptions, v.hasArtisanCard)} />
       <ReadOnlyField label="Provincia" value={v.province} />
       <ReadOnlyField label="Distrito" value={v.district} />
       <ReadOnlyField label="Corregimiento" value={v.corregimiento} />
@@ -149,31 +137,8 @@ function CompanyFields({ v }: { v: FormValues }) {
       <ReadOnlyField label="RUC" value={v.ruc} />
       <ReadOnlyField label="DV" value={v.dv} className="max-w-[100px]" />
       <ReadOnlyField label="Tipo de Sociedad" value={companyTypeLabel(v.companyType) || optionLabel(companyTypeOptions, v.companyType)} />
-      <ReadOnlyField label="Actividad económica" value={v.economicActivity} />
-      <ReadOnlyField label="Fecha de fundación" value={v.foundedDate} />
-      <ReadOnlyField label="# Empleados" value={v.employeeCount} />
-      <ReadOnlyField label="Provincia" value={v.province} />
-      <ReadOnlyField label="Distrito" value={v.district} />
-      <ReadOnlyField label="Corregimiento" value={v.corregimiento} />
-      <ReadOnlyField label="Correo electrónico" value={v.email} />
-      <ReadOnlyField label="Teléfono" value={v.phone} />
-      <div className="sm:col-span-2">
-        <ReadOnlyField label="Dirección" value={v.address} />
-      </div>
-      <div className="sm:col-span-2">
-        <ReadOnlyField label="Notas" value={v.notes} />
-      </div>
-    </>
-  );
-}
-
-function EstablishmentFields({ v }: { v: FormValues }) {
-  return (
-    <>
-      <ReadOnlyField label="Nombre *" value={v.establishmentName} />
-      <ReadOnlyField label="Tipo" value={optionLabel(establishmentTypeOptions, v.establishmentType)} />
-      <ReadOnlyField label="Actividad económica" value={v.economicActivity} />
-      <ReadOnlyField label="Aviso de operación" value={v.noticeOfOperation} />
+      <ReadOnlyField label="Clasificación por tamaño" value={companySizeClassLabel(v.companySizeClass)} />
+      <ReadOnlyField label="Fecha de Inscripción" value={v.foundedDate} />
       <ReadOnlyField label="Provincia" value={v.province} />
       <ReadOnlyField label="Distrito" value={v.district} />
       <ReadOnlyField label="Corregimiento" value={v.corregimiento} />
@@ -198,10 +163,6 @@ const titles: Record<IntakeSnapshot['entityType'], { title: string; description:
     title: 'Registro de empresa',
     description: 'Datos capturados en tiempo real desde el formulario del emprendedor.',
   },
-  ESTABLISHMENT: {
-    title: 'Registro de establecimiento',
-    description: 'Datos capturados en tiempo real desde el formulario del emprendedor.',
-  },
 };
 
 export function IntakeSnapshotView({ snapshot }: { snapshot: IntakeSnapshot }) {
@@ -218,7 +179,6 @@ export function IntakeSnapshotView({ snapshot }: { snapshot: IntakeSnapshot }) {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {snapshot.entityType === 'PERSON' && <PersonFields v={values} />}
           {snapshot.entityType === 'COMPANY' && <CompanyFields v={values} />}
-          {snapshot.entityType === 'ESTABLISHMENT' && <EstablishmentFields v={values} />}
         </div>
       </div>
     </div>

@@ -15,9 +15,8 @@ import type {
 const INTAKE_KEY = 'intake-sessions';
 
 function entityPath(type: string, id: string): string {
-  if (type === 'PERSON') return `/dashboard/persons/${id}`;
   if (type === 'COMPANY') return `/dashboard/companies/${id}`;
-  return `/dashboard/establishments/${id}`;
+  return `/dashboard/persons/${id}`;
 }
 
 export function useIntakeSessions(

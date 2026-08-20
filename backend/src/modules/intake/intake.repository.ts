@@ -9,7 +9,6 @@ import {
   IntakeSessionSummary,
   IntakePersonRow,
   IntakeCompanyRow,
-  IntakeEstablishmentRow,
   IntakeContactRow,
   IntakeStatus,
   IntakeEntityType,
@@ -23,7 +22,6 @@ const SNAPSHOT_INCLUDE = {
     include: {
       person: true,
       company: true,
-      establishment: true,
       contacts: true,
     },
   },
@@ -44,7 +42,6 @@ function typeFallback(entityType: IntakeEntityType): string {
   const map: Record<IntakeEntityType, string> = {
     PERSON: 'Persona (nueva)',
     COMPANY: 'Empresa (nueva)',
-    ESTABLISHMENT: 'Establecimiento (nuevo)',
   };
   return map[entityType];
 }
@@ -52,7 +49,6 @@ function typeFallback(entityType: IntakeEntityType): string {
 function computeDisplayName(snapshot: {
   person: IntakePersonRow | null;
   company: IntakeCompanyRow | null;
-  establishment: IntakeEstablishmentRow | null;
 }): string {
   if (snapshot.person) {
     const parts = [snapshot.person.first_name, snapshot.person.last_name].filter(Boolean);
@@ -60,9 +56,6 @@ function computeDisplayName(snapshot: {
   }
   if (snapshot.company) {
     return snapshot.company.trade_name || snapshot.company.legal_name || 'Empresa';
-  }
-  if (snapshot.establishment) {
-    return snapshot.establishment.establishment_name || 'Establecimiento';
   }
   return 'Sin datos';
 }
@@ -94,7 +87,6 @@ function toSessionRow(session: {
 function mapSnapshot(session: SessionWithEntities): IntakeSnapshot {
   let person: IntakePersonRow | null = null;
   let company: IntakeCompanyRow | null = null;
-  let establishment: IntakeEstablishmentRow | null = null;
   const contacts: IntakeContactRow[] = [];
   let entityType: IntakeEntityType = session.entityType;
   const location = {
@@ -128,6 +120,7 @@ function mapSnapshot(session: SessionWithEntities): IntakeSnapshot {
         occupation: p.occupation,
         business_name: p.businessName,
         economic_activity: p.economicActivity,
+        has_artisan_card: p.hasArtisanCard,
       };
     }
     if (entity.company) {
@@ -139,21 +132,10 @@ function mapSnapshot(session: SessionWithEntities): IntakeSnapshot {
         legal_name: c.legalName,
         trade_name: c.tradeName,
         company_type: c.companyType,
+        company_size_class: c.companySizeClass,
         economic_activity: c.economicActivity,
         founded_date: dateOnly(c.foundedDate),
         employee_count: c.employeeCount,
-      };
-    }
-    if (entity.establishment) {
-      const e = entity.establishment;
-      establishment = {
-        intake_entity_id: e.intakeEntityId,
-        establishment_name: e.establishmentName,
-        establishment_type: e.establishmentType,
-        economic_activity: e.economicActivity,
-        notice_of_operation: e.noticeOfOperation,
-        latitude: e.latitude,
-        longitude: e.longitude,
       };
     }
     for (const contact of entity.contacts) {
@@ -172,20 +154,17 @@ function mapSnapshot(session: SessionWithEntities): IntakeSnapshot {
     createdBy: session.createdBy,
     expiresAt: iso(session.expiresAt),
     lastActivityAt: iso(session.lastActivityAt),
-    displayName:
-      computeDisplayName({ person, company, establishment }) || typeFallback(entityType),
+    displayName: computeDisplayName({ person, company }) || typeFallback(entityType),
     entityType,
     location,
     notes,
     person,
     company,
-    establishment,
     contacts,
   };
 }
 
 export const intakeRepository = {
-  /** Crea una nueva sesión de intake. Devuelve el session_id. */
   async createSession(
     createdBy: string | null,
     entityType: IntakeEntityType = 'PERSON'
@@ -203,7 +182,6 @@ export const intakeRepository = {
     return { session: toSessionRow(session), accessCode };
   },
 
-  /** Lista creadores distintos en sesiones activas. */
   async listCreators(): Promise<string[]> {
     const rows = await prisma.intakeSession.findMany({
       where: {
@@ -218,14 +196,12 @@ export const intakeRepository = {
     return rows.map((r) => r.createdBy).filter((v): v is string => !!v && v !== '');
   },
 
-  /** Verifica el código de acceso de una sesión. */
   async verifySessionAccess(sessionId: string, accessCode: string): Promise<boolean> {
     const session = await this.getSession(sessionId);
     if (!session) return false;
     return verifyAccessCode(accessCode, session.access_code_hash);
   },
 
-  /** Regenera el código de acceso (invalida el anterior). */
   async regenerateAccessCode(sessionId: string): Promise<string> {
     const session = await prisma.intakeSession.findUnique({ where: { id: sessionId } });
     if (!session) throw new Error('SESSION_NOT_FOUND');
@@ -237,13 +213,11 @@ export const intakeRepository = {
     return accessCode;
   },
 
-  /** Lee una sesión por id (sin filtrar expiración). */
   async getSession(sessionId: string): Promise<IntakeSessionRow | null> {
     const session = await prisma.intakeSession.findUnique({ where: { id: sessionId } });
     return session ? toSessionRow(session) : null;
   },
 
-  /** Lista sesiones activas (no expiradas ni validadas), opcionalmente por estado y creador. */
   async listSessions(status?: IntakeStatus, createdBy?: string): Promise<IntakeSessionSummary[]> {
     const sessions = await prisma.intakeSession.findMany({
       where: {
@@ -270,7 +244,6 @@ export const intakeRepository = {
     });
   },
 
-  /** Construye el snapshot completo de una sesión. */
   async getSnapshot(sessionId: string): Promise<IntakeSnapshot | null> {
     const session = await prisma.intakeSession.findUnique({
       where: { id: sessionId },
@@ -279,7 +252,6 @@ export const intakeRepository = {
     return session ? mapSnapshot(session) : null;
   },
 
-  /** Elimina una sesión (cascada borra entidades/subtipos/contactos/relaciones). */
   async deleteSession(sessionId: string, tx?: Prisma.TransactionClient): Promise<void> {
     const db = tx ?? prisma;
     await db.intakeSession.delete({ where: { id: sessionId } }).catch((err: unknown) => {
@@ -290,7 +262,6 @@ export const intakeRepository = {
     });
   },
 
-  /** Elimina sesiones expiradas. Devuelve los ids eliminados. */
   async cleanupExpired(): Promise<string[]> {
     const expired = await prisma.intakeSession.findMany({
       where: {
@@ -300,6 +271,13 @@ export const intakeRepository = {
     });
     const ids = expired.map((r) => r.id);
     if (ids.length > 0) {
+      await prisma.verificationItem.updateMany({
+        where: { intakeSessionId: { in: ids }, status: 'IN_REVIEW' },
+        data: {
+          intakeSessionId: null,
+          status: 'ASSIGNED',
+        },
+      });
       await prisma.intakeSession.deleteMany({
         where: { id: { in: ids } },
       });

@@ -11,10 +11,9 @@ export interface EntityFilters extends PaginationParams {
   province?: string;
 }
 
-export interface EntityListItem extends Omit<Entity, 'contacts' | 'person' | 'company' | 'establishment'> {
+export interface EntityListItem extends Omit<Entity, 'contacts' | 'person' | 'company'> {
   person?: { firstName: string; lastName: string; cedula: string | null };
   company?: { legalName: string; ruc: string | null };
-  establishment?: { establishmentName: string };
   contacts?: Array<{ contactType: string; contactValue: string }>;
 }
 

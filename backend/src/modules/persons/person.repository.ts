@@ -5,7 +5,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/database';
 import { PersonQueryInput, CreatePersonInput } from './person.validator';
-import { toProvinciaCode } from '../../shared/utils/division-politica';
+import { toProvinciaCode, toDistritoCode, toCorregimientoCode } from '../../shared/utils/division-politica';
 import {
   EntityWithPerson,
   PERSON_LIST_INCLUDES,
@@ -55,6 +55,14 @@ export const personRepository = {
       const code = toProvinciaCode(filters.province);
       if (code) where.province = code;
     }
+    if (filters.district) {
+      const code = toDistritoCode(filters.district, filters.province);
+      if (code) where.district = code;
+    }
+    if (filters.corregimiento) {
+      const code = toCorregimientoCode(filters.corregimiento, filters.district, filters.province);
+      if (code) where.corregimiento = code;
+    }
 
     // Filtros específicos de persona
     const personWhere: Prisma.PersonWhereInput = {};
@@ -62,6 +70,9 @@ export const personRepository = {
     if (filters.gender) personWhere.gender = filters.gender;
     if (filters.economicActivity) {
       personWhere.economicActivity = { contains: filters.economicActivity, mode: 'insensitive' };
+    }
+    if (filters.hasArtisanCard !== undefined) {
+      personWhere.hasArtisanCard = filters.hasArtisanCard;
     }
     if (Object.keys(personWhere).length > 0) where.person = personWhere;
 
@@ -126,6 +137,7 @@ export const personRepository = {
     address?: string;
     notes?: string;
     sourceOrigin: string;
+    createdById?: string;
     person: Prisma.PersonCreateWithoutEntityInput;
     contacts?: Array<{ contactType: string; contactValue: string; label?: string; isPrimary?: boolean }>;
   }): Promise<EntityWithPerson> {
@@ -140,6 +152,7 @@ export const personRepository = {
         address: data.address,
         notes: data.notes,
         sourceOrigin: data.sourceOrigin,
+        createdById: data.createdById,
         person: { create: data.person },
         contacts: data.contacts?.length
           ? { create: data.contacts as Prisma.EntityContactCreateWithoutEntityInput[] }

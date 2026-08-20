@@ -1,12 +1,11 @@
 /**
  * Mapeo snapshot de intake temporal → modelos Prisma del CRM.
  */
-import { Gender, ContactType } from '@prisma/client';
+import { Gender, ContactType, CompanySizeClass } from '@prisma/client';
 import {
   IntakeSnapshot,
   IntakePersonRow,
   IntakeCompanyRow,
-  IntakeEstablishmentRow,
   IntakeContactRow,
 } from './intake.types';
 import { locationInputToCodes } from '../../shared/utils/division-politica';
@@ -39,16 +38,21 @@ function normalizeContactType(v: string): ContactType {
   return CONTACT_TYPES.includes(up) ? up : 'OTHER';
 }
 
+function parseBoolean(v: boolean | string | null | undefined): boolean | undefined {
+  if (v === null || v === undefined || v === '') return undefined;
+  if (typeof v === 'boolean') return v;
+  const s = String(v).trim().toLowerCase();
+  if (s === 'true' || s === 'si' || s === 'sí' || s === '1' || s === 'yes') return true;
+  if (s === 'false' || s === 'no' || s === '0') return false;
+  return undefined;
+}
+
 export function hasPerson(p: IntakePersonRow | null): p is IntakePersonRow {
   return !!(p && (clean(p.first_name) || clean(p.last_name) || clean(p.cedula)));
 }
 
 export function hasCompany(c: IntakeCompanyRow | null): c is IntakeCompanyRow {
   return !!(c && (clean(c.legal_name) || clean(c.ruc) || clean(c.trade_name)));
-}
-
-export function hasEstablishment(e: IntakeEstablishmentRow | null): e is IntakeEstablishmentRow {
-  return !!(e && clean(e.establishment_name));
 }
 
 export function mapContacts(contacts: IntakeContactRow[]) {
@@ -66,20 +70,6 @@ export function mapContacts(contacts: IntakeContactRow[]) {
     .filter((c): c is NonNullable<typeof c> => c !== null);
 }
 
-export function personDisplayName(p: IntakePersonRow): string {
-  const parts = [clean(p.first_name), clean(p.last_name)].filter(Boolean);
-  return parts.length ? parts.join(' ') : 'Sin nombre';
-}
-
-export function companyDisplayName(c: IntakeCompanyRow): string {
-  return clean(c.trade_name) || clean(c.legal_name) || 'Empresa sin nombre';
-}
-
-export function establishmentDisplayName(e: IntakeEstablishmentRow): string {
-  return clean(e.establishment_name) || 'Establecimiento sin nombre';
-}
-
-/** Location en intake y Entity PostgreSQL = códigos del catálogo. */
 export function entityCommon(s: IntakeSnapshot) {
   const codes = locationInputToCodes(s.location);
   return {
@@ -92,50 +82,6 @@ export function entityCommon(s: IntakeSnapshot) {
   };
 }
 
-export function personCreate(p: IntakePersonRow) {
-  return {
-    firstName: clean(p.first_name) || 'Sin nombre',
-    lastName: clean(p.last_name) || 'Sin apellido',
-    secondLastName: clean(p.second_last_name),
-    cedula: clean(p.cedula),
-    gender: normalizeGender(p.gender),
-    birthDate: toDate(p.birth_date),
-    nationalityCode: resolveNationalityCode(p.nationality_code),
-    educationLevel: clean(p.education_level),
-    occupation: clean(p.occupation),
-    businessName: clean(p.business_name),
-    economicActivity: clean(p.economic_activity),
-  };
-}
-
-export function companyCreate(c: IntakeCompanyRow) {
-  return {
-    legalName: clean(c.legal_name) || clean(c.trade_name) || 'Empresa sin nombre',
-    ruc: clean(c.ruc),
-    dv: clean(c.dv),
-    tradeName: clean(c.trade_name),
-    companyType: clean(c.company_type),
-    economicActivity: clean(c.economic_activity),
-    foundedDate: toDate(c.founded_date),
-    employeeCount:
-      c.employee_count !== null && c.employee_count !== undefined
-        ? Number(c.employee_count) || undefined
-        : undefined,
-  };
-}
-
-export function establishmentCreate(e: IntakeEstablishmentRow) {
-  return {
-    establishmentName: clean(e.establishment_name) || 'Establecimiento sin nombre',
-    establishmentType: clean(e.establishment_type),
-    economicActivity: clean(e.economic_activity),
-    noticeOfOperation: clean(e.notice_of_operation),
-    latitude: e.latitude ?? undefined,
-    longitude: e.longitude ?? undefined,
-  };
-}
-
-/** Snapshot temporal → payload de creación en PostgreSQL (misma forma que los modales del CRM). */
 export function snapshotToCreatePerson(s: IntakeSnapshot) {
   const p = s.person!;
   const contacts = mapContacts(s.contacts);
@@ -149,6 +95,7 @@ export function snapshotToCreatePerson(s: IntakeSnapshot) {
     birthDate: clean(p.birth_date),
     nationalityCode: resolveNationalityCode(p.nationality_code),
     educationLevel: clean(p.education_level),
+    hasArtisanCard: p.has_artisan_card ?? undefined,
     province: common.province,
     district: common.district,
     corregimiento: common.corregimiento,
@@ -163,18 +110,18 @@ export function snapshotToCreateCompany(s: IntakeSnapshot) {
   const c = s.company!;
   const contacts = mapContacts(s.contacts);
   const common = entityCommon(s);
+  const sizeClass = clean(c.company_size_class) as CompanySizeClass | undefined;
   return {
     legalName: clean(c.legal_name) || clean(c.trade_name) || 'Empresa sin nombre',
     tradeName: clean(c.trade_name),
     ruc: clean(c.ruc),
     dv: clean(c.dv),
     companyType: clean(c.company_type),
-    economicActivity: clean(c.economic_activity),
-    foundedDate: clean(c.founded_date),
-    employeeCount:
-      c.employee_count !== null && c.employee_count !== undefined
-        ? Number(c.employee_count) || undefined
+    companySizeClass:
+      sizeClass === 'MICRO' || sizeClass === 'PEQUENA' || sizeClass === 'MEDIANA'
+        ? sizeClass
         : undefined,
+    foundedDate: clean(c.founded_date),
     province: common.province,
     district: common.district,
     corregimiento: common.corregimiento,
@@ -185,26 +132,6 @@ export function snapshotToCreateCompany(s: IntakeSnapshot) {
   };
 }
 
-export function snapshotToCreateEstablishment(s: IntakeSnapshot) {
-  const e = s.establishment!;
-  const contacts = mapContacts(s.contacts);
-  const common = entityCommon(s);
-  return {
-    establishmentName: clean(e.establishment_name) || 'Establecimiento sin nombre',
-    establishmentType: clean(e.establishment_type),
-    economicActivity: clean(e.economic_activity),
-    noticeOfOperation: clean(e.notice_of_operation),
-    province: common.province,
-    district: common.district,
-    corregimiento: common.corregimiento,
-    address: common.address,
-    notes: common.notes,
-    sourceOrigin: 'EMPRENDEDORES_INTAKE',
-    contacts: contacts.length ? contacts : undefined,
-  };
-}
-
-/** Valida que el snapshot tenga datos suficientes para migrar. */
 export function validateSnapshot(s: IntakeSnapshot): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
   if (s.entityType === 'PERSON') {
@@ -216,11 +143,8 @@ export function validateSnapshot(s: IntakeSnapshot): { valid: boolean; errors: s
   } else if (s.entityType === 'COMPANY') {
     if (!hasCompany(s.company)) errors.push('No hay datos de empresa.');
     else if (!clean(s.company.legal_name)) errors.push('Falta la razón social.');
-  } else if (s.entityType === 'ESTABLISHMENT') {
-    if (!hasEstablishment(s.establishment)) errors.push('No hay datos del establecimiento.');
-    else if (!clean(s.establishment.establishment_name)) {
-      errors.push('Falta el nombre del establecimiento.');
-    }
   }
   return { valid: errors.length === 0, errors };
 }
+
+export { parseBoolean };

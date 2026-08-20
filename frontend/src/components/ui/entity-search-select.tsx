@@ -17,7 +17,6 @@ import {
   X,
   User,
   Building,
-  Briefcase,
   Loader2,
   ChevronDown,
   Check,
@@ -58,22 +57,19 @@ interface EntitySearchSelectProps {
 const entityTypeIcon: Record<EntityType, React.ElementType> = {
   PERSON: User,
   COMPANY: Building,
-  ESTABLISHMENT: Briefcase,
 };
 
 const entityTypeLabel: Record<EntityType, string> = {
   PERSON: 'Persona',
   COMPANY: 'Empresa',
-  ESTABLISHMENT: 'Establecimiento',
 };
 
 const entityTypeBg: Record<EntityType, string> = {
   PERSON: 'bg-blue-50 text-blue-600',
   COMPANY: 'bg-emerald-50 text-emerald-600',
-  ESTABLISHMENT: 'bg-amber-50 text-amber-600',
 };
 
-const ALL_TYPES: EntityType[] = ['PERSON', 'COMPANY', 'ESTABLISHMENT'];
+const ALL_TYPES: EntityType[] = ['PERSON', 'COMPANY'];
 
 function mapEntity(e: {
   id: string;
@@ -81,12 +77,10 @@ function mapEntity(e: {
   entityType: string;
   person?: { cedula: string | null } | null;
   company?: { ruc: string | null } | null;
-  establishment?: { establishmentName: string } | null;
 }): EntityOption {
   let subtitle = '';
   if (e.person?.cedula) subtitle = `Cédula: ${e.person.cedula}`;
   else if (e.company?.ruc) subtitle = `RUC: ${e.company.ruc}`;
-  else if (e.establishment?.establishmentName) subtitle = e.establishment.establishmentName;
 
   return {
     id: e.id,

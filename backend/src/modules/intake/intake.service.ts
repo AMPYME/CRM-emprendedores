@@ -26,16 +26,15 @@ import {
   validateSnapshot,
   hasPerson,
   hasCompany,
-  hasEstablishment,
   snapshotToCreatePerson,
   snapshotToCreateCompany,
-  snapshotToCreateEstablishment,
 } from './intake.mapper';
 import {
   replaceIntakeSnapshot,
   markIntakeSubmitted,
   IntakeUpdateBody,
 } from './intake.writer';
+import { auditService } from '../audit/audit.service';
 
 const DUPLICATE_MSG = 'Este usuario ya está creado en el sistema.';
 
@@ -70,7 +69,6 @@ export const intakeService = {
     return intakeRepository.listSessions(status, createdBy);
   },
 
-  /** Verifica el código de acceso sin devolver datos. */
   async verifyAccess(sessionId: string, accessCode: string): Promise<void> {
     const session = await intakeRepository.getSession(sessionId);
     if (!session) throw new NotFoundError('Sesión de intake', sessionId);
@@ -79,7 +77,6 @@ export const intakeService = {
     if (!ok) throw new UnauthorizedError('Código de acceso incorrecto');
   },
 
-  /** Regenera el código de acceso (solo se muestra una vez en la respuesta). */
   async regenerateAccessCode(sessionId: string): Promise<{ accessCode: string }> {
     const session = await intakeRepository.getSession(sessionId);
     if (!session) throw new NotFoundError('Sesión de intake', sessionId);
@@ -115,7 +112,6 @@ export const intakeService = {
     };
   },
 
-  /** Actualiza datos temporales en PostgreSQL (no crea entidades definitivas). */
   async updateSnapshot(
     sessionId: string,
     body: IntakeUpdateBody,
@@ -143,23 +139,22 @@ export const intakeService = {
     return updated;
   },
 
-  /** Elimina la sesión temporal (no toca entidades definitivas). */
   async deleteSession(sessionId: string): Promise<void> {
     const session = await intakeRepository.getSession(sessionId);
     if (!session) throw new NotFoundError('Sesión de intake', sessionId);
     await intakeRepository.deleteSession(sessionId);
   },
 
-  /**
-   * Valida el snapshot y lo migra a entidades definitivas del CRM
-   * en una sola transacción PostgreSQL.
-   */
   async validateAndMigrate(
     sessionId: string,
     createdById?: string,
-    accessCode?: string
+    accessCode?: string,
+    actorEmail?: string,
+    options?: { skipAccessCheck?: boolean }
   ): Promise<IntakeMigrateResult> {
-    await this.assertAccess(sessionId, accessCode);
+    if (!options?.skipAccessCheck) {
+      await this.assertAccess(sessionId, accessCode);
+    }
     const snapshot = await intakeRepository.getSnapshot(sessionId);
     if (!snapshot) throw new NotFoundError('Sesión de intake', sessionId);
 
@@ -169,7 +164,6 @@ export const intakeService = {
     }
 
     const primary = snapshot.entityType;
-    void createdById;
 
     try {
       const created = await prisma.$transaction(async (tx) => {
@@ -219,6 +213,7 @@ export const intakeService = {
                   birthDate: input.birthDate ? new Date(input.birthDate) : undefined,
                   nationalityCode: input.nationalityCode,
                   educationLevel: input.educationLevel,
+                  hasArtisanCard: input.hasArtisanCard,
                 },
               },
               contacts: input.contacts?.length
@@ -268,9 +263,8 @@ export const intakeService = {
                   ruc: input.ruc,
                   dv: input.dv,
                   companyType: input.companyType,
-                  economicActivity: input.economicActivity,
+                  companySizeClass: input.companySizeClass,
                   foundedDate: input.foundedDate ? new Date(input.foundedDate) : undefined,
-                  employeeCount: input.employeeCount,
                 },
               },
               contacts: input.contacts?.length
@@ -279,59 +273,6 @@ export const intakeService = {
             },
           });
           entities.push({ id: entity.id, entityType: 'COMPANY', displayName: entity.displayName });
-        } else if (primary === 'ESTABLISHMENT' && hasEstablishment(snapshot.establishment)) {
-          const input = snapshotToCreateEstablishment(snapshot);
-          const notice = snapshot.establishment?.notice_of_operation?.trim();
-          if (notice) {
-            const existing = await tx.entity.findFirst({
-              where: {
-                entityType: 'ESTABLISHMENT',
-                status: { not: 'MERGED' },
-                establishment: { noticeOfOperation: notice },
-              },
-              select: { id: true, displayName: true },
-            });
-            if (existing) {
-              throw new ConflictError(DUPLICATE_MSG, {
-                existingEntityId: existing.id,
-                existingName: existing.displayName,
-                entityType: 'ESTABLISHMENT',
-              });
-            }
-          }
-          const displayName = input.address
-            ? `${input.establishmentName} - ${input.address}`
-            : input.establishmentName;
-          const entity = await tx.entity.create({
-            data: {
-              entityType: 'ESTABLISHMENT',
-              status: 'ACTIVE',
-              displayName,
-              province: input.province,
-              district: input.district,
-              corregimiento: input.corregimiento,
-              address: input.address,
-              notes: input.notes,
-              sourceOrigin: input.sourceOrigin || 'EMPRENDEDORES_INTAKE',
-              createdById,
-              establishment: {
-                create: {
-                  establishmentName: input.establishmentName,
-                  establishmentType: input.establishmentType,
-                  economicActivity: input.economicActivity,
-                  noticeOfOperation: input.noticeOfOperation,
-                },
-              },
-              contacts: input.contacts?.length
-                ? { create: input.contacts as Prisma.EntityContactCreateWithoutEntityInput[] }
-                : undefined,
-            },
-          });
-          entities.push({
-            id: entity.id,
-            entityType: 'ESTABLISHMENT',
-            displayName: entity.displayName,
-          });
         } else {
           throw new BadRequestError('No hay datos para migrar según el tipo de sesión.');
         }
@@ -339,6 +280,18 @@ export const intakeService = {
         await intakeRepository.deleteSession(sessionId, tx);
         return entities;
       });
+
+      for (const e of created) {
+        await auditService.log({
+          action: 'CREATE',
+          entityType: e.entityType,
+          entityId: e.id,
+          entityLabel: e.displayName,
+          userId: createdById,
+          userEmail: actorEmail,
+          metadata: { source: 'INTAKE', sessionId },
+        });
+      }
 
       logger.info('[intake] sesión migrada a PostgreSQL', {
         sessionId,

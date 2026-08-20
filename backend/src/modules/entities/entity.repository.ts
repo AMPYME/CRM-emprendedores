@@ -53,7 +53,6 @@ export const entityRepository = {
         { company: { ruc: { contains: filters.search } } },
         { company: { legalName: { contains: filters.search, mode: 'insensitive' } } },
         { company: { tradeName: { contains: filters.search, mode: 'insensitive' } } },
-        { establishment: { establishmentName: { contains: filters.search, mode: 'insensitive' } } },
         { contacts: { some: { contactValue: { contains: filters.search, mode: 'insensitive' } } } },
       ];
     }

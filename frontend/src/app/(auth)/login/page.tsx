@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -28,11 +28,26 @@ export default function LoginPage() {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: '', password: '' },
   });
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const emailFromQuery = params.get('email');
+    const hadSecrets = params.has('password') || params.has('email');
+
+    if (emailFromQuery && !params.has('password')) {
+      setValue('email', emailFromQuery);
+    }
+
+    if (hadSecrets) {
+      window.history.replaceState(null, '', '/login');
+    }
+  }, [setValue]);
 
   const onSubmit = async (data: LoginFormData) => {
     try {
@@ -47,7 +62,6 @@ export default function LoginPage() {
 
   return (
     <div className="w-full max-w-md">
-      {/* Logo */}
       <div className="mb-8 text-center">
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-600 text-white shadow-lg shadow-primary-600/30">
           <span className="text-2xl font-bold">A</span>
@@ -58,16 +72,26 @@ export default function LoginPage() {
         </p>
       </div>
 
-      {/* Card */}
       <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
-        <h2 className="text-lg font-semibold text-gray-900">Iniciar sesión</h2>
-        <p className="mt-1 text-sm text-gray-500">Ingresa tus credenciales para continuar</p>
+        <h2 className="text-lg font-semibold text-gray-900">Inicio de sesión corporativo</h2>
+        <p className="mt-1 text-sm text-gray-500">
+          Use su usuario y contraseña de Active Directory
+        </p>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
+        <form
+          method="post"
+          action="/login"
+          autoComplete="on"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void handleSubmit(onSubmit)(e);
+          }}
+          className="mt-6 space-y-4"
+        >
           <Input
             label="Usuario o correo"
             type="text"
-            placeholder="usuario@ampyme.gob.pa o usuario AD"
+            placeholder="usuario@ampyme.gob.pa"
             autoComplete="username"
             error={errors.email?.message}
             {...register('email')}
@@ -102,15 +126,6 @@ export default function LoginPage() {
             Iniciar sesión
           </Button>
         </form>
-
-        {/* Demo credentials */}
-        <div className="mt-6 rounded-lg bg-gray-50 p-3">
-          <p className="text-xs font-medium text-gray-500">Credenciales de prueba:</p>
-          <div className="mt-1 space-y-0.5 text-xs text-gray-500">
-            <p><strong>Admin:</strong> admin@ampyme.gob.pa / Admin2026!</p>
-            <p><strong>Operador:</strong> operador@ampyme.gob.pa / Operador2026!</p>
-          </div>
-        </div>
       </div>
     </div>
   );

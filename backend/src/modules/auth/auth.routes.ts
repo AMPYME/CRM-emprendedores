@@ -1,15 +1,15 @@
 /**
  * Rutas del módulo de autenticación.
  *
- * Rutas públicas (sin token):
- *   POST /auth/login
- *   POST /auth/register
+ * Rutas públicas:
+ *   POST /auth/login     → solo Active Directory
+ *   POST /auth/register  → deshabilitado (403)
  *   POST /auth/refresh
  *
- * Rutas protegidas (requieren Bearer token):
+ * Rutas protegidas:
  *   GET    /auth/profile
  *   PUT    /auth/profile
- *   POST   /auth/change-password
+ *   POST   /auth/change-password → deshabilitado (403; contraseña en AD)
  */
 import { Router } from 'express';
 import { authController } from './auth.controller';

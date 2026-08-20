@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  ArrowLeft, User, Building, Briefcase, Mail, Phone, Globe,
+  ArrowLeft, User, Building, Mail, Phone, Globe,
   FolderKanban, Link2, Plus, Trash2, CheckCircle, ArrowRight,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
@@ -18,6 +18,8 @@ import { Modal } from '@/components/ui/modal';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { nationalityLabel } from '@/lib/nationalities';
+import { companyTypeLabel } from '@/lib/company-types';
+import { companySizeClassLabel } from '@/lib/company-size-class';
 import { EntitySearchSelect, type EntityOption } from '@/components/ui/entity-search-select';
 import {
   Table, TableHead, TableBody, TableRow, TableHeaderCell, TableCell,
@@ -102,19 +104,16 @@ const relationshipTypeOptions = [
 const entityRouteMap: Record<EntityType, string> = {
   PERSON: 'persons',
   COMPANY: 'companies',
-  ESTABLISHMENT: 'establishments',
 };
 /** Etiqueta amigable del tipo de entidad */
 const entityTypeDisplayLabel: Record<EntityType, string> = {
   PERSON: 'Persona',
   COMPANY: 'Empresa',
-  ESTABLISHMENT: 'Establecimiento',
 };
 /** Color de badge según tipo de entidad */
-const entityTypeBadgeVariant: Record<EntityType, 'primary' | 'success' | 'warning'> = {
+const entityTypeBadgeVariant: Record<EntityType, 'primary' | 'success'> = {
   PERSON: 'primary',
   COMPANY: 'success',
-  ESTABLISHMENT: 'warning',
 };
 const contactTypeOptions = [
   { value: 'EMAIL', label: 'Correo electrónico' },
@@ -250,10 +249,8 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
   // ── Entity meta ──────────────────────────────
   const person = (entity as any).person;
   const company = (entity as any).company;
-  const establishment = (entity as any).establishment;
 
-  const entityIcon = entityType === 'PERSON' ? User : entityType === 'COMPANY' ? Building : Briefcase;
-  const EntityIcon = entityIcon;
+  const EntityIcon = entityType === 'PERSON' ? User : Building;
 
   // ── Tabs ──────────────────────────────────────
   const tabs = [
@@ -307,7 +304,7 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
       {activeTab === 'info' && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {/* Entity-specific info */}
-          <Card title={entityType === 'PERSON' ? 'Datos personales' : entityType === 'COMPANY' ? 'Datos de empresa' : 'Datos del establecimiento'}>
+          <Card title={entityType === 'PERSON' ? 'Datos personales' : 'Datos de empresa'}>
             <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
               {entityType === 'PERSON' && person && (
                 <>
@@ -317,6 +314,10 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                   <InfoRow label="Fecha de nacimiento" value={person.birthDate ? formatDateShort(person.birthDate) : null} />
                   <InfoRow label="Nacionalidad" value={nationalityLabel(person.nationalityCode)} />
                   <InfoRow label="Nivel educativo" value={person.educationLevel} />
+                  <InfoRow
+                    label="Carnet de artesano"
+                    value={person.hasArtisanCard === true ? 'Sí' : person.hasArtisanCard === false ? 'No' : null}
+                  />
                 </>
               )}
               {entityType === 'COMPANY' && company && (
@@ -325,18 +326,9 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                   <InfoRow label="Nombre comercial" value={company.tradeName} />
                   <InfoRow label="RUC" value={company.ruc} mono />
                   <InfoRow label="DV" value={company.dv} />
-                  <InfoRow label="Tipo de Sociedad" value={company.companyType} />
-                  <InfoRow label="Actividad económica" value={company.economicActivity} />
-                  <InfoRow label="Fecha de fundación" value={company.foundedDate ? formatDateShort(company.foundedDate) : null} />
-                  <InfoRow label="# Empleados" value={company.employeeCount} />
-                </>
-              )}
-              {entityType === 'ESTABLISHMENT' && establishment && (
-                <>
-                  <InfoRow label="Nombre" value={establishment.establishmentName} />
-                  <InfoRow label="Tipo" value={establishment.establishmentType} />
-                  <InfoRow label="Actividad económica" value={establishment.economicActivity} />
-                  <InfoRow label="Aviso de operación" value={establishment.noticeOfOperation} mono />
+                  <InfoRow label="Tipo de Sociedad" value={companyTypeLabel(company.companyType) || company.companyType} />
+                  <InfoRow label="Clasificación por tamaño" value={companySizeClassLabel(company.companySizeClass)} />
+                  <InfoRow label="Fecha de Inscripción" value={company.foundedDate ? formatDateShort(company.foundedDate) : null} />
                 </>
               )}
             </dl>
@@ -502,7 +494,7 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
       {activeTab === 'relationships' && (
         <Card
           title="Relaciones"
-          description="Vinculaciones de esta entidad con otras (personas, empresas, establecimientos)"
+          description="Vinculaciones de esta entidad con otras (personas, empresas)"
         >
           <div className="mb-4 flex justify-end">
             <Button
@@ -537,12 +529,7 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                 const isFrom = rel.fromEntityId === entity.id;
                 const other = isFrom ? rel.toEntity : rel.fromEntity;
                 if (!other) return null;
-                const OtherIcon =
-                  other.entityType === 'PERSON'
-                    ? User
-                    : other.entityType === 'COMPANY'
-                    ? Building
-                    : Briefcase;
+                const OtherIcon = other.entityType === 'PERSON' ? User : Building;
 
                 const otherHref = `/dashboard/${entityRouteMap[other.entityType as EntityType]}/${other.id}`;
                 const directionLabel = isFrom ? 'Es' : 'Tiene como';
@@ -555,11 +542,11 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div className={cn(
                         'rounded-lg p-2 shrink-0',
-                        other.entityType === 'PERSON' ? 'bg-blue-50' : other.entityType === 'COMPANY' ? 'bg-emerald-50' : 'bg-amber-50'
+                        other.entityType === 'PERSON' ? 'bg-blue-50' : 'bg-emerald-50'
                       )}>
                         <OtherIcon className={cn(
                           'h-4 w-4',
-                          other.entityType === 'PERSON' ? 'text-blue-600' : other.entityType === 'COMPANY' ? 'text-emerald-600' : 'text-amber-600'
+                          other.entityType === 'PERSON' ? 'text-blue-600' : 'text-emerald-600'
                         )} />
                       </div>
                       <div className="min-w-0 flex-1">

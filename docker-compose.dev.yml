@@ -40,7 +40,7 @@ services:
       INTAKE_SESSION_TTL_MIN: '20'
       CHOKIDAR_USEPOLLING: 'true'
       CHOKIDAR_INTERVAL: 1000
-    command: sh -c "npm install && npx prisma generate && npx prisma migrate deploy && npm run dev"
+    command: sh scripts/dev-entrypoint.sh
     volumes:
       - ./backend:/app
       - backend_node_modules:/app/node_modules

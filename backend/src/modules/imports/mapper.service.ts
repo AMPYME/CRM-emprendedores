@@ -106,7 +106,9 @@ const FIELD_PATTERNS: Record<string, RegExp[]> = {
 
   // Contacto
   email: [/^correo$/i, /^email$/i, /^e.?mail$/i, /^correo.?electronico$/i],
-  phone: [/^telefono$/i, /^phone$/i, /^tel$/i, /^fono$/i],
+  phone: [/^telefono$/i, /^phone$/i, /^tel$/i, /^fono$/i, /^telefono.?1$/i],
+  phone2: [/^telefono.?2$/i, /^tel.?2$/i, /^phone.?2$/i],
+  phone3: [/^telefono.?3$/i, /^tel.?3$/i, /^phone.?3$/i],
   mobile: [/^celular$/i, /^cell$/i, /^movil$/i, /^mobile$/i],
   whatsapp: [/^whatsapp$/i, /^wsp$/i, /^wa$/i],
   website: [/^sitio.?web$/i, /^web$/i, /^website$/i, /^pagina$/i, /^url$/i],
@@ -174,13 +176,17 @@ export function buildMapping(
     ...(customMapping || {}),
   };
 
-  // 4. Filtrar: solo mantener campos que apunten a columnas existentes
+  // 4. Filtrar y resolver al header real del archivo (case-insensitive).
+  // Evita guardar "Nombre" cuando el Excel tiene "nombre" normalizado.
   const validMapping: ColumnMapping = {};
-  const headersLower = new Set(headers.map((h) => h.toLowerCase()));
+  const headerByLower = new Map(headers.map((h) => [h.toLowerCase(), h]));
 
   for (const [field, column] of Object.entries(finalMapping)) {
-    if (headers.includes(column) || headersLower.has(column.toLowerCase())) {
-      validMapping[field] = column;
+    if (!column) continue;
+    const actualHeader =
+      headers.includes(column) ? column : headerByLower.get(column.toLowerCase());
+    if (actualHeader) {
+      validMapping[field] = actualHeader;
     }
   }
 
@@ -209,11 +215,16 @@ export function applyMapping(
 ): ExtractedFields {
   const fields: ExtractedFields = {};
 
-  // Helper: obtener valor string de un systemField
+  // Helper: obtener valor string de un systemField (lookup case-insensitive)
   const getValue = (systemField: string): string | undefined => {
     const column = mapping[systemField];
     if (!column) return undefined;
-    const val = rawData[column];
+    let val = rawData[column];
+    if (val === null || val === undefined) {
+      const lower = column.toLowerCase();
+      const key = Object.keys(rawData).find((k) => k.toLowerCase() === lower);
+      val = key ? rawData[key] : undefined;
+    }
     if (val === null || val === undefined) return undefined;
     return String(val).trim() || undefined;
   };
@@ -248,12 +259,13 @@ export function applyMapping(
   const email = getValue('email');
   if (email) fields.extractedEmail = normalizeEmail(email);
 
-  // Telefono (probar phone, mobile, whatsapp)
-  const phone = getValue('phone') || getValue('mobile') || getValue('whatsapp');
+  // Telefono: primer valor no vacío entre phone, phone2, phone3, mobile, whatsapp
+  const phone =
+    getValue('phone') || getValue('phone2') || getValue('phone3') || getValue('mobile') || getValue('whatsapp');
   if (phone) fields.extractedPhone = normalizePhone(phone);
 
-  // Nombre de negocio
-  const businessName = getValue('businessName') || getValue('establishmentName') || getValue('tradeName');
+  // Nombre de negocio / empresa
+  const businessName = getValue('businessName') || getValue('legalName') || getValue('tradeName');
   if (businessName) fields.extractedBusinessName = titleCase(businessName);
 
   return fields;
@@ -263,10 +275,41 @@ export function applyMapping(
  * Devuelve la lista de campos del sistema disponibles para mapear.
  * Util para el frontend al configurar el mapeo.
  */
-export function getAvailableSystemFields(): Array<{ key: string; label: string }> {
+const FIELD_GROUPS: Record<string, string> = {
+  firstName: 'Persona',
+  lastName: 'Persona',
+  secondLastName: 'Persona',
+  cedula: 'Persona',
+  gender: 'Persona',
+  birthDate: 'Persona',
+  nationality: 'Persona',
+  educationLevel: 'Persona',
+  occupation: 'Persona',
+  ruc: 'Empresa',
+  dv: 'Empresa',
+  legalName: 'Empresa',
+  tradeName: 'Empresa',
+  companyType: 'Empresa',
+  businessName: 'Empresa',
+  province: 'Ubicación',
+  district: 'Ubicación',
+  corregimiento: 'Ubicación',
+  address: 'Ubicación',
+  email: 'Contacto',
+  phone: 'Contacto',
+  phone2: 'Contacto',
+  phone3: 'Contacto',
+  mobile: 'Contacto',
+  whatsapp: 'Contacto',
+  website: 'Contacto',
+  eventNotes: 'Evento',
+};
+
+export function getAvailableSystemFields(): Array<{ key: string; label: string; group: string }> {
   return Object.entries(SYSTEM_FIELDS).map(([key, label]) => ({
     key,
     label,
+    group: FIELD_GROUPS[key] || 'Otros',
   }));
 }
 
@@ -276,14 +319,13 @@ export function getAvailableSystemFields(): Array<{ key: string; label: string }
 export function inferEntityType(
   sourceType: string,
   extractedFields: ExtractedFields
-): 'PERSON' | 'COMPANY' | 'ESTABLISHMENT' {
-  if (sourceType === 'DIRECTORIO') return 'ESTABLISHMENT';
+): 'PERSON' | 'COMPANY' {
+  if (sourceType === 'UNIFICADA') return 'PERSON';
   if (sourceType.startsWith('EVENTO')) return 'PERSON';
 
-  // Heuristica basada en campos disponibles
   if (extractedFields.extractedCedula) return 'PERSON';
   if (extractedFields.extractedRuc) return 'COMPANY';
-  if (extractedFields.extractedBusinessName && !extractedFields.extractedFirstName) return 'ESTABLISHMENT';
+  if (extractedFields.extractedBusinessName && !extractedFields.extractedFirstName) return 'COMPANY';
 
-  return 'PERSON'; // Default
+  return 'PERSON';
 }

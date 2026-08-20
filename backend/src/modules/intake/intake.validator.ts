@@ -8,7 +8,7 @@ export const sessionIdParamSchema = z.object({
 });
 
 export const createSessionSchema = z.object({
-  entityType: z.enum(['PERSON', 'COMPANY', 'ESTABLISHMENT']).default('PERSON'),
+  entityType: z.enum(['PERSON', 'COMPANY']).default('PERSON'),
 });
 
 const accessCodeSchema = z.string().trim().length(6, 'Código de acceso inválido');
@@ -44,6 +44,7 @@ export const updateSessionSchema = z.object({
         .refine((v) => v === '' || v.length === 3, 'Código de nacionalidad inválido')
         .optional(),
       educationLevel: z.string().optional(),
+      hasArtisanCard: z.union([z.boolean(), z.string()]).optional(),
     })
     .optional(),
   company: z
@@ -53,17 +54,8 @@ export const updateSessionSchema = z.object({
       ruc: z.string().optional(),
       dv: z.string().optional(),
       companyType: z.string().optional(),
-      economicActivity: z.string().optional(),
+      companySizeClass: z.enum(['MICRO', 'PEQUENA', 'MEDIANA']).optional(),
       foundedDate: z.string().optional(),
-      employeeCount: z.union([z.string(), z.number()]).optional(),
-    })
-    .optional(),
-  establishment: z
-    .object({
-      establishmentName: z.string().optional(),
-      establishmentType: z.string().optional(),
-      economicActivity: z.string().optional(),
-      noticeOfOperation: z.string().optional(),
     })
     .optional(),
   location: z

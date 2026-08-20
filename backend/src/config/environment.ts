@@ -50,15 +50,12 @@ export const config = {
   rateLimitMaxRequests: parseInt(requiredEnv('RATE_LIMIT_MAX_REQUESTS', '100'), 10),
 
   /**
-   * API interna de usuarios (AD-user-api). Si está definida, el login intenta primero AD.
+   * API interna de usuarios (AD-user-api). Obligatoria: el CRM solo autentica vía AD.
    * Ej: http://api-adusers.ampyme.local
    */
   adApiBaseUrl: (process.env.AD_API_BASE_URL || '').trim() || undefined,
 
-  /** Si AD falla (401/red), intentar login local con bcrypt (útil con usuarios seed en dev). */
-  adAuthFallbackLocal: process.env.AD_AUTH_FALLBACK_LOCAL !== 'false',
-
-  /** Si el usuario AD no existe en el CRM, crearlo con rol OPERATOR. */
+  /** Si el usuario AD no existe en el CRM, crearlo con rol EMPREND_OPERADOR. */
   adAutoProvision: process.env.AD_AUTO_PROVISION !== 'false',
 
   /**
@@ -72,7 +69,7 @@ export const config = {
    * El usuario debe tener al menos uno (se normaliza a mayúsculas para comparar).
    * AD_SKIP_ROLE_CHECK=true desactiva la validación (solo desarrollo).
    */
-  adRequiredAppRoleSlugs: (process.env.AD_REQUIRED_APP_ROLES || 'BD_EMPREND,ADMIN,SUPER_ADMIN')
+  adRequiredAppRoleSlugs: (process.env.AD_REQUIRED_APP_ROLES || 'EMPREND_OPERADOR,EMPREND_VIEWER,EMPREND_ADMIN,ADMIN,SUPER_ADMIN')
     .split(',')
     .map((s) => s.trim().toUpperCase())
     .filter(Boolean),

@@ -25,7 +25,11 @@ const statusOptions = [
   { value: '', label: 'Todos los estados' },
   { value: 'PENDING', label: 'Pendiente' },
   { value: 'PROCESSING', label: 'Procesando' },
+  { value: 'VALIDATING', label: 'Validando' },
+  { value: 'DEDUPLICATING', label: 'Deduplicando' },
   { value: 'REVIEW_REQUIRED', label: 'Revisión requerida' },
+  { value: 'IMPORTING', label: 'Importando' },
+  { value: 'VERIFICATION_QUEUED', label: 'En cola de verificación' },
   { value: 'COMPLETED', label: 'Completado' },
   { value: 'FAILED', label: 'Fallido' },
   { value: 'CANCELLED', label: 'Cancelado' },
@@ -35,15 +39,17 @@ const sourceTypeOptions = [
   { value: 'general', label: 'Carga general' },
   { value: 'event_registration', label: 'Inscripción a evento' },
   { value: 'census', label: 'Censo / Encuesta' },
+  { value: 'UNIFICADA', label: 'Base unificada' },
 ];
 
-const statusBadge: Record<string, 'default' | 'primary' | 'success' | 'warning' | 'danger'> = {
+const statusBadge: Record<string, 'default' | 'primary' | 'success' | 'warning' | 'danger' | 'info'> = {
   PENDING: 'default',
   PROCESSING: 'primary',
   VALIDATING: 'primary',
   DEDUPLICATING: 'warning',
   REVIEW_REQUIRED: 'warning',
   IMPORTING: 'primary',
+  VERIFICATION_QUEUED: 'info',
   COMPLETED: 'success',
   FAILED: 'danger',
   CANCELLED: 'default',
@@ -56,6 +62,7 @@ const statusLabel: Record<string, string> = {
   DEDUPLICATING: 'Deduplicando',
   REVIEW_REQUIRED: 'Revisión requerida',
   IMPORTING: 'Importando',
+  VERIFICATION_QUEUED: 'En cola de verificación',
   COMPLETED: 'Completado',
   FAILED: 'Fallido',
   CANCELLED: 'Cancelado',

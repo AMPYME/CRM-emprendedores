@@ -7,7 +7,6 @@ import { healthRoutes } from './modules/health/health.routes';
 import { entityRoutes } from './modules/entities/entity.routes';
 import { personRoutes } from './modules/persons/person.routes';
 import { companyRoutes } from './modules/companies/company.routes';
-import { establishmentRoutes } from './modules/establishments/establishment.routes';
 import { entityContactRoutes, contactRoutes } from './modules/contacts/contact.routes';
 import {
   eventRoutes,
@@ -29,6 +28,10 @@ import { importRoutes } from './modules/imports/import.routes';
 
 import { intakeRoutes } from './modules/intake/intake.routes';
 
+import { auditRoutes } from './modules/audit/audit.routes';
+
+import { verificationRoutes } from './modules/verifications/verification.routes';
+
 import { authRoutes } from './modules/auth/auth.routes';
 
 export const apiRouter = Router();
@@ -40,7 +43,6 @@ apiRouter.use('/health', healthRoutes);
 apiRouter.use('/entities', entityRoutes);
 apiRouter.use('/persons', personRoutes);
 apiRouter.use('/companies', companyRoutes);
-apiRouter.use('/establishments', establishmentRoutes);
 
 // Contactos: rutas anidadas bajo entidad + rutas directas
 apiRouter.use('/entities/:entityId/contacts', entityContactRoutes);
@@ -67,5 +69,11 @@ apiRouter.use('/imports', importRoutes);
 // ── Intake de emprendedores (PostgreSQL temporal → WebSocket → CRM) ──
 apiRouter.use('/intake', intakeRoutes);
 
+// ── Cola de verificación (importaciones + captura en campo) ─────────
+apiRouter.use('/verifications', verificationRoutes);
+
 // ── Autenticación y autorización (FASE 8) ───────────────────────
 apiRouter.use('/auth', authRoutes);
+
+// ── Auditoría (solo ADMIN) ───────────────────────────────────────
+apiRouter.use('/audit', auditRoutes);

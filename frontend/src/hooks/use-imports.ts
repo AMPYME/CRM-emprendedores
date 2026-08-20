@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { importsService } from '@/services/imports.service';
 import type { PaginationParams } from '@/types/api.types';
 import toast from 'react-hot-toast';
+import { getApiErrorMessage } from '@/services/api-client';
 
 const IMPORTS_KEY = 'imports';
 const IMPORT_ROWS_KEY = 'import-rows';
@@ -15,11 +16,18 @@ export function useImports(params?: PaginationParams & { status?: string }) {
   });
 }
 
-export function useImport(id: string | undefined) {
+export function useImport(id: string | undefined, options?: { poll?: boolean }) {
+  const runningStatuses = new Set(['PROCESSING', 'VALIDATING', 'DEDUPLICATING', 'IMPORTING']);
   return useQuery({
     queryKey: [IMPORTS_KEY, id],
     queryFn: () => importsService.getById(id!),
     enabled: !!id,
+    refetchInterval: (query) => {
+      if (options?.poll) return 1500;
+      const status = query.state.data?.status;
+      if (status && runningStatuses.has(status)) return 1500;
+      return false;
+    },
   });
 }
 
@@ -52,10 +60,10 @@ export function useProcessImport() {
     mutationFn: (id: string) => importsService.process(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [IMPORTS_KEY] });
-      toast.success('Procesamiento iniciado');
+      toast.success('Procesamiento completado');
     },
-    onError: () => {
-      toast.error('Error al procesar la importación');
+    onError: (err) => {
+      toast.error(getApiErrorMessage(err));
     },
   });
 }
@@ -68,8 +76,8 @@ export function useRetryImport() {
       qc.invalidateQueries({ queryKey: [IMPORTS_KEY] });
       toast.success('Reintento iniciado');
     },
-    onError: () => {
-      toast.error('Error al reintentar la importación');
+    onError: (err) => {
+      toast.error(getApiErrorMessage(err));
     },
   });
 }

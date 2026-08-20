@@ -8,7 +8,7 @@ import type { EntityRelationship, RelationshipType } from '@/types/entities.type
 export interface RelationshipListParams {
   direction?: 'from' | 'to' | 'both';
   relationshipType?: RelationshipType;
-  targetEntityType?: 'PERSON' | 'COMPANY' | 'ESTABLISHMENT';
+  targetEntityType?: 'PERSON' | 'COMPANY';
   isActive?: boolean;
 }
 

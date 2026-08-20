@@ -13,9 +13,8 @@ import type {
 } from '@/types/intake.types';
 
 export interface IntakeUpdateInput {
-  person?: Record<string, string | undefined>;
-  company?: Record<string, string | number | undefined>;
-  establishment?: Record<string, string | undefined>;
+  person?: Record<string, string | boolean | undefined>;
+  company?: Record<string, string | undefined>;
   location?: { province?: string; district?: string; corregimiento?: string; address?: string };
   contacts?: Array<{
     contactType: string;

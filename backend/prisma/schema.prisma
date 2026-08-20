@@ -22,7 +22,23 @@ datasource db {
 enum EntityType {
   PERSON
   COMPANY
-  ESTABLISHMENT
+}
+
+enum CompanySizeClass {
+  MICRO
+  PEQUENA
+  MEDIANA
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  VERIFICATION_CLAIM
+  VERIFICATION_UPDATE
+  VERIFICATION_VALIDATE
+  VERIFICATION_REJECT
 }
 
 enum EntityStatus {
@@ -42,11 +58,10 @@ enum ContactType {
   OTHER
 }
 
-/// Tipos de vínculo entre entidades (personas, empresas, establecimientos).
+/// Tipos de vínculo entre entidades (personas, empresas).
 /// Pares soportados:
-/// - PERSON → PERSON
-/// - ESTABLISHMENT → PERSON | ESTABLISHMENT
-/// - COMPANY → COMPANY | PERSON | ESTABLISHMENT
+/// - PERSON → PERSON | COMPANY
+/// - COMPANY → COMPANY | PERSON
 /// Unicidad: a lo sumo un vínculo por par de entidades (también se rechaza el inverso).
 /// Una entidad puede vincularse a múltiples destinos permitidos sin repetir el mismo par.
 enum RelationshipType {
@@ -111,6 +126,7 @@ enum ImportStatus {
   DEDUPLICATING
   REVIEW_REQUIRED
   IMPORTING
+  VERIFICATION_QUEUED
   COMPLETED
   FAILED
   CANCELLED
@@ -123,6 +139,7 @@ enum StagingRowStatus {
   DUPLICATE_EXACT
   DUPLICATE_POSSIBLE
   IMPORTED
+  QUEUED_FOR_VERIFICATION
   SKIPPED
   ERROR
 }
@@ -134,11 +151,11 @@ enum Gender {
 }
 
 enum UserRole {
+  SUPER_ADMIN
   ADMIN
-  MANAGER
-  ANALYST
-  OPERATOR
-  VIEWER
+  EMPREND_ADMIN
+  EMPREND_OPERADOR
+  EMPREND_VIEWER
 }
 
 // ============================================================================
@@ -151,7 +168,7 @@ model User {
   passwordHash String   @map("password_hash")
   firstName    String   @map("first_name")
   lastName     String   @map("last_name")
-  role         UserRole @default(OPERATOR)
+  role         UserRole @default(EMPREND_OPERADOR)
   isActive     Boolean  @default(true) @map("is_active")
   lastLoginAt  DateTime? @map("last_login_at")
   createdAt    DateTime @default(now()) @map("created_at")
@@ -162,15 +179,38 @@ model User {
   portfolioActions         PortfolioAction[] @relation("ActionPerformedBy")
   importBatches            ImportBatch[]     @relation("ImportedBy")
   createdEntities          Entity[]          @relation("CreatedBy")
+  auditLogs                AuditLog[]
+  verificationItemsAssigned VerificationItem[] @relation("VerificationAssignedTo")
 
   @@map("users")
+}
+
+/// Registro de auditoría de acciones en el CRM (solo visible para ADMIN).
+model AuditLog {
+  id          String      @id @default(uuid())
+  action      AuditAction
+  entityType  String?     @map("entity_type")
+  entityId    String?     @map("entity_id")
+  entityLabel String?     @map("entity_label")
+  userId      String?     @map("user_id")
+  userEmail   String?     @map("user_email")
+  metadata    Json?
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  user        User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([action])
+  @@index([entityType])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
 }
 
 // ============================================================================
 // ENTIDADES MAESTRAS (Patrón Table-per-Type)
 // ============================================================================
 
-/// Tabla maestra de entidades. Cada registro es una persona, empresa o establecimiento.
+/// Tabla maestra de entidades. Cada registro es una persona o empresa.
 /// Los datos específicos van en la tabla hija correspondiente.
 model Entity {
   id              String       @id @default(uuid())
@@ -197,7 +237,6 @@ model Entity {
   // Relaciones
   person          Person?
   company         Company?
-  establishment   Establishment?
   contacts        EntityContact[]
   relationshipsFrom EntityRelationship[] @relation("RelationFrom")
   relationshipsTo   EntityRelationship[] @relation("RelationTo")
@@ -238,6 +277,7 @@ model Person {
   occupation      String?
   businessName    String?   @map("business_name")   // Nombre del negocio si lo tiene
   economicActivity String?  @map("economic_activity")
+  hasArtisanCard   Boolean?  @map("has_artisan_card")
 
   // Relación
   entity          Entity    @relation(fields: [entityId], references: [id], onDelete: Cascade)
@@ -256,10 +296,11 @@ model Company {
   dv               String?   // Dígito verificador
   legalName        String    @map("legal_name")
   tradeName        String?   @map("trade_name")
-  companyType      String?   @map("company_type")      // S.A., S.EP., INC., Corp., S.R.L.
-  economicActivity String?   @map("economic_activity")
-  foundedDate      DateTime? @map("founded_date")
-  employeeCount    Int?      @map("employee_count")
+  companyType      String?           @map("company_type")      // S.A., S.EP., INC., Corp., S. de R.L.
+  companySizeClass CompanySizeClass? @map("company_size_class")
+  economicActivity String?           @map("economic_activity")
+  foundedDate      DateTime?         @map("founded_date")
+  employeeCount    Int?              @map("employee_count")
 
   // Relación
   entity           Entity    @relation(fields: [entityId], references: [id], onDelete: Cascade)
@@ -268,25 +309,6 @@ model Company {
   @@index([legalName])
   @@index([tradeName])
   @@map("companies")
-}
-
-/// Datos específicos de establecimientos / locales comerciales.
-model Establishment {
-  id                  String    @id @default(uuid())
-  entityId            String    @unique @map("entity_id")
-  establishmentName   String    @map("establishment_name")
-  establishmentType   String?   @map("establishment_type")  // Local, kiosco, puesto, etc.
-  economicActivity    String?   @map("economic_activity")
-  noticeOfOperation   String?   @map("notice_of_operation") // Aviso de operación
-  latitude            Float?
-  longitude           Float?
-
-  // Relación
-  entity              Entity    @relation(fields: [entityId], references: [id], onDelete: Cascade)
-
-  @@index([establishmentName])
-  @@index([economicActivity])
-  @@map("establishments")
 }
 
 // ============================================================================
@@ -517,6 +539,7 @@ model ImportBatch {
   stagingRows      StagingRow[]
   entities         Entity[]
   eventRegistrations EventRegistration[]
+  verificationItems VerificationItem[]
 
   @@index([status])
   @@index([sourceType])
@@ -556,6 +579,7 @@ model StagingRow {
   // Relaciones
   importBatch      ImportBatch     @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
   matchedEntity    Entity?         @relation("MatchedEntity", fields: [matchedEntityId], references: [id])
+  verificationItems VerificationItem[]
 
   @@index([importBatchId])
   @@index([status])
@@ -632,6 +656,7 @@ model IntakeSession {
   expiresAt      DateTime            @map("expires_at")
 
   entities       IntakeEntity[]
+  verificationItem VerificationItem?
 
   @@index([status])
   @@index([expiresAt])
@@ -657,7 +682,6 @@ model IntakeEntity {
   session         IntakeSession          @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   person          IntakePerson?
   company         IntakeCompany?
-  establishment   IntakeEstablishment?
   contacts        IntakeContact[]
   relationshipsFrom IntakeRelationship[] @relation("IntakeRelationFrom")
   relationshipsTo   IntakeRelationship[] @relation("IntakeRelationTo")
@@ -681,6 +705,7 @@ model IntakePerson {
   occupation       String?   @db.VarChar(160)
   businessName     String?   @map("business_name") @db.VarChar(200)
   economicActivity String?   @map("economic_activity") @db.VarChar(200)
+  hasArtisanCard   Boolean?  @map("has_artisan_card")
 
   entity IntakeEntity @relation(fields: [intakeEntityId], references: [id], onDelete: Cascade)
 
@@ -694,29 +719,15 @@ model IntakeCompany {
   dv               String?   @db.VarChar(10)
   legalName        String?   @map("legal_name") @db.VarChar(200)
   tradeName        String?   @map("trade_name") @db.VarChar(200)
-  companyType      String?   @map("company_type") @db.VarChar(80)
-  economicActivity String?   @map("economic_activity") @db.VarChar(200)
-  foundedDate      DateTime? @map("founded_date") @db.Date
-  employeeCount    Int?      @map("employee_count")
+  companyType      String?           @map("company_type") @db.VarChar(80)
+  companySizeClass CompanySizeClass? @map("company_size_class")
+  economicActivity String?           @map("economic_activity") @db.VarChar(200)
+  foundedDate      DateTime?         @map("founded_date") @db.Date
+  employeeCount    Int?              @map("employee_count")
 
   entity IntakeEntity @relation(fields: [intakeEntityId], references: [id], onDelete: Cascade)
 
   @@map("intake_companies")
-}
-
-model IntakeEstablishment {
-  id                 String  @id @default(uuid())
-  intakeEntityId     String  @unique @map("intake_entity_id")
-  establishmentName  String? @map("establishment_name") @db.VarChar(200)
-  establishmentType  String? @map("establishment_type") @db.VarChar(120)
-  economicActivity   String? @map("economic_activity") @db.VarChar(200)
-  noticeOfOperation  String? @map("notice_of_operation") @db.VarChar(120)
-  latitude           Float?
-  longitude          Float?
-
-  entity IntakeEntity @relation(fields: [intakeEntityId], references: [id], onDelete: Cascade)
-
-  @@map("intake_establishments")
 }
 
 model IntakeContact {
@@ -751,4 +762,76 @@ model IntakeRelationship {
   @@index([fromEntityId])
   @@index([toEntityId])
   @@map("intake_relationships")
+}
+
+// ============================================================================
+// COLA DE VERIFICACIÓN (importaciones + captura en campo)
+// ============================================================================
+
+enum VerificationSource {
+  IMPORT
+  FIELD
+}
+
+enum VerificationStatus {
+  PENDING
+  ASSIGNED
+  IN_REVIEW
+  VALIDATED
+  REJECTED
+}
+
+/// Registro pendiente de verificación antes de crear Persona/Empresa en el CRM.
+model VerificationItem {
+  id                String             @id @default(uuid())
+  entityType        EntityType         @map("entity_type")
+  source            VerificationSource
+  status            VerificationStatus @default(PENDING)
+
+  importBatchId     String?            @map("import_batch_id")
+  stagingRowId      String?            @map("staging_row_id")
+
+  assignedToId      String?            @map("assigned_to_id")
+  assignedAt        DateTime?          @map("assigned_at")
+
+  intakeSessionId   String?            @unique @map("intake_session_id")
+
+  /// Snapshot precargado (formato intake) + metadatos de importación
+  data              Json
+
+  province          String?            @db.Char(2)  @map("cod_prov")
+  district          String?            @db.Char(4)  @map("cod_dist")
+  corregimiento     String?            @db.Char(6)  @map("cod_corr")
+
+  displayName       String?            @map("display_name") @db.VarChar(255)
+  searchCedula      String?            @map("search_cedula") @db.VarChar(40)
+  searchRuc         String?            @map("search_ruc") @db.VarChar(60)
+  searchText        String?            @map("search_text") @db.VarChar(500)
+
+  validatedEntityId String?            @map("validated_entity_id")
+  validatedAt       DateTime?          @map("validated_at")
+  rejectedAt        DateTime?          @map("rejected_at")
+  rejectionReason   String?            @map("rejection_reason")
+
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+
+  importBatch       ImportBatch?       @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  stagingRow        StagingRow?        @relation(fields: [stagingRowId], references: [id], onDelete: SetNull)
+  assignedTo        User?              @relation("VerificationAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  intakeSession     IntakeSession?     @relation(fields: [intakeSessionId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([source])
+  @@index([entityType])
+  @@index([assignedToId])
+  @@index([importBatchId])
+  @@index([province])
+  @@index([district])
+  @@index([corregimiento])
+  @@index([createdAt])
+  @@index([status, source, entityType])
+  @@index([searchCedula])
+  @@index([searchRuc])
+  @@map("verification_items")
 }

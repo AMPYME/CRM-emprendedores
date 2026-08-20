@@ -12,9 +12,8 @@
 import { EntityType } from '../../shared/types/enums';
 
 export const RELATIONSHIP_TARGETS_BY_SOURCE: Record<EntityType, readonly EntityType[]> = {
-  [EntityType.PERSON]: [EntityType.PERSON],
-  [EntityType.ESTABLISHMENT]: [EntityType.PERSON, EntityType.ESTABLISHMENT],
-  [EntityType.COMPANY]: [EntityType.COMPANY, EntityType.PERSON, EntityType.ESTABLISHMENT],
+  [EntityType.PERSON]: [EntityType.PERSON, EntityType.COMPANY],
+  [EntityType.COMPANY]: [EntityType.COMPANY, EntityType.PERSON],
 };
 
 export function isAllowedRelationshipPair(
@@ -33,7 +32,6 @@ export function relationshipPairErrorMessage(
   const labels: Record<string, string> = {
     PERSON: 'persona',
     COMPANY: 'empresa',
-    ESTABLISHMENT: 'establecimiento',
   };
   const fromLabel = labels[fromType] ?? fromType;
   const toLabel = labels[toType] ?? toType;

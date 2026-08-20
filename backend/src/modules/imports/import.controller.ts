@@ -11,6 +11,7 @@ import {
   sendNoContent,
 } from '../../shared/utils/response.utils';
 import { BadRequestError } from '../../shared/errors/app-error';
+import { verificationService } from '../verifications/verification.service';
 
 export const importController = {
   // ═══════════════════════════════════════════════════════════════
@@ -105,6 +106,18 @@ export const importController = {
   async execute(req: Request, res: Response): Promise<void> {
     const batch = await importService.executeImport(req.params.id as string);
     sendSuccess(res, batch);
+  },
+
+  /**
+   * POST /api/v1/imports/:id/send-to-verification
+   * Envía filas VALID a la cola de verificación (sin crear entidades).
+   */
+  async sendToVerification(req: Request, res: Response): Promise<void> {
+    const result = await verificationService.sendImportToVerification(
+      req.params.id as string,
+      (req as Request & { user?: { id: string } }).user?.id
+    );
+    sendSuccess(res, result);
   },
 
   /**

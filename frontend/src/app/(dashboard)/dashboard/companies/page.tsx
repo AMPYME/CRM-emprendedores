@@ -23,16 +23,37 @@ import {
 import { useCompanies, useDeleteCompany } from '@/hooks/use-companies';
 import { usePagination } from '@/hooks/use-pagination';
 import { CompanyFormModal } from './company-form-modal';
-import { getProvinciaOptions, provinciaNombre } from '@/lib/division-politica';
+import { getProvinciaOptions, getDistritoOptions, getCorregimientoOptions, provinciaNombre } from '@/lib/division-politica';
+import { COMPANY_SIZE_CLASS_OPTIONS } from '@/lib/company-size-class';
+import { COMPANY_TYPE_OPTIONS } from '@/lib/company-types';
+import { isReadOnlyRole } from '@/lib/roles';
+import { useAuthStore } from '@/stores/auth.store';
 
 const provinciaOptions = [
   { value: '', label: 'Todas las provincias' },
   ...getProvinciaOptions().filter((o) => o.value !== ''),
 ];
 
+const sizeClassFilterOptions = [
+  { value: '', label: 'Clasificación: todas' },
+  ...COMPANY_SIZE_CLASS_OPTIONS.filter((o) => o.value),
+];
+
+const companyTypeFilterOptions = [
+  { value: '', label: 'Tipo de sociedad: todos' },
+  ...COMPANY_TYPE_OPTIONS.filter((o) => o.value),
+];
+
 export default function CompaniesPage() {
+  const user = useAuthStore((s) => s.user);
+  const readOnly = isReadOnlyRole(user?.role);
   const { page, limit, setPage, searchQuery, setSearchQuery } = usePagination();
   const [province, setProvince] = useState('');
+  const [district, setDistrict] = useState('');
+  const [corregimiento, setCorregimiento] = useState('');
+  const [companySizeClass, setCompanySizeClass] = useState('');
+  const [companyType, setCompanyType] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -41,6 +62,10 @@ export default function CompaniesPage() {
     limit,
     search: searchQuery || undefined,
     province: province || undefined,
+    district: district || undefined,
+    corregimiento: corregimiento || undefined,
+    companySizeClass: companySizeClass || undefined,
+    companyType: companyType || undefined,
   });
 
   const deleteMutation = useDeleteCompany();
@@ -70,13 +95,53 @@ export default function CompaniesPage() {
       <PageHeader title="Empresas" description="Gestión de empresas registradas" />
 
       <Card>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-          <div className="flex-1">
-            <SearchBar placeholder="Buscar por nombre, RUC..." onSearch={handleSearch} initialQuery={searchQuery} />
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+            <div className="flex-1">
+              <SearchBar placeholder="Buscar por nombre, RUC..." onSearch={handleSearch} initialQuery={searchQuery} />
+            </div>
+            <div className="w-full sm:w-56">
+              <Select
+                options={provinciaOptions}
+                value={province}
+                onChange={(e) => {
+                  setProvince(e.target.value);
+                  setDistrict('');
+                  setCorregimiento('');
+                  setPage(1);
+                }}
+              />
+            </div>
+            <Button variant="outline" onClick={() => setShowAdvanced(!showAdvanced)}>
+              Filtros avanzados
+            </Button>
           </div>
-          <div className="w-full sm:w-56">
-            <Select options={provinciaOptions} value={province} onChange={(e) => { setProvince(e.target.value); setPage(1); }} />
-          </div>
+          {showAdvanced && (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 border-t pt-4">
+              <Select
+                options={[{ value: '', label: 'Todos los distritos' }, ...getDistritoOptions(province).filter((o) => o.value)]}
+                value={district}
+                disabled={!province}
+                onChange={(e) => { setDistrict(e.target.value); setCorregimiento(''); setPage(1); }}
+              />
+              <Select
+                options={[{ value: '', label: 'Todos los corregimientos' }, ...getCorregimientoOptions(province, district).filter((o) => o.value)]}
+                value={corregimiento}
+                disabled={!district}
+                onChange={(e) => { setCorregimiento(e.target.value); setPage(1); }}
+              />
+              <Select
+                options={sizeClassFilterOptions}
+                value={companySizeClass}
+                onChange={(e) => { setCompanySizeClass(e.target.value); setPage(1); }}
+              />
+              <Select
+                options={companyTypeFilterOptions}
+                value={companyType}
+                onChange={(e) => { setCompanyType(e.target.value); setPage(1); }}
+              />
+            </div>
+          )}
         </div>
       </Card>
 
@@ -130,15 +195,22 @@ export default function CompaniesPage() {
                           <Link href={`/dashboard/companies/${item.id}`}>
                           <Button variant="ghost" size="sm" title="Ver detalle"><Eye className="h-4 w-4" /></Button>
                         </Link>
-                          <Button variant="ghost" size="sm" title="Editar" onClick={() => openEdit(item.id)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost" size="sm" title="Eliminar" className="text-red-500 hover:text-red-700"
-                            onClick={() => handleDelete(item.id, c?.legalName || item.displayName)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                          {!readOnly && (
+                            <>
+                              <Button variant="ghost" size="sm" title="Editar" onClick={() => openEdit(item.id)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="Eliminar"
+                                className="text-red-500 hover:text-red-700"
+                                onClick={() => handleDelete(item.id, c?.legalName || item.displayName)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
                       </div>
                     </TableCell>
                   </TableRow>

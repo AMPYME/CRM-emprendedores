@@ -5,7 +5,6 @@ import Link from 'next/link';
 import {
   Users,
   Building,
-  Briefcase,
   Calendar,
   FolderKanban,
   Upload,
@@ -22,11 +21,11 @@ import { PageHeader } from '@/components/layout/page-header';
 import { useEntities } from '@/hooks/use-entities';
 import { usePersons } from '@/hooks/use-persons';
 import { useCompanies } from '@/hooks/use-companies';
-import { useEstablishments } from '@/hooks/use-establishments';
 import { useEvents } from '@/hooks/use-events';
 import { usePortfolioStats } from '@/hooks/use-portfolio';
 import { useAuthStore } from '@/stores/auth.store';
 import { cn } from '@/lib/utils';
+import { canAccessImports, canAccessNav, isReadOnlyRole } from '@/lib/roles';
 
 /* ─── Stats card ──────────────────────────────────────── */
 interface StatCardProps {
@@ -115,20 +114,23 @@ function QuickAction({ title, description, href, icon: Icon, color }: QuickActio
 /* ─── Page ────────────────────────────────────────────── */
 export default function DashboardPage() {
   const { user } = useAuthStore();
+  const role = user?.role;
+  const showEvents = canAccessNav(role, 'events');
+  const showPortfolio = canAccessNav(role, 'portfolio');
+  const showImports = canAccessImports(role);
+  const readOnly = isReadOnlyRole(role);
 
   const persons = usePersons({ limit: 1 });
   const companies = useCompanies({ limit: 1 });
-  const establishments = useEstablishments({ limit: 1 });
   const events = useEvents({ limit: 1 });
   const portfolioStats = usePortfolioStats();
 
   const personCount = persons.data?.meta?.total ?? '—';
   const companyCount = companies.data?.meta?.total ?? '—';
-  const estabCount = establishments.data?.meta?.total ?? '—';
   const eventCount = events.data?.meta?.total ?? '—';
 
   const isLoading =
-    persons.isLoading || companies.isLoading || establishments.isLoading || events.isLoading;
+    persons.isLoading || companies.isLoading || (showEvents && events.isLoading);
 
   return (
     <div className="space-y-6">
@@ -143,7 +145,7 @@ export default function DashboardPage() {
           <LoadingSpinner size="lg" text="Cargando estadísticas..." />
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <StatCard
             title="Personas"
             value={personCount}
@@ -160,28 +162,23 @@ export default function DashboardPage() {
             color="bg-emerald-500"
             subtitle="Empresas registradas"
           />
-          <StatCard
-            title="Establecimientos"
-            value={estabCount}
-            icon={Briefcase}
-            href="/dashboard/establishments"
-            color="bg-purple-500"
-            subtitle="Establecimientos registrados"
-          />
-          <StatCard
-            title="Eventos"
-            value={eventCount}
-            icon={Calendar}
-            href="/dashboard/events"
-            color="bg-amber-500"
-            subtitle="Eventos creados"
-          />
+          {showEvents && (
+            <StatCard
+              title="Eventos"
+              value={eventCount}
+              icon={Calendar}
+              href="/dashboard/events"
+              color="bg-amber-500"
+              subtitle="Eventos creados"
+            />
+          )}
         </div>
       )}
 
       {/* ── Lower half ─────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className={cn('grid grid-cols-1 gap-6', showPortfolio && 'lg:grid-cols-3')}>
         {/* Portfolio overview */}
+        {showPortfolio && (
         <div className="lg:col-span-2">
           <Card title="Cartera de Seguimiento" description="Resumen del estado de las gestiones">
             {portfolioStats.isLoading ? (
@@ -248,6 +245,7 @@ export default function DashboardPage() {
             )}
           </Card>
         </div>
+        )}
 
         {/* Quick actions */}
         <div>
@@ -267,20 +265,24 @@ export default function DashboardPage() {
                 icon={Building}
                 color="bg-emerald-500"
               />
-              <QuickAction
-                title="Crear evento"
-                description="Organizar un nuevo evento"
-                href="/dashboard/events?action=create"
-                icon={Calendar}
-                color="bg-amber-500"
-              />
-              <QuickAction
-                title="Importar datos"
-                description="Carga masiva desde Excel"
-                href="/dashboard/imports"
-                icon={Upload}
-                color="bg-indigo-500"
-              />
+              {showEvents && !readOnly && (
+                <QuickAction
+                  title="Crear evento"
+                  description="Organizar un nuevo evento"
+                  href="/dashboard/events?action=create"
+                  icon={Calendar}
+                  color="bg-amber-500"
+                />
+              )}
+              {showImports && (
+                <QuickAction
+                  title="Importar datos"
+                  description="Carga masiva desde Excel"
+                  href="/dashboard/imports"
+                  icon={Upload}
+                  color="bg-indigo-500"
+                />
+              )}
             </div>
           </Card>
         </div>

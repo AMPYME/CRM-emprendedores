@@ -21,6 +21,7 @@
  */
 import { Router } from 'express';
 import { importController } from './import.controller';
+import { protect, requireFullAccess } from '../auth/auth.middleware';
 import { asyncHandler } from '../../shared/utils/async-handler';
 import { validate } from '../../shared/middlewares/validate.middleware';
 import { uploadExcel } from './upload.middleware';
@@ -36,6 +37,9 @@ import {
 } from './import.validator';
 
 export const importRoutes = Router();
+
+// Todas las rutas de importación requieren auth + rol de administración
+importRoutes.use(protect, requireFullAccess);
 
 // ── Utilidades (antes de /:id para evitar conflicto) ──────────
 
@@ -97,6 +101,12 @@ importRoutes.post(
   '/:id/retry',
   validate(importIdParamSchema, 'params'),
   asyncHandler(importController.retry)
+);
+
+importRoutes.post(
+  '/:id/send-to-verification',
+  validate(importIdParamSchema, 'params'),
+  asyncHandler(importController.sendToVerification)
 );
 
 importRoutes.post(

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   RadioTower, Plus, Copy, Check, ExternalLink, Clock, ArrowRight,
-  User, Building2, Store, QrCode, Trash2, KeyRound, RefreshCw,
+  User, Building2, QrCode, Trash2, KeyRound, RefreshCw,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,7 @@ import { getIntakeFormUrl, intakeAccessCodeKey } from '@/services/intake.service
 import type { IntakeStatus, IntakeEntityType, IntakeCreateResult } from '@/types/intake.types';
 import { useAuthStore } from '@/stores/auth.store';
 import { cn } from '@/lib/utils';
+import { VerificationQueuePanel } from '@/components/verification/verification-queue';
 
 const statusOptions = [
   { value: '', label: 'Todas' },
@@ -57,18 +58,11 @@ const entityTypeOptions: Array<{
     description: 'Persona jurídica o razón social',
     icon: Building2,
   },
-  {
-    value: 'ESTABLISHMENT',
-    label: 'Establecimiento',
-    description: 'Local comercial o punto de venta',
-    icon: Store,
-  },
 ];
 
 const entityTypeBadge: Record<IntakeEntityType, { variant: BadgeProps['variant']; label: string }> = {
   PERSON: { variant: 'info', label: 'Persona' },
   COMPANY: { variant: 'purple', label: 'Empresa' },
-  ESTABLISHMENT: { variant: 'warning', label: 'Establecimiento' },
 };
 
 function StatusBadge({ status }: { status: IntakeStatus }) {
@@ -230,6 +224,7 @@ function SessionShareModal({
 export default function IntakeListPage() {
   const router = useRouter();
   const currentUser = useAuthStore((s) => s.user);
+  const [activeTab, setActiveTab] = useState<'queue' | 'field'>('queue');
   const [status, setStatus] = useState<IntakeStatus | ''>('');
   const [createdBy, setCreatedBy] = useState<string>('');
   const [createOpen, setCreateOpen] = useState(false);
@@ -289,15 +284,48 @@ export default function IntakeListPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Ingesta en vivo"
-        description="Crea una sesión, comparte el enlace/QR y protege el borrador con un código temporal de acceso."
+        title="Verificación"
+        description="Cola de registros importados y captura en campo con revisión antes de crear Personas/Empresas."
         actions={
-          <Button onClick={openCreate} icon={<Plus className="h-4 w-4" />}>
-            Crear sesión
-          </Button>
+          activeTab === 'field' ? (
+            <Button onClick={openCreate} icon={<Plus className="h-4 w-4" />}>
+              Crear sesión
+            </Button>
+          ) : undefined
         }
       />
 
+      <div className="flex gap-2 border-b border-gray-200">
+        <button
+          type="button"
+          onClick={() => setActiveTab('queue')}
+          className={cn(
+            'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+            activeTab === 'queue'
+              ? 'border-primary-600 text-primary-700'
+              : 'border-transparent text-gray-500 hover:text-gray-800'
+          )}
+        >
+          Cola de verificación
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('field')}
+          className={cn(
+            'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+            activeTab === 'field'
+              ? 'border-primary-600 text-primary-700'
+              : 'border-transparent text-gray-500 hover:text-gray-800'
+          )}
+        >
+          Captura en campo
+        </button>
+      </div>
+
+      {activeTab === 'queue' ? (
+        <VerificationQueuePanel />
+      ) : (
+        <>
       <div className="grid gap-3 sm:grid-cols-2 lg:max-w-2xl">
         <Select
           label="Estado"
@@ -393,7 +421,7 @@ export default function IntakeListPage() {
       <Modal
         isOpen={createOpen}
         onClose={() => setCreateOpen(false)}
-        title="Nueva sesión de ingesta"
+        title="Nueva sesión de verificación"
         description="¿Qué tipo de registro completará el emprendedor?"
         size="md"
       >
@@ -465,6 +493,8 @@ export default function IntakeListPage() {
         variant="danger"
         isLoading={deleteMutation.isPending}
       />
+        </>
+      )}
     </div>
   );
 }

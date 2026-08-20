@@ -4,15 +4,39 @@
 import { Request, Response } from 'express';
 import { intakeService } from './intake.service';
 import { intakeWs } from './intake.ws';
+import { verificationService } from '../verifications/verification.service';
+import type { VerificationDataPayload } from '../verifications/verification.types';
 import { sendSuccess, sendCreated } from '../../shared/utils/response.utils';
 import { IntakeStatus, IntakeEntityType } from './intake.types';
 
 export const intakeController = {
   /** POST /intake/sessions — el operador abre una sesión y obtiene el enlace. */
   async createSession(req: Request, res: Response): Promise<void> {
-    const createdBy = req.user?.email || req.user?.id || null;
+    const createdBy = req.user?.id || null;
     const entityType = (req.body?.entityType as IntakeEntityType) || 'PERSON';
     const result = await intakeService.createSession(createdBy, entityType);
+
+    if (createdBy) {
+      const data: VerificationDataPayload = {
+        entityType,
+        snapshot: {
+          entityType,
+          location: { province: null, district: null, corregimiento: null, address: null },
+          person: null,
+          company: null,
+          contacts: [],
+          notes: null,
+        },
+      };
+      await verificationService.createFieldVerification({
+        intakeSessionId: result.sessionId,
+        entityType,
+        displayName: 'Captura en campo',
+        createdById: createdBy,
+        data,
+      });
+    }
+
     sendCreated(res, result);
   },
 
@@ -63,7 +87,8 @@ export const intakeController = {
     const result = await intakeService.validateAndMigrate(
       id,
       req.user?.id,
-      req.body.accessCode as string | undefined
+      req.body.accessCode as string | undefined,
+      req.user?.email
     );
     intakeWs.notifyValidated(id);
     sendSuccess(res, result, 201);

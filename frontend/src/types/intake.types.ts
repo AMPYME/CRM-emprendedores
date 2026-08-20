@@ -2,7 +2,7 @@
  * Tipos del intake de emprendedores (espejo del backend).
  */
 export type IntakeStatus = 'DRAFT' | 'SUBMITTED' | 'VALIDATED' | 'EXPIRED';
-export type IntakeEntityType = 'PERSON' | 'COMPANY' | 'ESTABLISHMENT';
+export type IntakeEntityType = 'PERSON' | 'COMPANY';
 
 export interface IntakeContact {
   contact_type: string;
@@ -23,6 +23,7 @@ export interface IntakePerson {
   occupation: string | null;
   business_name: string | null;
   economic_activity: string | null;
+  has_artisan_card: boolean | null;
 }
 
 export interface IntakeCompany {
@@ -31,18 +32,8 @@ export interface IntakeCompany {
   legal_name: string | null;
   trade_name: string | null;
   company_type: string | null;
-  economic_activity: string | null;
+  company_size_class: string | null;
   founded_date: string | null;
-  employee_count: number | null;
-}
-
-export interface IntakeEstablishment {
-  establishment_name: string | null;
-  establishment_type: string | null;
-  economic_activity: string | null;
-  notice_of_operation: string | null;
-  latitude: number | null;
-  longitude: number | null;
 }
 
 export interface IntakeSnapshot {
@@ -62,7 +53,6 @@ export interface IntakeSnapshot {
   notes: string | null;
   person: IntakePerson | null;
   company: IntakeCompany | null;
-  establishment: IntakeEstablishment | null;
   contacts: IntakeContact[];
 }
 

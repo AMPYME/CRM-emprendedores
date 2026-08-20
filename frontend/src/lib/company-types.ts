@@ -3,7 +3,7 @@ export const COMPANY_TYPE_VALUES = [
   { value: 'S.EP.', label: 'S.EP.' },
   { value: 'INC.', label: 'INC.' },
   { value: 'Corp.', label: 'Corp.' },
-  { value: 'S.R.L.', label: 'S.R.L.' },
+  { value: 'S. de R.L.', label: 'S. de R.L.' },
 ] as const;
 
 export const COMPANY_TYPE_OPTIONS = [

@@ -70,19 +70,23 @@ export const authRepository = {
         passwordHash: data.passwordHash,
         firstName: data.firstName,
         lastName: data.lastName,
-        role: data.role || 'OPERATOR',
+        role: data.role || 'EMPREND_OPERADOR',
       },
       select: SAFE_USER_SELECT,
     });
   },
 
   /**
-   * Actualizar último login.
+   * Actualizar último login y, opcionalmente, sincronizar rol desde AD.
    */
-  async updateLastLogin(id: string): Promise<void> {
-    await prisma.user.update({
+  async updateLastLogin(id: string, role?: UserRole): Promise<SafeUser> {
+    return prisma.user.update({
       where: { id },
-      data: { lastLoginAt: new Date() },
+      data: {
+        lastLoginAt: new Date(),
+        ...(role ? { role } : {}),
+      },
+      select: SAFE_USER_SELECT,
     });
   },
 

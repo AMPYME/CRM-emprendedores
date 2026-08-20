@@ -17,36 +17,43 @@ import {
   Table, TableHead, TableBody, TableRow, TableHeaderCell, TableCell,
 } from '@/components/ui/table';
 import {
-  useImport, useImportPreview, useProcessImport, useRetryImport, useExecuteImport, useImportRows, useSystemFields,
+  useImport, useImportPreview, useProcessImport, useRetryImport, useImportRows, useSystemFields,
 } from '@/hooks/use-imports';
+import { useSendImportToVerification } from '@/hooks/use-verifications';
 import { importsService } from '@/services/imports.service';
 import { usePagination } from '@/hooks/use-pagination';
 import { formatDate, cn } from '@/lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import { getApiErrorMessage } from '@/services/api-client';
+import { ImportProgressBar } from '@/components/imports/import-progress-bar';
 import type { ImportStatus, StagingRowStatus } from '@/types/entities.types';
 
 /* ──────────────────────────────────────────────── */
 /* Constants                                        */
 /* ──────────────────────────────────────────────── */
-const statusBadge: Record<string, 'default' | 'primary' | 'success' | 'warning' | 'danger'> = {
+const statusBadge: Record<string, 'default' | 'primary' | 'success' | 'warning' | 'danger' | 'info'> = {
   PENDING: 'default', PROCESSING: 'primary', VALIDATING: 'primary',
   DEDUPLICATING: 'warning', REVIEW_REQUIRED: 'warning', IMPORTING: 'primary',
+  VERIFICATION_QUEUED: 'info',
   COMPLETED: 'success', FAILED: 'danger', CANCELLED: 'default',
 };
 const statusLabel: Record<string, string> = {
   PENDING: 'Pendiente', PROCESSING: 'Procesando', VALIDATING: 'Validando',
   DEDUPLICATING: 'Deduplicando', REVIEW_REQUIRED: 'Revisión requerida',
-  IMPORTING: 'Importando', COMPLETED: 'Completado', FAILED: 'Fallido', CANCELLED: 'Cancelado',
+  IMPORTING: 'Importando', VERIFICATION_QUEUED: 'En cola de verificación',
+  COMPLETED: 'Completado', FAILED: 'Fallido', CANCELLED: 'Cancelado',
 };
 const rowStatusBadge: Record<string, 'default' | 'primary' | 'success' | 'warning' | 'danger'> = {
   PENDING: 'default', VALID: 'success', INVALID: 'danger',
   DUPLICATE_EXACT: 'warning', DUPLICATE_POSSIBLE: 'warning',
+  QUEUED_FOR_VERIFICATION: 'primary',
   IMPORTED: 'success', SKIPPED: 'default', ERROR: 'danger',
 };
 const rowStatusLabel: Record<string, string> = {
   PENDING: 'Pendiente', VALID: 'Válido', INVALID: 'Inválido',
   DUPLICATE_EXACT: 'Duplicado exacto', DUPLICATE_POSSIBLE: 'Posible duplicado',
+  QUEUED_FOR_VERIFICATION: 'En cola de verificación',
   IMPORTED: 'Importado', SKIPPED: 'Omitido', ERROR: 'Error',
 };
 const rowStatusFilterOptions = [
@@ -56,6 +63,7 @@ const rowStatusFilterOptions = [
   { value: 'INVALID', label: 'Inválido' },
   { value: 'DUPLICATE_EXACT', label: 'Duplicado exacto' },
   { value: 'DUPLICATE_POSSIBLE', label: 'Posible duplicado' },
+  { value: 'QUEUED_FOR_VERIFICATION', label: 'En cola de verificación' },
   { value: 'IMPORTED', label: 'Importado' },
   { value: 'SKIPPED', label: 'Omitido' },
   { value: 'ERROR', label: 'Error' },
@@ -75,6 +83,22 @@ function invertMapping(map: Record<string, string>): Record<string, string> {
   return out;
 }
 
+/** Backend { systemField → excelHeader } → UI { excelHeader → systemField }, alineando headers reales. */
+function backendMappingToUi(
+  backendMap: Record<string, string>,
+  headers: string[]
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  const headerByLower = new Map(headers.map((h) => [h.toLowerCase(), h]));
+  for (const [systemField, excelCol] of Object.entries(backendMap || {})) {
+    if (!systemField || !excelCol) continue;
+    const actual =
+      headers.includes(excelCol) ? excelCol : headerByLower.get(excelCol.toLowerCase());
+    if (actual) out[actual] = systemField;
+  }
+  return out;
+}
+
 function stepForStatus(status: ImportStatus): WizardStep {
   switch (status) {
     case 'PENDING': return 'preview';
@@ -84,6 +108,7 @@ function stepForStatus(status: ImportStatus): WizardStep {
       return 'process';
     case 'REVIEW_REQUIRED':
     case 'IMPORTING':
+    case 'VERIFICATION_QUEUED':
       return 'rows';
     case 'COMPLETED':
     case 'FAILED':
@@ -101,6 +126,35 @@ const steps: { id: WizardStep; label: string }[] = [
   { id: 'rows', label: '4. Resultados' },
 ];
 
+/** Progreso de UI derivado del estado de negocio (no se persiste en BD). */
+function progressFromStatus(status: ImportStatus, totalRows: number): { percent: number; label: string } {
+  switch (status) {
+    case 'PROCESSING':
+      return { percent: 15, label: 'Leyendo archivo Excel…' };
+    case 'VALIDATING':
+      return {
+        percent: 45,
+        label: totalRows > 0
+          ? `Validando filas (${totalRows.toLocaleString('es-PA')} en el archivo)…`
+          : 'Validando y creando staging…',
+      };
+    case 'DEDUPLICATING':
+      return { percent: 80, label: 'Buscando duplicados…' };
+    case 'IMPORTING':
+      return { percent: 60, label: 'Enviando a cola de verificación…' };
+    case 'REVIEW_REQUIRED':
+      return { percent: 100, label: 'Procesamiento completado' };
+    case 'VERIFICATION_QUEUED':
+      return { percent: 100, label: 'Enviado a verificación' };
+    case 'COMPLETED':
+      return { percent: 100, label: 'Completado' };
+    case 'FAILED':
+      return { percent: 0, label: 'Error en el procesamiento' };
+    default:
+      return { percent: 5, label: 'Iniciando…' };
+  }
+}
+
 /* ──────────────────────────────────────────────── */
 /* Component                                        */
 /* ──────────────────────────────────────────────── */
@@ -109,12 +163,18 @@ export default function ImportDetailPage() {
   const router = useRouter();
   const qc = useQueryClient();
 
-  const { data: batch, isLoading, error } = useImport(id);
-  const preview = useImportPreview(id);
-  const systemFields = useSystemFields();
   const processMutation = useProcessImport();
   const retryMutation = useRetryImport();
-  const executeMutation = useExecuteImport();
+  const sendToVerificationMutation = useSendImportToVerification();
+
+  const clientBusy =
+    processMutation.isPending ||
+    retryMutation.isPending ||
+    sendToVerificationMutation.isPending;
+
+  const { data: batch, isLoading, error } = useImport(id, { poll: clientBusy });
+  const preview = useImportPreview(id);
+  const systemFields = useSystemFields();
 
   // Wizard step
   const currentStep = batch ? stepForStatus(batch.status) : 'preview';
@@ -130,24 +190,37 @@ export default function ImportDetailPage() {
   const [rowStatusFilter, setRowStatusFilter] = useState('');
   const rows = useImportRows(id, { page, limit, status: rowStatusFilter || undefined });
 
-  // Initialize mapping from batch
+  // Initialize mapping from batch o preview (backend: systemField → excelHeader)
   React.useEffect(() => {
-    if (batch?.columnMapping && typeof batch.columnMapping === 'object') {
-      // Backend guarda: { systemField: excelHeader }. La UI necesita: { excelHeader: systemField }.
-      setMapping(invertMapping(batch.columnMapping as Record<string, string>));
+    const headers = preview.data?.headers ?? [];
+    const source =
+      (batch?.columnMapping as Record<string, string> | null) ||
+      preview.data?.columnMapping ||
+      null;
+    if (source && typeof source === 'object' && Object.keys(source).length > 0) {
+      setMapping(headers.length > 0 ? backendMappingToUi(source, headers) : invertMapping(source));
     }
-  }, [batch?.columnMapping]);
+  }, [batch?.columnMapping, preview.data?.columnMapping, preview.data?.headers]);
+
+  const buildBackendMapping = (): Record<string, string> => {
+    // UI: excelHeader → systemField  →  backend: systemField → excelHeader
+    return invertMapping(mapping);
+  };
 
   const handleSaveMapping = async () => {
     if (!id) return;
+    const columnMapping = buildBackendMapping();
+    if (Object.keys(columnMapping).length === 0) {
+      toast.error('Asigna al menos una columna a un campo del sistema');
+      return;
+    }
     setSavingMapping(true);
     try {
-      // Convertir UI mapping (excelHeader -> systemField) a formato backend (systemField -> excelHeader)
-      await importsService.updateMapping(id, invertMapping(mapping));
+      await importsService.updateMapping(id, columnMapping);
       qc.invalidateQueries({ queryKey: ['imports', id] });
       toast.success('Mapeo guardado');
-    } catch {
-      toast.error('Error al guardar mapeo');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
     } finally {
       setSavingMapping(false);
     }
@@ -155,19 +228,37 @@ export default function ImportDetailPage() {
 
   const handleProcess = async () => {
     if (!id) return;
+    const columnMapping = buildBackendMapping();
+    if (Object.keys(columnMapping).length === 0) {
+      toast.error('Asigna al menos una columna antes de procesar');
+      setActiveStep('mapping');
+      return;
+    }
+    try {
+      await importsService.updateMapping(id, columnMapping);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+      return;
+    }
+    setActiveStep('process');
     try {
       await processMutation.mutateAsync(id);
       qc.invalidateQueries({ queryKey: ['imports', id] });
-    } catch { /* toast */ }
+    } catch {
+      /* toast del mutation */
+    }
   };
 
-  const handleExecute = async () => {
+  const handleSendToVerification = async () => {
     if (!id) return;
-    if (!window.confirm('¿Estás seguro de ejecutar la importación? Los registros válidos se importarán al sistema.')) return;
+    if (!window.confirm('¿Enviar filas válidas a la cola de verificación? No se crearán Personas/Empresas hasta que un funcionario las valide.')) return;
     try {
-      await executeMutation.mutateAsync(id);
+      const result = await sendToVerificationMutation.mutateAsync(id);
       qc.invalidateQueries({ queryKey: ['imports', id] });
-    } catch { /* toast */ }
+      toast.success(`${result.queued} registros enviados a verificación`);
+    } catch {
+      toast.error('Error al enviar a verificación');
+    }
   };
 
   const handleCancel = async () => {
@@ -200,20 +291,30 @@ export default function ImportDetailPage() {
   const previewRows = preview.data?.rows ?? [];
   const fields = systemFields.data ?? [];
   const isProcessing = ['PROCESSING', 'VALIDATING', 'DEDUPLICATING', 'IMPORTING'].includes(batch.status);
-  const isDone = ['COMPLETED', 'FAILED', 'CANCELLED'].includes(batch.status);
+  const isDone = ['COMPLETED', 'FAILED', 'CANCELLED', 'VERIFICATION_QUEUED'].includes(batch.status);
   const canProcess = batch.status === 'PENDING';
   const canExecute = batch.status === 'REVIEW_REQUIRED';
   const canRetry = ['PENDING', 'REVIEW_REQUIRED', 'FAILED', 'CANCELLED'].includes(batch.status) && !isProcessing;
 
+  const progress = progressFromStatus(batch.status, batch.totalRows);
+  const showProgress = isProcessing || clientBusy;
+
   const handleRetry = async () => {
     if (!id) return;
     if (!window.confirm('¿Reintentar procesamiento? Se borrarán las filas procesadas (staging) y se volverá a procesar el mismo archivo.')) return;
+    const columnMapping = buildBackendMapping();
     try {
+      if (Object.keys(columnMapping).length > 0) {
+        await importsService.updateMapping(id, columnMapping);
+      }
+      setActiveStep('process');
       await retryMutation.mutateAsync(id);
       qc.invalidateQueries({ queryKey: ['imports', id] });
       qc.invalidateQueries({ queryKey: ['import-rows', id] });
-      toast.success('Reintento iniciado');
-    } catch { /* toast */ }
+    } catch (err) {
+      // Si falla el updateMapping (antes del mutation), mostrar error aquí
+      if (!retryMutation.isError) toast.error(getApiErrorMessage(err));
+    }
   };
 
   return (
@@ -406,23 +507,19 @@ export default function ImportDetailPage() {
       {step === 'process' && (
         <Card title="Procesamiento" description="Estado del procesamiento de la importación">
           <div className="flex flex-col items-center justify-center py-12 text-center">
-            {isProcessing ? (
+            {showProgress ? (
               <>
-                <Loader2 className="h-16 w-16 text-primary-500 animate-spin mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900">Procesando importación...</h3>
-                <p className="text-sm text-gray-500 mt-2">
-                  Estado actual: <strong>{statusLabel[batch.status]}</strong>
+                <Loader2 className="h-12 w-12 text-primary-500 animate-spin mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900">Procesando importación</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Estado: <strong>{statusLabel[batch.status] || batch.status}</strong>
+                  {batch.totalRows > 0 && (
+                    <span className="text-gray-400"> · {batch.totalRows.toLocaleString('es-PA')} filas</span>
+                  )}
                 </p>
-                <p className="text-xs text-gray-400 mt-1">
-                  Este proceso puede tardar unos minutos. Puedes recargar la página para ver el progreso.
-                </p>
-                <Button
-                  variant="outline" size="sm" className="mt-4"
-                  icon={<RefreshCw className="h-4 w-4" />}
-                  onClick={() => qc.invalidateQueries({ queryKey: ['imports', id] })}
-                >
-                  Actualizar estado
-                </Button>
+                <div className="mt-6 w-full px-4">
+                  <ImportProgressBar percent={progress.percent} label={progress.label} />
+                </div>
               </>
             ) : canProcess ? (
               <>
@@ -447,6 +544,11 @@ export default function ImportDetailPage() {
                 <p className="text-sm text-gray-500 mt-2">
                   Revisa los resultados en la pestaña de resultados.
                 </p>
+                {batch.status === 'REVIEW_REQUIRED' && (
+                  <div className="mt-4 w-full px-4">
+                    <ImportProgressBar percent={100} label="Procesamiento completado" />
+                  </div>
+                )}
                 <Button size="sm" className="mt-4" onClick={() => setActiveStep('rows')}>
                   Ver resultados
                 </Button>
@@ -462,23 +564,38 @@ export default function ImportDetailPage() {
           {/* Execute action bar */}
           {canExecute && (
             <Card className="border-blue-200 bg-blue-50">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="font-medium text-blue-900">Revisión completada</p>
                   <p className="text-sm text-blue-700">
-                    {batch.validRows} registros válidos listos para importar.
+                    {batch.validRows} registros válidos listos para enviar a verificación.
                     {batch.invalidRows > 0 && ` ${batch.invalidRows} inválidos serán omitidos.`}
                     {batch.duplicateRows > 0 && ` ${batch.duplicateRows} duplicados encontrados.`}
                   </p>
                 </div>
                 <Button
                   icon={<Upload className="h-4 w-4" />}
-                  onClick={handleExecute}
-                  isLoading={executeMutation.isPending}
+                  onClick={handleSendToVerification}
+                  isLoading={sendToVerificationMutation.isPending}
+                  disabled={sendToVerificationMutation.isPending}
                 >
-                  Ejecutar importación
+                  Enviar a verificación
                 </Button>
               </div>
+              {sendToVerificationMutation.isPending && (
+                <div className="mt-4 border-t border-blue-200 pt-4">
+                  <ImportProgressBar
+                    percent={progress.percent}
+                    label={progress.label}
+                  />
+                </div>
+              )}
+            </Card>
+          )}
+
+          {batch.status === 'IMPORTING' && !sendToVerificationMutation.isPending && (
+            <Card className="border-primary-200 bg-primary-50">
+              <ImportProgressBar percent={progress.percent} label={progress.label} />
             </Card>
           )}
 

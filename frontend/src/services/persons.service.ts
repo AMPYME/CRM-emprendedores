@@ -8,9 +8,12 @@ import type { Entity, Person, EntityContact } from '@/types/entities.types';
 export interface PersonFilters extends PaginationParams {
   status?: string;
   province?: string;
+  district?: string;
+  corregimiento?: string;
   cedula?: string;
   gender?: string;
   economicActivity?: string;
+  hasArtisanCard?: boolean;
 }
 
 /**
@@ -37,6 +40,7 @@ export interface CreatePersonInput {
   address?: string;
   businessName?: string;
   economicActivity?: string;
+  hasArtisanCard?: boolean;
   notes?: string;
   contacts?: Array<{
     contactType: string;

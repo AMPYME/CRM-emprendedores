@@ -44,9 +44,9 @@ export const registerSchema = z.object({
     .max(100, 'Apellido demasiado largo')
     .trim(),
   role: z
-    .enum(['ADMIN', 'MANAGER', 'ANALYST', 'OPERATOR', 'VIEWER'])
+    .enum(['SUPER_ADMIN', 'ADMIN', 'EMPREND_ADMIN', 'EMPREND_OPERADOR', 'EMPREND_VIEWER'])
     .optional()
-    .default('OPERATOR'),
+    .default('EMPREND_OPERADOR'),
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;

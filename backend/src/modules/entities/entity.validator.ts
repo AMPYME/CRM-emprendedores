@@ -10,7 +10,7 @@ export const entityQuerySchema = z.object({
   sortBy: z.enum(['displayName', 'createdAt', 'updatedAt', 'province']).optional(),
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
   search: z.string().trim().min(1).optional(),
-  entityType: z.enum(['PERSON', 'COMPANY', 'ESTABLISHMENT']).optional(),
+  entityType: z.enum(['PERSON', 'COMPANY']).optional(),
   status: z.enum(['ACTIVE', 'INACTIVE', 'DUPLICATE', 'MERGED']).optional(),
   province: z.string().optional(),
 });

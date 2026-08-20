@@ -2,7 +2,7 @@
  * Tipos para autenticación y usuarios.
  */
 
-export type UserRole = 'ADMIN' | 'MANAGER' | 'ANALYST' | 'OPERATOR' | 'VIEWER';
+export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'EMPREND_ADMIN' | 'EMPREND_OPERADOR' | 'EMPREND_VIEWER';
 
 export interface AuthUser {
   id: string;

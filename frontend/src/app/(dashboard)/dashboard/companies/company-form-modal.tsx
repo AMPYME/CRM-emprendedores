@@ -10,6 +10,7 @@ import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { LocationCascadeFields } from '@/components/forms/location-cascade-fields';
 import { COMPANY_TYPE_OPTIONS } from '@/lib/company-types';
+import { COMPANY_SIZE_CLASS_OPTIONS } from '@/lib/company-size-class';
 import { useCreateCompany, useUpdateCompany, useCompany } from '@/hooks/use-companies';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import {
@@ -24,9 +25,8 @@ const companySchema = z.object({
   ruc: z.string().optional(),
   dv: z.string().optional(),
   companyType: z.string().optional(),
-  economicActivity: z.string().optional(),
+  companySizeClass: z.string().optional(),
   foundedDate: z.string().optional(),
-  employeeCount: z.string().optional(),
   province: z.string().optional(),
   district: z.string().optional(),
   corregimiento: z.string().optional(),
@@ -80,9 +80,8 @@ export function CompanyFormModal({ isOpen, onClose, editId }: CompanyFormModalPr
         ruc: c?.ruc || '',
         dv: c?.dv || '',
         companyType: c?.companyType || '',
-        economicActivity: c?.economicActivity || '',
+        companySizeClass: c?.companySizeClass || '',
         foundedDate: c?.foundedDate?.split('T')[0] || '',
-        employeeCount: c?.employeeCount != null ? String(c.employeeCount) : '',
         province: provinceCode,
         district: districtCode,
         corregimiento: corregimientoCode,
@@ -100,9 +99,8 @@ export function CompanyFormModal({ isOpen, onClose, editId }: CompanyFormModalPr
         ruc: '',
         dv: '',
         companyType: '',
-        economicActivity: '',
+        companySizeClass: '',
         foundedDate: '',
-        employeeCount: '',
         province: '',
         district: '',
         corregimiento: '',
@@ -125,9 +123,8 @@ export function CompanyFormModal({ isOpen, onClose, editId }: CompanyFormModalPr
       ruc: formData.ruc || undefined,
       dv: formData.dv || undefined,
       companyType: formData.companyType || undefined,
-      economicActivity: formData.economicActivity || undefined,
+      companySizeClass: formData.companySizeClass || undefined,
       foundedDate: formData.foundedDate || undefined,
-      employeeCount: formData.employeeCount ? parseInt(formData.employeeCount, 10) : undefined,
       province: formData.province || undefined,
       district: formData.district || undefined,
       corregimiento: formData.corregimiento || undefined,
@@ -179,9 +176,12 @@ export function CompanyFormModal({ isOpen, onClose, editId }: CompanyFormModalPr
           <Input label="RUC" {...register('ruc')} />
           <Input label="DV" {...register('dv')} className="max-w-[100px]" />
           <Select label="Tipo de Sociedad" options={companyTypeOptions} {...register('companyType')} />
-          <Input label="Actividad económica" {...register('economicActivity')} />
-          <Input label="Fecha de fundación" type="date" {...register('foundedDate')} />
-          <Input label="# Empleados" type="number" {...register('employeeCount')} />
+          <Select
+            label="Clasificación por tamaño"
+            options={COMPANY_SIZE_CLASS_OPTIONS}
+            {...register('companySizeClass')}
+          />
+          <Input label="Fecha de Inscripción" type="date" {...register('foundedDate')} />
           <LocationCascadeFields register={register} watch={watch} setValue={setValue} />
           <Input label="Correo electrónico" type="email" error={errors.email?.message} {...register('email')} />
           <Input label="Teléfono" {...register('phone')} />

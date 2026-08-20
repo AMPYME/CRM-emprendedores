@@ -51,12 +51,27 @@ export const importsService = {
     await apiClient.delete(`/imports/${id}`);
   },
 
-  async preview(id: string, limit?: number): Promise<{ headers: string[]; rows: Record<string, unknown>[] }> {
-    const res = await apiClient.get<ApiResponse<{ headers: string[]; rows: Record<string, unknown>[] }>>(
+  async preview(id: string, limit?: number): Promise<{
+    headers: string[];
+    rows: Record<string, unknown>[];
+    columnMapping?: Record<string, string>;
+  }> {
+    const res = await apiClient.get<ApiResponse<{
+      headers: string[];
+      rows?: Record<string, unknown>[];
+      sampleRows?: Record<string, unknown>[];
+      columnMapping?: Record<string, string>;
+    }>>(
       `/imports/${id}/preview`,
       { params: { limit } }
     );
-    return res.data.data;
+    const data = res.data.data;
+    return {
+      headers: data.headers ?? [],
+      // Backend historicamente usa sampleRows; normalizamos a rows para la UI
+      rows: data.rows ?? data.sampleRows ?? [],
+      columnMapping: data.columnMapping,
+    };
   },
 
   async updateMapping(id: string, columnMapping: ColumnMapping): Promise<ImportBatch> {
@@ -76,6 +91,13 @@ export const importsService = {
 
   async execute(id: string): Promise<ImportBatch> {
     const res = await apiClient.post<ApiResponse<ImportBatch>>(`/imports/${id}/execute`);
+    return res.data.data;
+  },
+
+  async sendToVerification(id: string): Promise<{ batchId: string; queued: number }> {
+    const res = await apiClient.post<ApiResponse<{ batchId: string; queued: number }>>(
+      `/imports/${id}/send-to-verification`
+    );
     return res.data.data;
   },
 

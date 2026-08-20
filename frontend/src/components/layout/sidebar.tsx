@@ -7,17 +7,18 @@ import {
   LayoutDashboard,
   Users,
   Building2,
-  Store,
   Search,
   CalendarDays,
   Briefcase,
   FileSpreadsheet,
   RadioTower,
+  Shield,
   Settings,
   LogOut,
   ChevronLeft,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth.store';
+import { canAccessNav, roleLabel } from '@/lib/roles';
 import { useState } from 'react';
 
 const navigation = [
@@ -25,11 +26,11 @@ const navigation = [
   { id: 'search', name: 'Buscar', href: '/dashboard', icon: Search },
   { id: 'persons', name: 'Personas', href: '/dashboard/persons', icon: Users },
   { id: 'companies', name: 'Empresas', href: '/dashboard/companies', icon: Building2 },
-  { id: 'establishments', name: 'Establecimientos', href: '/dashboard/establishments', icon: Store },
   { id: 'events', name: 'Eventos', href: '/dashboard/events', icon: CalendarDays },
   { id: 'portfolio', name: 'Cartera', href: '/dashboard/portfolio', icon: Briefcase },
   { id: 'imports', name: 'Importaciones', href: '/dashboard/imports', icon: FileSpreadsheet },
-  { id: 'intake', name: 'Ingesta en vivo', href: '/dashboard/intake', icon: RadioTower },
+  { id: 'intake', name: 'Verificación', href: '/dashboard/intake', icon: RadioTower },
+  { id: 'audit', name: 'Auditoría', href: '/dashboard/audit', icon: Shield },
 ] as const;
 
 type NavItem = (typeof navigation)[number];
@@ -61,6 +62,9 @@ export function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
+  const navItems: NavItem[] = navigation.filter((item) =>
+    canAccessNav(user?.role, item.id)
+  );
 
   const handleLogout = () => {
     logout();
@@ -97,7 +101,7 @@ export function Sidebar() {
 
       {/* Nav links */}
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-        {navigation.map((item) => {
+        {navItems.map((item) => {
           const isActive = isNavItemActive(item, pathname);
           return (
             <Link
@@ -126,7 +130,7 @@ export function Sidebar() {
             <p className="truncate text-sm font-medium text-gray-900">
               {user.firstName} {user.lastName}
             </p>
-            <p className="truncate text-xs text-gray-500">{user.role}</p>
+            <p className="truncate text-xs text-gray-500">{roleLabel(user.role)}</p>
           </div>
         )}
         <div className={cn('flex gap-1', collapsed ? 'flex-col items-center' : '')}>

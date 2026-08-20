@@ -236,7 +236,7 @@ export default function PortfolioDetailPage() {
                     onClick={() => {
                       const type = record.entity?.entityType?.toLowerCase();
                       const routes: Record<string, string> = {
-                        person: 'persons', company: 'companies', establishment: 'establishments',
+                        person: 'persons', company: 'companies',
                       };
                       router.push(`/dashboard/${routes[type ?? ''] ?? 'persons'}/${record.entity?.id}`);
                     }}

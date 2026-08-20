@@ -10,6 +10,7 @@ import {
   nationalitySelectOptions,
 } from '@/lib/nationalities';
 import { COMPANY_TYPE_OPTIONS } from '@/lib/company-types';
+import { COMPANY_SIZE_CLASS_OPTIONS } from '@/lib/company-size-class';
 import {
   getCorregimientoOptions,
   getDistritoOptions,
@@ -31,14 +32,10 @@ const genderOptions = [
   { value: 'OTHER', label: 'Otro' },
 ];
 
-const establishmentTypeOptions = [
+const yesNoOptions = [
   { value: '', label: 'Seleccionar' },
-  { value: 'Local comercial', label: 'Local comercial' },
-  { value: 'Oficina', label: 'Oficina' },
-  { value: 'Taller', label: 'Taller' },
-  { value: 'Restaurante', label: 'Restaurante' },
-  { value: 'Kiosco', label: 'Kiosco' },
-  { value: 'Otro', label: 'Otro' },
+  { value: 'true', label: 'Sí' },
+  { value: 'false', label: 'No' },
 ];
 
 const introCopy: Record<IntakeEntityType, { title: string; text: string }> = {
@@ -49,10 +46,6 @@ const introCopy: Record<IntakeEntityType, { title: string; text: string }> = {
   COMPANY: {
     title: 'Registro de empresa',
     text: 'Completa los datos de la empresa. Se guardan automáticamente mientras escribes.',
-  },
-  ESTABLISHMENT: {
-    title: 'Registro de establecimiento',
-    text: 'Completa los datos del establecimiento. Se guardan automáticamente mientras escribes.',
   },
 };
 
@@ -67,18 +60,14 @@ interface FormState {
   gender: string;
   birthDate: string;
   nationalityCode: string;
+  hasArtisanCard: string;
   legalName: string;
   tradeName: string;
   ruc: string;
   dv: string;
   companyType: string;
-  companyActivity: string;
+  companySizeClass: string;
   foundedDate: string;
-  employeeCount: string;
-  establishmentName: string;
-  establishmentType: string;
-  establishmentActivity: string;
-  noticeOfOperation: string;
   province: string;
   district: string;
   corregimiento: string;
@@ -96,18 +85,14 @@ const emptyForm = (): FormState => ({
   gender: '',
   birthDate: '',
   nationalityCode: DEFAULT_NATIONALITY_CODE,
+  hasArtisanCard: '',
   legalName: '',
   tradeName: '',
   ruc: '',
   dv: '',
   companyType: '',
-  companyActivity: '',
+  companySizeClass: '',
   foundedDate: '',
-  employeeCount: '',
-  establishmentName: '',
-  establishmentType: '',
-  establishmentActivity: '',
-  noticeOfOperation: '',
   province: '',
   district: '',
   corregimiento: '',
@@ -129,6 +114,8 @@ function snapshotToForm(snapshot: IntakeSnapshot | null): FormState {
     next.gender = p.gender ?? '';
     next.birthDate = p.birth_date?.split('T')[0] ?? '';
     next.nationalityCode = p.nationality_code || DEFAULT_NATIONALITY_CODE;
+    next.hasArtisanCard =
+      p.has_artisan_card === true ? 'true' : p.has_artisan_card === false ? 'false' : '';
   }
   const c = snapshot.company;
   if (c) {
@@ -137,16 +124,8 @@ function snapshotToForm(snapshot: IntakeSnapshot | null): FormState {
     next.ruc = c.ruc ?? '';
     next.dv = c.dv ?? '';
     next.companyType = c.company_type ?? '';
-    next.companyActivity = c.economic_activity ?? '';
+    next.companySizeClass = c.company_size_class ?? '';
     next.foundedDate = c.founded_date?.split('T')[0] ?? '';
-    next.employeeCount = c.employee_count != null ? String(c.employee_count) : '';
-  }
-  const e = snapshot.establishment;
-  if (e) {
-    next.establishmentName = e.establishment_name ?? '';
-    next.establishmentType = e.establishment_type ?? '';
-    next.establishmentActivity = e.economic_activity ?? '';
-    next.noticeOfOperation = e.notice_of_operation ?? '';
   }
   next.province = snapshot.location.province ?? '';
   next.district = snapshot.location.district ?? '';
@@ -188,23 +167,12 @@ function collectPayload(entityType: IntakeEntityType, form: FormState): IntakeUp
         gender: form.gender,
         birthDate: form.birthDate,
         nationalityCode: form.nationalityCode,
-      },
-      location,
-      contacts,
-      notes: form.notes,
-    };
-  }
-  if (entityType === 'COMPANY') {
-    return {
-      company: {
-        legalName: form.legalName,
-        tradeName: form.tradeName,
-        ruc: form.ruc,
-        dv: form.dv,
-        companyType: form.companyType,
-        economicActivity: form.companyActivity,
-        foundedDate: form.foundedDate,
-        employeeCount: form.employeeCount,
+        hasArtisanCard:
+          form.hasArtisanCard === 'true'
+            ? true
+            : form.hasArtisanCard === 'false'
+              ? false
+              : undefined,
       },
       location,
       contacts,
@@ -212,11 +180,14 @@ function collectPayload(entityType: IntakeEntityType, form: FormState): IntakeUp
     };
   }
   return {
-    establishment: {
-      establishmentName: form.establishmentName,
-      establishmentType: form.establishmentType,
-      economicActivity: form.establishmentActivity,
-      noticeOfOperation: form.noticeOfOperation,
+    company: {
+      legalName: form.legalName,
+      tradeName: form.tradeName,
+      ruc: form.ruc,
+      dv: form.dv,
+      companyType: form.companyType,
+      companySizeClass: form.companySizeClass || undefined,
+      foundedDate: form.foundedDate,
     },
     location,
     contacts,
@@ -450,10 +421,8 @@ export function PublicIntakeForm() {
     if (entityType === 'PERSON') {
       if (!form.firstName.trim()) nextInvalid.firstName = true;
       if (!form.lastName.trim()) nextInvalid.lastName = true;
-    } else if (entityType === 'COMPANY') {
-      if (!form.legalName.trim()) nextInvalid.legalName = true;
-    } else if (!form.establishmentName.trim()) {
-      nextInvalid.establishmentName = true;
+    } else if (!form.legalName.trim()) {
+      nextInvalid.legalName = true;
     }
     if (form.email.trim() && !isValidEmail(form.email.trim())) nextInvalid.email = true;
     setInvalid(nextInvalid);
@@ -604,6 +573,12 @@ export function PublicIntakeForm() {
                       value={form.nationalityCode}
                       onChange={(e) => updateField('nationalityCode', e.target.value, true)}
                     />
+                    <Select
+                      label="Carnet de artesano"
+                      options={yesNoOptions}
+                      value={form.hasArtisanCard}
+                      onChange={(e) => updateField('hasArtisanCard', e.target.value, true)}
+                    />
                   </div>
                 </section>
               )}
@@ -641,54 +616,17 @@ export function PublicIntakeForm() {
                       value={form.companyType}
                       onChange={(e) => updateField('companyType', e.target.value, true)}
                     />
-                    <Input
-                      label="Actividad económica"
-                      value={form.companyActivity}
-                      onChange={(e) => updateField('companyActivity', e.target.value)}
+                    <Select
+                      label="Clasificación por tamaño"
+                      options={COMPANY_SIZE_CLASS_OPTIONS}
+                      value={form.companySizeClass}
+                      onChange={(e) => updateField('companySizeClass', e.target.value, true)}
                     />
                     <Input
-                      label="Fecha de fundación"
+                      label="Fecha de Inscripción"
                       type="date"
                       value={form.foundedDate}
                       onChange={(e) => updateField('foundedDate', e.target.value, true)}
-                    />
-                    <Input
-                      label="N.º de empleados"
-                      type="number"
-                      min={0}
-                      value={form.employeeCount}
-                      onChange={(e) => updateField('employeeCount', e.target.value)}
-                    />
-                  </div>
-                </section>
-              )}
-
-              {entityType === 'ESTABLISHMENT' && (
-                <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-                  <h2 className="mb-4 text-base font-bold">Datos del establecimiento</h2>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <Input
-                      label="Nombre"
-                      required
-                      value={form.establishmentName}
-                      error={invalid.establishmentName ? 'Requerido' : undefined}
-                      onChange={(e) => updateField('establishmentName', e.target.value)}
-                    />
-                    <Select
-                      label="Tipo"
-                      options={establishmentTypeOptions}
-                      value={form.establishmentType}
-                      onChange={(e) => updateField('establishmentType', e.target.value, true)}
-                    />
-                    <Input
-                      label="Actividad económica"
-                      value={form.establishmentActivity}
-                      onChange={(e) => updateField('establishmentActivity', e.target.value)}
-                    />
-                    <Input
-                      label="Aviso de operación"
-                      value={form.noticeOfOperation}
-                      onChange={(e) => updateField('noticeOfOperation', e.target.value)}
                     />
                   </div>
                 </section>

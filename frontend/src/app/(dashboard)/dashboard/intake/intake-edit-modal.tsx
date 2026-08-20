@@ -15,6 +15,7 @@ import {
   nationalitySelectOptions,
 } from '@/lib/nationalities';
 import { COMPANY_TYPE_OPTIONS } from '@/lib/company-types';
+import { COMPANY_SIZE_CLASS_OPTIONS } from '@/lib/company-size-class';
 import {
   toProvinciaCode,
   toDistritoCode,
@@ -28,17 +29,13 @@ const genderOptions = [
   { value: 'OTHER', label: 'Otro' },
 ];
 
-const companyTypeOptions = COMPANY_TYPE_OPTIONS;
-
-const establishmentTypeOptions = [
+const yesNoOptions = [
   { value: '', label: 'Seleccionar' },
-  { value: 'Local comercial', label: 'Local comercial' },
-  { value: 'Oficina', label: 'Oficina' },
-  { value: 'Taller', label: 'Taller' },
-  { value: 'Restaurante', label: 'Restaurante' },
-  { value: 'Kiosco', label: 'Kiosco' },
-  { value: 'Otro', label: 'Otro' },
+  { value: 'true', label: 'Sí' },
+  { value: 'false', label: 'No' },
 ];
+
+const companyTypeOptions = COMPANY_TYPE_OPTIONS;
 
 type FormValues = Record<string, string>;
 
@@ -88,29 +85,20 @@ function snapshotToForm(s: IntakeSnapshot): FormValues {
       gender: p?.gender ?? '',
       birthDate: p?.birth_date?.split('T')[0] ?? p?.birth_date ?? '',
       nationalityCode: p?.nationality_code ?? DEFAULT_NATIONALITY_CODE,
+      hasArtisanCard:
+        p?.has_artisan_card === true ? 'true' : p?.has_artisan_card === false ? 'false' : '',
     };
   }
-  if (s.entityType === 'COMPANY') {
-    const c = s.company;
-    return {
-      ...base,
-      legalName: c?.legal_name ?? '',
-      tradeName: c?.trade_name ?? '',
-      ruc: c?.ruc ?? '',
-      dv: c?.dv ?? '',
-      companyType: c?.company_type ?? '',
-      economicActivity: c?.economic_activity ?? '',
-      foundedDate: c?.founded_date?.split('T')[0] ?? c?.founded_date ?? '',
-      employeeCount: c?.employee_count != null ? String(c.employee_count) : '',
-    };
-  }
-  const e = s.establishment;
+  const c = s.company;
   return {
     ...base,
-    establishmentName: e?.establishment_name ?? '',
-    establishmentType: e?.establishment_type ?? '',
-    economicActivity: e?.economic_activity ?? '',
-    noticeOfOperation: e?.notice_of_operation ?? '',
+    legalName: c?.legal_name ?? '',
+    tradeName: c?.trade_name ?? '',
+    ruc: c?.ruc ?? '',
+    dv: c?.dv ?? '',
+    companyType: c?.company_type ?? '',
+    companySizeClass: c?.company_size_class ?? '',
+    foundedDate: c?.founded_date?.split('T')[0] ?? c?.founded_date ?? '',
   };
 }
 
@@ -144,23 +132,8 @@ function formToPayload(entityType: IntakeEntityType, v: FormValues): IntakeUpdat
         gender: v.gender,
         birthDate: v.birthDate,
         nationalityCode: v.nationalityCode,
-      },
-      location,
-      contacts,
-      notes,
-    };
-  }
-  if (entityType === 'COMPANY') {
-    return {
-      company: {
-        legalName: v.legalName,
-        tradeName: v.tradeName,
-        ruc: v.ruc,
-        dv: v.dv,
-        companyType: v.companyType,
-        economicActivity: v.economicActivity,
-        foundedDate: v.foundedDate,
-        employeeCount: v.employeeCount,
+        hasArtisanCard:
+          v.hasArtisanCard === 'true' ? true : v.hasArtisanCard === 'false' ? false : undefined,
       },
       location,
       contacts,
@@ -168,11 +141,14 @@ function formToPayload(entityType: IntakeEntityType, v: FormValues): IntakeUpdat
     };
   }
   return {
-    establishment: {
-      establishmentName: v.establishmentName,
-      establishmentType: v.establishmentType,
-      economicActivity: v.economicActivity,
-      noticeOfOperation: v.noticeOfOperation,
+    company: {
+      legalName: v.legalName,
+      tradeName: v.tradeName,
+      ruc: v.ruc,
+      dv: v.dv,
+      companyType: v.companyType,
+      companySizeClass: v.companySizeClass || undefined,
+      foundedDate: v.foundedDate,
     },
     location,
     contacts,
@@ -236,6 +212,7 @@ export function IntakeEditModal({ isOpen, onClose, sessionId, snapshot, accessCo
               options={nationalitySelectOptions}
               {...register('nationalityCode')}
             />
+            <Select label="Carnet de artesano" options={yesNoOptions} {...register('hasArtisanCard')} />
           </>
         )}
         {type === 'COMPANY' && (
@@ -245,17 +222,12 @@ export function IntakeEditModal({ isOpen, onClose, sessionId, snapshot, accessCo
             <Input label="RUC" {...register('ruc')} />
             <Input label="DV" {...register('dv')} />
             <Select label="Tipo de Sociedad" options={companyTypeOptions} {...register('companyType')} />
-            <Input label="Actividad económica" {...register('economicActivity')} />
-            <Input label="Fecha de fundación" type="date" {...register('foundedDate')} />
-            <Input label="N.º de empleados" type="number" {...register('employeeCount')} />
-          </>
-        )}
-        {type === 'ESTABLISHMENT' && (
-          <>
-            <Input label="Nombre *" {...register('establishmentName', { required: true })} />
-            <Select label="Tipo" options={establishmentTypeOptions} {...register('establishmentType')} />
-            <Input label="Actividad económica" {...register('economicActivity')} />
-            <Input label="Aviso de operación" {...register('noticeOfOperation')} />
+            <Select
+              label="Clasificación por tamaño"
+              options={COMPANY_SIZE_CLASS_OPTIONS}
+              {...register('companySizeClass')}
+            />
+            <Input label="Fecha de Inscripción" type="date" {...register('foundedDate')} />
           </>
         )}
         <LocationCascadeFields register={register} watch={watch} setValue={setValue} />

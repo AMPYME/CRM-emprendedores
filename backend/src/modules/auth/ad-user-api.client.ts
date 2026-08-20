@@ -10,7 +10,7 @@ export interface AdLoginResult {
   refreshToken?: string;
 }
 
-/** Resultado de POST /api/auth/login para decidir si se permite fallback local. */
+/** Resultado de POST /api/auth/login contra AD-userAPI. */
 export type AdLoginOutcome =
   | { kind: 'success'; tokens: AdLoginResult }
   | { kind: 'invalid_credentials' }
@@ -44,8 +44,8 @@ function readToken(body: Record<string, unknown>, key: string): string | undefin
 
 /**
  * POST /api/auth/login — credenciales de Active Directory.
- * - `invalid_credentials`: credenciales rechazadas por la API (p. ej. 401) → no usar fallback local con la misma clave.
- * - `unavailable`: red / error de parseo → opcionalmente fallback local si AD_AUTH_FALLBACK_LOCAL.
+ * - `invalid_credentials`: credenciales rechazadas (p. ej. 401/403).
+ * - `unavailable`: red / error de parseo / respuesta inválida.
  */
 export async function adLogin(
   baseUrl: string,

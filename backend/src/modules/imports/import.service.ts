@@ -19,6 +19,7 @@ import { parseExcelFile, getExcelHeaders, getExcelPreview } from './parser.servi
 import { buildMapping, applyMapping, getAvailableSystemFields, inferEntityType } from './mapper.service';
 import { deduplicateRow } from './dedup.service';
 import { StagingToEntityData, ColumnMapping, ExtractedFields, ValidationResult } from './import.types';
+import { auditService } from '../audit/audit.service';
 import {
   ImportQueryInput,
   StagingQueryInput,
@@ -69,17 +70,14 @@ function normalizeGender(raw: unknown): Gender | null | undefined {
  * Construye el displayName para una entidad a partir de los datos mapeados.
  */
 function buildDisplayName(
-  entityType: 'PERSON' | 'COMPANY' | 'ESTABLISHMENT',
+  entityType: 'PERSON' | 'COMPANY',
   fields: ExtractedFields,
   rawData: Record<string, unknown>,
   mapping: ColumnMapping
 ): string {
   switch (entityType) {
     case 'PERSON': {
-      const parts = [
-        fields.extractedFirstName,
-        fields.extractedLastName,
-      ].filter(Boolean);
+      const parts = [fields.extractedFirstName, fields.extractedLastName].filter(Boolean);
       return parts.length > 0 ? parts.join(' ') : 'Sin nombre';
     }
     case 'COMPANY': {
@@ -87,21 +85,24 @@ function buildDisplayName(
       const legalName = legalNameCol ? String(rawData[legalNameCol] || '') : '';
       return fields.extractedBusinessName || legalName || 'Empresa sin nombre';
     }
-    case 'ESTABLISHMENT': {
-      return fields.extractedBusinessName || 'Establecimiento sin nombre';
-    }
   }
 }
 
-/**
- * Validacion basica de una fila de staging.
- * Verifica campos obligatorios segun el tipo de entidad.
- */
 function validateRow(
-  entityType: 'PERSON' | 'COMPANY' | 'ESTABLISHMENT',
+  sourceType: string,
+  entityType: 'PERSON' | 'COMPANY',
   fields: ExtractedFields
 ): ValidationResult {
   const errors: string[] = [];
+
+  if (sourceType === 'UNIFICADA') {
+    if (!fields.extractedFirstName) errors.push('Nombre es requerido');
+    if (!fields.extractedLastName) errors.push('Apellido es requerido');
+    if (!fields.extractedBusinessName && !fields.extractedRuc) {
+      errors.push('Empresa o RUC es requerido');
+    }
+    return { isValid: errors.length === 0, errors };
+  }
 
   switch (entityType) {
     case 'PERSON':
@@ -110,9 +111,6 @@ function validateRow(
       break;
     case 'COMPANY':
       if (!fields.extractedBusinessName) errors.push('Nombre de empresa es requerido');
-      break;
-    case 'ESTABLISHMENT':
-      if (!fields.extractedBusinessName) errors.push('Nombre de establecimiento es requerido');
       break;
   }
 
@@ -230,14 +228,34 @@ export const importService = {
     const batch = await importRepository.findBatchById(batchId);
     if (!batch) throw new NotFoundError('Lote de importación', batchId);
 
-    if (batch.status !== 'PENDING' && batch.status !== 'REVIEW_REQUIRED') {
+    if (
+      batch.status !== 'PENDING' &&
+      batch.status !== 'REVIEW_REQUIRED' &&
+      batch.status !== 'FAILED' &&
+      batch.status !== 'CANCELLED'
+    ) {
       throw new BadRequestError(
-        `No se puede modificar el mapeo en estado ${batch.status}. Solo PENDING o REVIEW_REQUIRED.`
+        `No se puede modificar el mapeo en estado ${batch.status}. Solo PENDING, REVIEW_REQUIRED, FAILED o CANCELLED.`
+      );
+    }
+
+    if (!columnMapping || Object.keys(columnMapping).length === 0) {
+      throw new BadRequestError('El mapeo de columnas no puede estar vacío');
+    }
+
+    // Resolver valores al header real del archivo (case-insensitive)
+    const filePath = path.resolve(config.uploadDir, batch.fileName);
+    const headers = getExcelHeaders(filePath);
+    const normalized = buildMapping(batch.sourceType, headers, columnMapping);
+
+    if (Object.keys(normalized).length === 0) {
+      throw new BadRequestError(
+        'Ninguna columna del mapeo coincide con los headers del archivo. Verifique los nombres de columna.'
       );
     }
 
     const updated = await importRepository.updateBatch(batchId, {
-      columnMapping: columnMapping as any,
+      columnMapping: normalized as any,
     });
 
     return updated;
@@ -281,8 +299,11 @@ export const importService = {
 
       logger.info(`Parseadas ${parsed.totalRows} filas del Excel`, { batchId });
 
-      // ── PASO 3: Crear staging rows con campos extraidos ─────
-      await importRepository.updateBatch(batchId, { status: 'VALIDATING' });
+      // totalRows es estado de negocio (cuántas filas tiene el archivo)
+      await importRepository.updateBatch(batchId, {
+        status: 'VALIDATING',
+        totalRows: parsed.totalRows,
+      });
 
       const stagingData = parsed.rows.map((rawRow, index) => {
         const fields = applyMapping(rawRow, mapping);
@@ -320,7 +341,7 @@ export const importService = {
         };
 
         const entityType = inferEntityType(batch.sourceType, fields);
-        const validation = validateRow(entityType, fields);
+        const validation = validateRow(batch.sourceType, entityType, fields);
 
         if (!validation.isValid) {
           await importRepository.updateStagingRow(row.id, {
@@ -328,14 +349,12 @@ export const importService = {
             validationErrors: { general: validation.errors },
             processedAt: new Date(),
           });
-          continue;
+        } else {
+          await importRepository.updateStagingRow(row.id, {
+            status: 'VALID',
+            processedAt: new Date(),
+          });
         }
-
-        // Marcar como VALID temporalmente (se refinara con dedup)
-        await importRepository.updateStagingRow(row.id, {
-          status: 'VALID',
-          processedAt: new Date(),
-        });
       }
 
       // ── PASO 5: Deduplicar filas validas ────────────────────
@@ -365,19 +384,13 @@ export const importService = {
             matchReason: dedupResult.bestMatch.reason,
           });
         }
-        // Si no hay match, se queda VALID (listo para importar)
       }
 
       // ── PASO 6: Actualizar estadisticas y marcar REVIEW_REQUIRED ──
       const updatedBatch = await importRepository.refreshBatchStats(batchId);
 
-      // Determinar estado final del procesamiento
-      const hasReviewItems =
-        (updatedBatch.duplicateRows > 0) || (updatedBatch.invalidRows > 0);
-
       await importRepository.updateBatch(batchId, {
-        status: hasReviewItems ? 'REVIEW_REQUIRED' : 'REVIEW_REQUIRED',
-        // Siempre REVIEW_REQUIRED para que el usuario confirme antes de importar
+        status: 'REVIEW_REQUIRED',
       });
 
       const finalBatch = await importRepository.findBatchById(batchId);
@@ -558,16 +571,59 @@ export const importService = {
             extractedBusinessName: row.extractedBusinessName || undefined,
           };
 
-          const entityType = inferEntityType(batch.sourceType, fields);
-          const entityData = this.buildEntityData(entityType, fields, rawData, mapping, sourceOrigin, batchId);
+          let primaryEntityId: string;
 
-          // Crear entidad en transaccion
-          const entity = await this.createEntityFromStaging(entityData);
+          if (batch.sourceType === 'UNIFICADA') {
+            const result = await this.importUnificadaRow(
+              fields,
+              rawData,
+              mapping,
+              sourceOrigin,
+              batchId,
+              batch.importedById ?? undefined
+            );
+            primaryEntityId = result.personId;
+            await auditService.log({
+              action: 'CREATE',
+              entityType: 'PERSON',
+              entityId: result.personId,
+              entityLabel: result.personName,
+              userId: batch.importedById ?? undefined,
+              metadata: { importBatchId: batchId, companyId: result.companyId },
+            });
+            await auditService.log({
+              action: 'CREATE',
+              entityType: 'COMPANY',
+              entityId: result.companyId,
+              entityLabel: result.companyName,
+              userId: batch.importedById ?? undefined,
+              metadata: { importBatchId: batchId, personId: result.personId },
+            });
+          } else {
+            const entityType = inferEntityType(batch.sourceType, fields);
+            const entityData = this.buildEntityData(
+              entityType,
+              fields,
+              rawData,
+              mapping,
+              sourceOrigin,
+              batchId
+            );
+            const entity = await this.createEntityFromStaging(entityData);
+            primaryEntityId = entity.id;
+            await auditService.log({
+              action: 'CREATE',
+              entityType: entity.entityType,
+              entityId: entity.id,
+              entityLabel: entity.displayName,
+              userId: batch.importedById ?? undefined,
+              metadata: { importBatchId: batchId },
+            });
+          }
 
-          // Marcar staging row como IMPORTED
           await importRepository.updateStagingRow(row.id, {
             status: 'IMPORTED',
-            matchedEntityId: entity.id,
+            matchedEntityId: primaryEntityId,
             processedAt: new Date(),
           });
 
@@ -663,7 +719,7 @@ export const importService = {
    * Construye StagingToEntityData desde los datos de staging.
    */
   buildEntityData(
-    entityType: 'PERSON' | 'COMPANY' | 'ESTABLISHMENT',
+    entityType: 'PERSON' | 'COMPANY',
     fields: ExtractedFields,
     rawData: Record<string, unknown>,
     mapping: ColumnMapping,
@@ -723,7 +779,6 @@ export const importService = {
           educationLevel: get('educationLevel'),
           occupation: get('occupation'),
           businessName: fields.extractedBusinessName,
-          economicActivity: get('economicActivity'),
         };
         break;
 
@@ -734,22 +789,149 @@ export const importService = {
           dv: get('dv'),
           tradeName: get('tradeName'),
           companyType: get('companyType'),
-          economicActivity: get('economicActivity'),
-          employeeCount: get('employeeCount') ? parseInt(get('employeeCount')!, 10) || undefined : undefined,
-        };
-        break;
-
-      case 'ESTABLISHMENT':
-        base.establishment = {
-          establishmentName: fields.extractedBusinessName || 'Establecimiento sin nombre',
-          establishmentType: get('establishmentType'),
-          economicActivity: get('economicActivity'),
-          noticeOfOperation: get('noticeOfOperation'),
         };
         break;
     }
 
     return base;
+  },
+
+  async importUnificadaRow(
+    fields: ExtractedFields,
+    rawData: Record<string, unknown>,
+    mapping: ColumnMapping,
+    sourceOrigin: string,
+    importBatchId: string,
+    createdById?: string
+  ): Promise<{ personId: string; companyId: string; personName: string; companyName: string }> {
+    const get = (field: string): string | undefined => {
+      const col = mapping[field];
+      if (!col) return undefined;
+      const val = rawData[col];
+      return val !== null && val !== undefined ? String(val).trim() || undefined : undefined;
+    };
+
+    const loc = locationInputToCodes({
+      province: get('province'),
+      district: get('district'),
+      corregimiento: get('corregimiento'),
+    });
+    const address = get('address');
+
+    const contacts: Array<{ contactType: string; contactValue: string }> = [];
+    if (fields.extractedEmail) {
+      contacts.push({ contactType: 'EMAIL', contactValue: fields.extractedEmail });
+    }
+    if (fields.extractedPhone) {
+      contacts.push({ contactType: 'PHONE', contactValue: fields.extractedPhone });
+    }
+
+    const personName = [fields.extractedFirstName, fields.extractedLastName].filter(Boolean).join(' ');
+    const companyLegalName =
+      get('legalName') || fields.extractedBusinessName || `Empresa de ${personName}`;
+
+    return prisma.$transaction(async (tx) => {
+      let personEntity = fields.extractedCedula
+        ? await tx.entity.findFirst({
+            where: {
+              entityType: 'PERSON',
+              status: { not: 'MERGED' },
+              person: { cedula: fields.extractedCedula },
+            },
+            include: { person: true },
+          })
+        : null;
+
+      if (!personEntity) {
+        personEntity = await tx.entity.create({
+          data: {
+            entityType: 'PERSON',
+            status: 'ACTIVE',
+            displayName: personName || 'Sin nombre',
+            province: loc.province,
+            district: loc.district,
+            corregimiento: loc.corregimiento,
+            address,
+            sourceOrigin,
+            importBatchId,
+            createdById,
+            person: {
+              create: {
+                firstName: fields.extractedFirstName || 'Sin nombre',
+                lastName: fields.extractedLastName || 'Sin apellido',
+                cedula: fields.extractedCedula,
+              },
+            },
+            contacts: contacts.length
+              ? { create: contacts as Prisma.EntityContactCreateWithoutEntityInput[] }
+              : undefined,
+          },
+          include: { person: true },
+        });
+      }
+
+      let companyEntity = fields.extractedRuc
+        ? await tx.entity.findFirst({
+            where: {
+              entityType: 'COMPANY',
+              status: { not: 'MERGED' },
+              company: { ruc: fields.extractedRuc },
+            },
+            include: { company: true },
+          })
+        : null;
+
+      if (!companyEntity) {
+        companyEntity = await tx.entity.create({
+          data: {
+            entityType: 'COMPANY',
+            status: 'ACTIVE',
+            displayName: companyLegalName,
+            province: loc.province,
+            district: loc.district,
+            corregimiento: loc.corregimiento,
+            address,
+            sourceOrigin,
+            importBatchId,
+            createdById,
+            company: {
+              create: {
+                legalName: companyLegalName,
+                ruc: fields.extractedRuc,
+              },
+            },
+          },
+          include: { company: true },
+        });
+      }
+
+      const existingRel = await tx.entityRelationship.findFirst({
+        where: {
+          OR: [
+            { fromEntityId: personEntity.id, toEntityId: companyEntity.id },
+            { fromEntityId: companyEntity.id, toEntityId: personEntity.id },
+          ],
+        },
+      });
+
+      if (!existingRel) {
+        await tx.entityRelationship.create({
+          data: {
+            fromEntityId: personEntity.id,
+            toEntityId: companyEntity.id,
+            relationshipType: 'OWNER',
+            isActive: true,
+          },
+        });
+      }
+
+      return {
+        personId: personEntity.id,
+        companyId: companyEntity.id,
+        personName: personEntity.displayName,
+        companyName: companyEntity.displayName,
+      };
+    });
   },
 
   /**
@@ -778,18 +960,16 @@ export const importService = {
                 lastName: data.person.lastName,
                 secondLastName: data.person.secondLastName,
                 cedula: data.person.cedula,
-                gender: data.person.gender as any,
+                gender: data.person.gender as Gender | null | undefined,
                 birthDate: data.person.birthDate ? new Date(data.person.birthDate) : undefined,
                 nationalityCode: resolveNationalityCode(data.person.nationalityCode),
                 educationLevel: data.person.educationLevel,
                 occupation: data.person.occupation,
                 businessName: data.person.businessName,
-                economicActivity: data.person.economicActivity,
               },
             }
           : undefined,
 
-        // Subtipo empresa
         company: data.company
           ? {
               create: {
@@ -798,25 +978,10 @@ export const importService = {
                 dv: data.company.dv,
                 tradeName: data.company.tradeName,
                 companyType: data.company.companyType,
-                economicActivity: data.company.economicActivity,
-                employeeCount: data.company.employeeCount,
               },
             }
           : undefined,
 
-        // Subtipo establecimiento
-        establishment: data.establishment
-          ? {
-              create: {
-                establishmentName: data.establishment.establishmentName,
-                establishmentType: data.establishment.establishmentType,
-                economicActivity: data.establishment.economicActivity,
-                noticeOfOperation: data.establishment.noticeOfOperation,
-              },
-            }
-          : undefined,
-
-        // Contactos
         contacts: data.contacts && data.contacts.length > 0
           ? {
               create: data.contacts.map((c) => ({

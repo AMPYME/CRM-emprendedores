@@ -7,6 +7,7 @@
  * `permissions` no son roles: no se usan para comprobar acceso por rol de aplicación.
  */
 import type { AdMeProfile } from './ad-user-api.client';
+import type { UserRole } from '@prisma/client';
 
 /**
  * Obtiene el objeto usuario desde el JSON de /me (prioriza `user`, luego `data`).
@@ -24,8 +25,9 @@ export function normalizeMeUserPayload(root: Record<string, unknown>): Record<st
 }
 
 /**
- * Extrae nombres de rol normalizados a MAYÚSCULAS (como vienen en la API: USER, ADMIN, BD_EMPREND…).
+ * Extrae nombres de rol normalizados a MAYÚSCULAS (como vienen en la API: USER, ADMIN, EMPREND_OPERADOR…).
  * Fuente principal: `roles` (string[]). No mezcla `permissions` con roles.
+ * Nota: BD_EMPREND ya no otorga acceso al CRM.
  */
 export function extractRoleNamesFromMeUser(user: Record<string, unknown>): string[] {
   const out = new Set<string>();
@@ -66,6 +68,66 @@ export function hasAnyRequiredAdRole(
   if (requiredNames.length === 0) return true;
   const set = new Set(userRoleNames.map((r) => r.toUpperCase()));
   return requiredNames.some((r) => set.has(r.toUpperCase()));
+}
+
+/** Acceso total al CRM (incluye importaciones y auditoría). */
+export const FULL_ACCESS_ROLES: UserRole[] = ['SUPER_ADMIN', 'ADMIN', 'EMPREND_ADMIN'];
+
+/** Operadores de campo/CRM sin importaciones ni auditoría. */
+export const OPERADOR_ROLES: UserRole[] = ['EMPREND_OPERADOR'];
+
+export type CrmMappedRole =
+  | 'SUPER_ADMIN'
+  | 'ADMIN'
+  | 'EMPREND_ADMIN'
+  | 'EMPREND_OPERADOR'
+  | 'EMPREND_VIEWER';
+
+/**
+ * Mapea roles de Active Directory al rol CRM local.
+ * Prioridad: SUPER_ADMIN > EMPREND_ADMIN > ADMIN > EMPREND_VIEWER > EMPREND_OPERADOR.
+ * BD_EMPREND no se mapea (sin acceso al CRM).
+ */
+export function mapAdRolesToCrmRole(adRoleNames: string[]): CrmMappedRole {
+  const roles = new Set(adRoleNames.map((r) => r.trim().toUpperCase()));
+  if (roles.has('SUPER_ADMIN') || roles.has('SUPERADMIN')) {
+    return 'SUPER_ADMIN';
+  }
+  if (roles.has('EMPREND_ADMIN')) {
+    return 'EMPREND_ADMIN';
+  }
+  if (roles.has('ADMIN')) {
+    return 'ADMIN';
+  }
+  if (roles.has('EMPREND_VIEWER')) {
+    return 'EMPREND_VIEWER';
+  }
+  if (roles.has('EMPREND_OPERADOR')) {
+    return 'EMPREND_OPERADOR';
+  }
+  // Fallback solo si el gate de AD_REQUIRED_APP_ROLES ya validó otro rol permitido.
+  return 'EMPREND_OPERADOR';
+}
+
+export function isFullAccessRole(role: string): boolean {
+  return (FULL_ACCESS_ROLES as string[]).includes(role);
+}
+
+export function canViewAudit(role: string): boolean {
+  return isFullAccessRole(role);
+}
+
+export function canAccessImports(role: string): boolean {
+  return isFullAccessRole(role);
+}
+
+/** Roles CRM de solo lectura en dashboard/personas/empresas. */
+export function isReadOnlyCrmRole(role: string): boolean {
+  return role === 'EMPREND_VIEWER';
+}
+
+export function isOperadorCrmRole(role: string): boolean {
+  return role === 'EMPREND_OPERADOR';
 }
 
 export function resolveEmailForLocalUser(

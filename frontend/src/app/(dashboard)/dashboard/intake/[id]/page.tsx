@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   ArrowLeft, CheckCircle2, Radio, WifiOff, Clock, AlertTriangle,
@@ -21,6 +21,7 @@ import {
   useVerifyIntakeAccess,
   useRegenerateIntakeAccessCode,
 } from '@/hooks/use-intake';
+import { useValidateVerification } from '@/hooks/use-verifications';
 import { IntakeEditModal } from '../intake-edit-modal';
 import { IntakeSnapshotView } from '../intake-snapshot-view';
 
@@ -49,6 +50,8 @@ function readStoredCode(sessionId: string): string {
 export default function IntakeDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const verificationId = searchParams.get('verificationId');
   const id = params?.id as string;
 
   const [accessCode, setAccessCode] = useState('');
@@ -72,6 +75,7 @@ export default function IntakeDetailPage() {
 
   const { snapshot, status, connected, errorMessage } = useIntakeStream(id, accessCode || undefined);
   const validateMutation = useValidateIntakeSession();
+  const validateVerificationMutation = useValidateVerification();
   const deleteMutation = useDeleteIntakeSession();
   const verifyMutation = useVerifyIntakeAccess();
   const regenerateMutation = useRegenerateIntakeAccessCode();
@@ -105,7 +109,11 @@ export default function IntakeDetailPage() {
 
   const handleValidate = async () => {
     try {
-      await validateMutation.mutateAsync({ id, accessCode });
+      if (verificationId) {
+        await validateVerificationMutation.mutateAsync(verificationId);
+      } else {
+        await validateMutation.mutateAsync({ id, accessCode });
+      }
       setConfirmOpen(false);
       router.push('/dashboard/intake');
     } catch {
@@ -131,7 +139,11 @@ export default function IntakeDetailPage() {
     sessionStorage.setItem(intakeAccessCodeKey(id), result.accessCode);
   };
 
-  const canValidate = status === 'live' && !!snapshot && snapshot.status === 'SUBMITTED';
+  const canValidate =
+    status === 'live' &&
+    !!snapshot &&
+    snapshot.status === 'SUBMITTED' &&
+    (!!accessCode || !!verificationId);
   const canDelete = !!snapshot && status !== 'validated' && status !== 'expired' && !!accessCode;
   const canEdit = canDelete && snapshot?.status === 'SUBMITTED';
 
@@ -141,7 +153,7 @@ export default function IntakeDetailPage() {
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-bold text-gray-900">{snapshot?.displayName || 'Sesión de ingesta'}</h1>
+              <h1 className="text-2xl font-bold text-gray-900">{snapshot?.displayName || 'Sesión de verificación'}</h1>
               <LiveIndicator status={status} connected={connected} />
             </div>
             <p className="mt-1 truncate text-sm text-gray-500">ID: {id}</p>
@@ -184,7 +196,7 @@ export default function IntakeDetailPage() {
             size="sm"
             className="w-full sm:w-auto"
             onClick={() => setConfirmOpen(true)}
-            disabled={!canValidate || !accessCode}
+            disabled={!canValidate || (!accessCode && !verificationId)}
             icon={<CheckCircle2 className="h-4 w-4" />}
           >
             Validar y guardar
@@ -274,7 +286,7 @@ export default function IntakeDetailPage() {
         message="¿Está seguro de que desea finalizar el registro? La información se guardará de forma permanente y el borrador será eliminado."
         confirmLabel="Validar y guardar"
         variant="primary"
-        isLoading={validateMutation.isPending}
+        isLoading={validateMutation.isPending || validateVerificationMutation.isPending}
       />
 
       <ConfirmDialog

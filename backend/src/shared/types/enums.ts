@@ -7,7 +7,12 @@
 export enum EntityType {
   PERSON = 'PERSON',
   COMPANY = 'COMPANY',
-  ESTABLISHMENT = 'ESTABLISHMENT',
+}
+
+export enum CompanySizeClass {
+  MICRO = 'MICRO',
+  PEQUENA = 'PEQUENA',
+  MEDIANA = 'MEDIANA',
 }
 
 export enum EntityStatus {
@@ -112,9 +117,9 @@ export enum Gender {
 }
 
 export enum UserRole {
+  SUPER_ADMIN = 'SUPER_ADMIN',
   ADMIN = 'ADMIN',
-  MANAGER = 'MANAGER',
-  ANALYST = 'ANALYST',
-  OPERATOR = 'OPERATOR',
-  VIEWER = 'VIEWER',
+  EMPREND_ADMIN = 'EMPREND_ADMIN',
+  EMPREND_OPERADOR = 'EMPREND_OPERADOR',
+  EMPREND_VIEWER = 'EMPREND_VIEWER',
 }

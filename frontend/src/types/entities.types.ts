@@ -4,7 +4,7 @@
  */
 
 // ── Enums ─────────────────────────────────────────────────
-export type EntityType = 'PERSON' | 'COMPANY' | 'ESTABLISHMENT';
+export type EntityType = 'PERSON' | 'COMPANY';
 export type EntityStatus = 'ACTIVE' | 'INACTIVE' | 'DUPLICATE' | 'MERGED';
 export type ContactType = 'EMAIL' | 'PHONE' | 'MOBILE' | 'WHATSAPP' | 'WEBSITE' | 'SOCIAL_MEDIA' | 'OTHER';
 export type Gender = 'MALE' | 'FEMALE' | 'OTHER';
@@ -23,8 +23,8 @@ export type RegistrationStatus = 'REGISTERED' | 'CONFIRMED' | 'ATTENDED' | 'NO_S
 export type PortfolioStatus = 'NEW' | 'IN_PROGRESS' | 'WAITING' | 'RESOLVED' | 'CLOSED';
 export type PortfolioPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 export type ActionType = 'CALL' | 'EMAIL_ACTION' | 'VISIT' | 'MEETING' | 'WHATSAPP' | 'NOTE' | 'DOCUMENT' | 'STATUS_CHANGE' | 'OTHER';
-export type ImportStatus = 'PENDING' | 'PROCESSING' | 'VALIDATING' | 'DEDUPLICATING' | 'REVIEW_REQUIRED' | 'IMPORTING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
-export type StagingRowStatus = 'PENDING' | 'VALID' | 'INVALID' | 'DUPLICATE_EXACT' | 'DUPLICATE_POSSIBLE' | 'IMPORTED' | 'SKIPPED' | 'ERROR';
+export type ImportStatus = 'PENDING' | 'PROCESSING' | 'VALIDATING' | 'DEDUPLICATING' | 'REVIEW_REQUIRED' | 'IMPORTING' | 'VERIFICATION_QUEUED' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+export type StagingRowStatus = 'PENDING' | 'VALID' | 'INVALID' | 'DUPLICATE_EXACT' | 'DUPLICATE_POSSIBLE' | 'QUEUED_FOR_VERIFICATION' | 'IMPORTED' | 'SKIPPED' | 'ERROR';
 
 // ── Entidades base ────────────────────────────────────────
 export interface Entity {
@@ -44,7 +44,6 @@ export interface Entity {
   contacts?: EntityContact[];
   person?: Person;
   company?: Company;
-  establishment?: Establishment;
   _count?: { contacts: number; registrations: number; portfolios: number; relationships: number };
 }
 
@@ -59,6 +58,7 @@ export interface Person {
   birthDate: string | null;
   nationalityCode: string;
   educationLevel: string | null;
+  hasArtisanCard: boolean | null;
   entity?: Entity;
 }
 
@@ -70,21 +70,10 @@ export interface Company {
   legalName: string;
   tradeName: string | null;
   companyType: string | null;
+  companySizeClass: string | null;
   economicActivity: string | null;
   foundedDate: string | null;
   employeeCount: number | null;
-  entity?: Entity;
-}
-
-export interface Establishment {
-  id: string;
-  entityId: string;
-  establishmentName: string;
-  establishmentType: string | null;
-  economicActivity: string | null;
-  noticeOfOperation: string | null;
-  latitude: number | null;
-  longitude: number | null;
   entity?: Entity;
 }
 

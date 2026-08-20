@@ -21,7 +21,7 @@ import { Router } from 'express';
 import { intakeController } from './intake.controller';
 import { asyncHandler } from '../../shared/utils/async-handler';
 import { validate } from '../../shared/middlewares/validate.middleware';
-import { protect } from '../auth/auth.middleware';
+import { protect, forbidViewer } from '../auth/auth.middleware';
 import {
   sessionIdParamSchema,
   listQuerySchema,
@@ -69,6 +69,7 @@ intakeRoutes.post(
 intakeRoutes.post(
   '/sessions',
   protect,
+  forbidViewer,
   validate(createSessionSchema, 'body'),
   asyncHandler(intakeController.createSession)
 );
@@ -76,6 +77,7 @@ intakeRoutes.post(
 intakeRoutes.get(
   '/sessions',
   protect,
+  forbidViewer,
   validate(listQuerySchema, 'query'),
   asyncHandler(intakeController.list)
 );
@@ -83,6 +85,7 @@ intakeRoutes.get(
 intakeRoutes.get(
   '/sessions/:id',
   protect,
+  forbidViewer,
   validate(sessionIdParamSchema, 'params'),
   validate(accessCodeQuerySchema, 'query'),
   asyncHandler(intakeController.getById)
@@ -91,6 +94,7 @@ intakeRoutes.get(
 intakeRoutes.post(
   '/sessions/:id/verify-access',
   protect,
+  forbidViewer,
   validate(sessionIdParamSchema, 'params'),
   validate(accessCodeBodySchema, 'body'),
   asyncHandler(intakeController.verifyAccess)
@@ -99,6 +103,7 @@ intakeRoutes.post(
 intakeRoutes.post(
   '/sessions/:id/regenerate-access-code',
   protect,
+  forbidViewer,
   validate(sessionIdParamSchema, 'params'),
   validate(regenerateAccessCodeSchema, 'body'),
   asyncHandler(intakeController.regenerateAccessCode)
@@ -107,6 +112,7 @@ intakeRoutes.post(
 intakeRoutes.post(
   '/sessions/:id/validate',
   protect,
+  forbidViewer,
   validate(sessionIdParamSchema, 'params'),
   validate(accessCodeBodySchema, 'body'),
   asyncHandler(intakeController.validate)
@@ -115,6 +121,7 @@ intakeRoutes.post(
 intakeRoutes.patch(
   '/sessions/:id',
   protect,
+  forbidViewer,
   validate(sessionIdParamSchema, 'params'),
   validate(updateWithAccess, 'body'),
   asyncHandler(intakeController.update)
@@ -123,6 +130,7 @@ intakeRoutes.patch(
 intakeRoutes.delete(
   '/sessions/:id',
   protect,
+  forbidViewer,
   validate(sessionIdParamSchema, 'params'),
   asyncHandler(intakeController.remove)
 );

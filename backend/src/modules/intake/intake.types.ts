@@ -1,11 +1,9 @@
 /**
  * Tipos del módulo de intake (PostgreSQL temporal → WebSocket → CRM).
- * Las claves de los subtipos se exponen en snake_case para no romper
- * el snapshot que ya consume el dashboard.
  */
 
 export type IntakeStatus = 'DRAFT' | 'SUBMITTED' | 'VALIDATED' | 'EXPIRED';
-export type IntakeEntityType = 'PERSON' | 'COMPANY' | 'ESTABLISHMENT';
+export type IntakeEntityType = 'PERSON' | 'COMPANY';
 
 export interface IntakeSessionRow {
   session_id: string;
@@ -32,6 +30,7 @@ export interface IntakePersonRow {
   occupation: string | null;
   business_name: string | null;
   economic_activity: string | null;
+  has_artisan_card: boolean | null;
 }
 
 export interface IntakeCompanyRow {
@@ -41,19 +40,10 @@ export interface IntakeCompanyRow {
   legal_name: string | null;
   trade_name: string | null;
   company_type: string | null;
+  company_size_class: string | null;
   economic_activity: string | null;
   founded_date: string | null;
   employee_count: number | null;
-}
-
-export interface IntakeEstablishmentRow {
-  intake_entity_id: string;
-  establishment_name: string | null;
-  establishment_type: string | null;
-  economic_activity: string | null;
-  notice_of_operation: string | null;
-  latitude: number | null;
-  longitude: number | null;
 }
 
 export interface IntakeContactRow {
@@ -70,7 +60,6 @@ export interface IntakeLocation {
   address: string | null;
 }
 
-/** Snapshot que se envía al frontend (REST y WebSocket). */
 export interface IntakeSnapshot {
   sessionId: string;
   status: IntakeStatus;
@@ -83,7 +72,6 @@ export interface IntakeSnapshot {
   notes: string | null;
   person: IntakePersonRow | null;
   company: IntakeCompanyRow | null;
-  establishment: IntakeEstablishmentRow | null;
   contacts: IntakeContactRow[];
 }
 
@@ -100,7 +88,6 @@ export interface IntakePublicSessionResult {
   snapshot: IntakeSnapshot;
 }
 
-/** Resumen para el listado de sesiones activas. */
 export interface IntakeSessionSummary {
   sessionId: string;
   entityType: IntakeEntityType;
@@ -116,7 +103,6 @@ export interface IntakeMigrateResult {
   entities: Array<{ id: string; entityType: IntakeEntityType; displayName: string }>;
 }
 
-/** Eventos WebSocket → frontend. */
 export type IntakeWsEvent =
   | { type: 'snapshot'; snapshot: IntakeSnapshot }
   | { type: 'expired'; sessionId: string }

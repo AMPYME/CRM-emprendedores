@@ -150,11 +150,17 @@ async function main() {
 
   await clearPreviousSeed();
 
-  // ── Usuarios ────────────────────────────────────────────────────
+  // ── Usuarios (roles CRM actuales) ───────────────────────────────
   const adminHash = await bcrypt.hash('Admin2026!', 12);
   const admin = await prisma.user.upsert({
     where: { email: 'admin@ampyme.gob.pa' },
-    update: {},
+    update: {
+      passwordHash: adminHash,
+      firstName: 'Administrador',
+      lastName: 'Sistema',
+      role: 'ADMIN',
+      isActive: true,
+    },
     create: {
       email: 'admin@ampyme.gob.pa',
       passwordHash: adminHash,
@@ -164,22 +170,70 @@ async function main() {
       isActive: true,
     },
   });
-  console.log(`  ✅ Usuario admin: ${admin.email}`);
+  console.log(`  ✅ Usuario admin: ${admin.email} (${admin.role})`);
+
+  const emprendAdminHash = await bcrypt.hash('EmprendAdmin2026!', 12);
+  const emprendAdmin = await prisma.user.upsert({
+    where: { email: 'emprend.admin@ampyme.gob.pa' },
+    update: {
+      passwordHash: emprendAdminHash,
+      firstName: 'Admin',
+      lastName: 'Emprendedores',
+      role: 'EMPREND_ADMIN',
+      isActive: true,
+    },
+    create: {
+      email: 'emprend.admin@ampyme.gob.pa',
+      passwordHash: emprendAdminHash,
+      firstName: 'Admin',
+      lastName: 'Emprendedores',
+      role: 'EMPREND_ADMIN',
+      isActive: true,
+    },
+  });
+  console.log(`  ✅ Usuario EMPREND_ADMIN: ${emprendAdmin.email}`);
 
   const operatorHash = await bcrypt.hash('Operador2026!', 12);
   const operator = await prisma.user.upsert({
     where: { email: 'operador@ampyme.gob.pa' },
-    update: {},
+    update: {
+      passwordHash: operatorHash,
+      firstName: 'Operador',
+      lastName: 'Demo',
+      role: 'EMPREND_OPERADOR',
+      isActive: true,
+    },
     create: {
       email: 'operador@ampyme.gob.pa',
       passwordHash: operatorHash,
       firstName: 'Operador',
       lastName: 'Demo',
-      role: 'OPERATOR',
+      role: 'EMPREND_OPERADOR',
       isActive: true,
     },
   });
-  console.log(`  ✅ Usuario operador: ${operator.email}`);
+  console.log(`  ✅ Usuario operador: ${operator.email} (${operator.role})`);
+
+  const viewerHash = await bcrypt.hash('Viewer2026!', 12);
+  const viewer = await prisma.user.upsert({
+    where: { email: 'viewer@ampyme.gob.pa' },
+    update: {
+      passwordHash: viewerHash,
+      firstName: 'Consulta',
+      lastName: 'Demo',
+      role: 'EMPREND_VIEWER',
+      isActive: true,
+    },
+    create: {
+      email: 'viewer@ampyme.gob.pa',
+      passwordHash: viewerHash,
+      firstName: 'Consulta',
+      lastName: 'Demo',
+      role: 'EMPREND_VIEWER',
+      isActive: true,
+    },
+  });
+  console.log(`  ✅ Usuario viewer: ${viewer.email} (${viewer.role})`);
 
   // ── Persona 1 ───────────────────────────────────────────────────
   const person1 = await prisma.entity.create({
@@ -319,7 +373,7 @@ async function main() {
         create: {
           legalName: 'Agroexport Chiriquí S.R.L.',
           tradeName: 'AgroChiriquí',
-          companyType: 'S.R.L.',
+          companyType: 'S. de R.L.',
           economicActivity: 'Comercialización agrícola',
           employeeCount: 50,
         },
@@ -333,68 +387,8 @@ async function main() {
   });
   console.log(`  ✅ Empresa: ${company2.displayName}`);
 
-  // ── Establecimiento 1 ──────────────────────────────────────────
-  const estab1 = await prisma.entity.create({
-    data: {
-      entityType: 'ESTABLISHMENT',
-      status: 'ACTIVE',
-      displayName: 'Panadería El Buen Pan - Vía España',
-      province: LOC.PANAMA,
-      district: LOC.PANAMA_DIST,
-      corregimiento: LOC.BELLA_VISTA,
-      address: 'Vía España, local 45',
-      sourceOrigin: 'SEED',
-      establishment: {
-        create: {
-          establishmentName: 'Panadería El Buen Pan',
-          establishmentType: 'Local comercial',
-          economicActivity: 'Panadería y repostería',
-          noticeOfOperation: 'AO-2024-001234',
-          latitude: 9.0055,
-          longitude: -79.5196,
-        },
-      },
-      contacts: {
-        create: [
-          { contactType: 'PHONE', contactValue: '264-0001', isPrimary: true },
-          { contactType: 'WHATSAPP', contactValue: '6900-0003' },
-        ],
-      },
-    },
-  });
-  console.log(`  ✅ Establecimiento: ${estab1.displayName}`);
-
-  // ── Establecimiento 2 ──────────────────────────────────────────
-  const estab2 = await prisma.entity.create({
-    data: {
-      entityType: 'ESTABLISHMENT',
-      status: 'ACTIVE',
-      displayName: 'Minisuper Don Pepe - Santiago',
-      province: LOC.VERAGUAS,
-      district: LOC.SANTIAGO,
-      corregimiento: LOC.SANTIAGO_CORR,
-      address: 'Calle Central, local 12',
-      sourceOrigin: 'SEED',
-      establishment: {
-        create: {
-          establishmentName: 'Minisuper Don Pepe',
-          establishmentType: 'Minisuper',
-          economicActivity: 'Comercio al por menor',
-        },
-      },
-      contacts: {
-        create: [
-          { contactType: 'MOBILE', contactValue: '6100-0004', isPrimary: true },
-        ],
-      },
-    },
-  });
-  console.log(`  ✅ Establecimiento: ${estab2.displayName}`);
-
   // ── Relaciones entre entidades ─────────────────────────────────
-  // Cubren la matriz vigente:
-  // persona→persona, establecimiento→persona/establecimiento,
-  // empresa→persona/establecimiento/empresa.
+  // persona↔persona, persona↔empresa, empresa↔empresa
   await createSeedRelationship(
     company1,
     person1,
@@ -403,40 +397,14 @@ async function main() {
   );
   console.log('  ✅ Relación: Innovación Digital → María González (Empleada)');
 
-  await createSeedRelationship(estab1, person2, 'OWNER', 'Dueño');
-  console.log('  ✅ Relación: Panadería El Buen Pan → Carlos Mendoza (Dueño)');
+  await createSeedRelationship(person2, company2, 'OWNER', 'Dueño');
+  console.log('  ✅ Relación: Carlos Mendoza → AgroChiriquí (Dueño)');
 
-  await createSeedRelationship(
-    person1,
-    person3,
-    'RELATED',
-    'Referido / contacto'
-  );
+  await createSeedRelationship(person1, person3, 'RELATED', 'Referido / contacto');
   console.log('  ✅ Relación: María González → Ana Lucía Vega (Relacionada)');
 
-  await createSeedRelationship(
-    company2,
-    person3,
-    'REPRESENTATIVE',
-    'Representante comercial'
-  );
-  console.log('  ✅ Relación: AgroChiriquí → Ana Lucía Vega (Representante)');
-
-  await createSeedRelationship(
-    company2,
-    estab2,
-    'BRANCH',
-    'Punto de venta afiliado'
-  );
-  console.log('  ✅ Relación: AgroChiriquí → Minisuper Don Pepe (Sucursal)');
-
-  await createSeedRelationship(
-    estab1,
-    estab2,
-    'AFFILIATED',
-    'Red de comercios locales'
-  );
-  console.log('  ✅ Relación: Panadería El Buen Pan → Minisuper Don Pepe (Afiliado)');
+  await createSeedRelationship(person3, company2, 'REPRESENTATIVE', 'Representante comercial');
+  console.log('  ✅ Relación: Ana Lucía Vega → AgroChiriquí (Representante)');
 
   await createSeedRelationship(company2, company1, 'PARTNER', 'Alianza comercial');
   console.log('  ✅ Relación: AgroChiriquí → Innovación Digital (Socio)');
@@ -744,6 +712,11 @@ async function main() {
   console.log('    ✅ 1 acción de seguimiento registrada');
 
   console.log('\n✨ Seeds completados exitosamente');
+  console.log('── Usuarios seed (datos de ejemplo; login solo vía Active Directory) ──');
+  console.log('  admin@ampyme.gob.pa          (ADMIN)');
+  console.log('  emprend.admin@ampyme.gob.pa  (EMPREND_ADMIN)');
+  console.log('  operador@ampyme.gob.pa       (EMPREND_OPERADOR)');
+  console.log('  viewer@ampyme.gob.pa         (EMPREND_VIEWER)');
 }
 
 main()

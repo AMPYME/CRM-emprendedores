@@ -3,6 +3,7 @@
  */
 import { Router } from 'express';
 import { personController } from './person.controller';
+import { forbidReadOnly } from '../auth/auth.middleware';
 import { asyncHandler } from '../../shared/utils/async-handler';
 import { validate } from '../../shared/middlewares/validate.middleware';
 import {
@@ -28,12 +29,14 @@ personRoutes.get(
 
 personRoutes.post(
   '/',
+  forbidReadOnly,
   validate(createPersonSchema, 'body'),
   asyncHandler(personController.create)
 );
 
 personRoutes.put(
   '/:id',
+  forbidReadOnly,
   validate(entityIdParamSchema, 'params'),
   validate(updatePersonSchema, 'body'),
   asyncHandler(personController.update)
@@ -41,6 +44,7 @@ personRoutes.put(
 
 personRoutes.delete(
   '/:id',
+  forbidReadOnly,
   validate(entityIdParamSchema, 'params'),
   asyncHandler(personController.remove)
 );

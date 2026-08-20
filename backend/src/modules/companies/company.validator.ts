@@ -27,9 +27,8 @@ export const createCompanySchema = z.object({
   ruc: z.string().max(30).trim().optional(),
   dv: z.string().max(5).trim().optional(),
   companyType: z.string().max(50).trim().optional(),
-  economicActivity: z.string().max(200).trim().optional(),
+  companySizeClass: z.enum(['MICRO', 'PEQUENA', 'MEDIANA']).optional(),
   foundedDate: z.string().optional(),
-  employeeCount: z.coerce.number().int().min(0).optional(),
 
   // Contactos opcionales en creación
   contacts: z.array(contactSchema).optional(),
@@ -56,9 +55,11 @@ export const companyQuerySchema = z.object({
   search: z.string().trim().min(1).optional(),
   status: z.enum(['ACTIVE', 'INACTIVE', 'DUPLICATE']).optional(),
   province: z.string().optional(),
+  district: z.string().optional(),
+  corregimiento: z.string().optional(),
   ruc: z.string().optional(),
   companyType: z.string().optional(),
-  economicActivity: z.string().optional(),
+  companySizeClass: z.enum(['MICRO', 'PEQUENA', 'MEDIANA']).optional(),
 });
 
 export type CompanyQueryInput = z.infer<typeof companyQuerySchema>;

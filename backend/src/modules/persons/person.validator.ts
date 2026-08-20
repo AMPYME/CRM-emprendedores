@@ -40,6 +40,7 @@ export const createPersonSchema = z.object({
   occupation: z.string().max(100).trim().optional(),
   businessName: z.string().max(200).trim().optional(),
   economicActivity: z.string().max(200).trim().optional(),
+  hasArtisanCard: z.boolean().optional(),
 
   // Contactos opcionales en creación
   contacts: z.array(contactSchema).optional(),
@@ -66,9 +67,12 @@ export const personQuerySchema = z.object({
   search: z.string().trim().min(1).optional(),
   status: z.enum(['ACTIVE', 'INACTIVE', 'DUPLICATE']).optional(),
   province: z.string().optional(),
+  district: z.string().optional(),
+  corregimiento: z.string().optional(),
   cedula: z.string().optional(),
   gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional(),
   economicActivity: z.string().optional(),
+  hasArtisanCard: z.coerce.boolean().optional(),
 });
 
 export type PersonQueryInput = z.infer<typeof personQuerySchema>;

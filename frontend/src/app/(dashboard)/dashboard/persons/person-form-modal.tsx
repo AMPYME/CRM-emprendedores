@@ -29,6 +29,7 @@ const personSchema = z.object({
   gender: z.string().optional(),
   birthDate: z.string().optional(),
   nationalityCode: z.string().length(3, 'Seleccione la nacionalidad'),
+  hasArtisanCard: z.string().optional(),
   province: z.string().optional(),
   district: z.string().optional(),
   corregimiento: z.string().optional(),
@@ -51,6 +52,12 @@ const genderOptions = [
   { value: 'MALE', label: 'Masculino' },
   { value: 'FEMALE', label: 'Femenino' },
   { value: 'OTHER', label: 'Otro' },
+];
+
+const yesNoOptions = [
+  { value: '', label: 'Seleccionar' },
+  { value: 'true', label: 'Sí' },
+  { value: 'false', label: 'No' },
 ];
 
 export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProps) {
@@ -76,6 +83,7 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
       gender: '',
       birthDate: '',
       nationalityCode: DEFAULT_NATIONALITY_CODE,
+      hasArtisanCard: '',
       province: '',
       district: '',
       corregimiento: '',
@@ -105,6 +113,8 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
         gender: p?.gender || '',
         birthDate: p?.birthDate?.split('T')[0] || '',
         nationalityCode: p?.nationalityCode || DEFAULT_NATIONALITY_CODE,
+        hasArtisanCard:
+          p?.hasArtisanCard === true ? 'true' : p?.hasArtisanCard === false ? 'false' : '',
         province: provinceCode,
         district: districtCode,
         corregimiento: corregimientoCode,
@@ -138,6 +148,12 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
       gender: formData.gender || undefined,
       birthDate: formData.birthDate || undefined,
       nationalityCode: formData.nationalityCode,
+      hasArtisanCard:
+        formData.hasArtisanCard === 'true'
+          ? true
+          : formData.hasArtisanCard === 'false'
+            ? false
+            : undefined,
       province: formData.province || undefined,
       district: formData.district || undefined,
       corregimiento: formData.corregimiento || undefined,
@@ -196,6 +212,7 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
             error={errors.nationalityCode?.message}
             {...register('nationalityCode')}
           />
+          <Select label="Carnet de artesano" options={yesNoOptions} {...register('hasArtisanCard')} />
           <LocationCascadeFields register={register} watch={watch} setValue={setValue} />
           <Input
             label="Correo electrónico"

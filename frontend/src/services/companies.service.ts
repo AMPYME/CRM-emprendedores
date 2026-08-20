@@ -8,9 +8,11 @@ import type { Entity, Company, EntityContact } from '@/types/entities.types';
 export interface CompanyFilters extends PaginationParams {
   status?: string;
   province?: string;
+  district?: string;
+  corregimiento?: string;
   ruc?: string;
   companyType?: string;
-  economicActivity?: string;
+  companySizeClass?: string;
 }
 
 /**
@@ -28,9 +30,8 @@ export interface CreateCompanyInput {
   ruc?: string;
   dv?: string;
   companyType?: string;
-  economicActivity?: string;
+  companySizeClass?: string;
   foundedDate?: string;
-  employeeCount?: number;
   province?: string;
   district?: string;
   corregimiento?: string;

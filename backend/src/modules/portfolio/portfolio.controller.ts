@@ -58,7 +58,11 @@ export const portfolioController = {
    * Actualizar registro de cartera.
    */
   async update(req: Request, res: Response): Promise<void> {
-    const record = await portfolioService.update(req.params.id as string, req.body);
+    const actor =
+      req.user?.id && req.user?.email
+        ? { userId: req.user.id, userEmail: req.user.email }
+        : undefined;
+    const record = await portfolioService.update(req.params.id as string, req.body, actor);
     sendSuccess(res, record);
   },
 
