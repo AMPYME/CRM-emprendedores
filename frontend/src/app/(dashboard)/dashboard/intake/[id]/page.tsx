@@ -118,6 +118,7 @@ export default function IntakeDetailPage() {
       router.push('/dashboard/intake');
     } catch {
       setConfirmOpen(false);
+      // El toast de error lo emiten las mutaciones (onError).
     }
   };
 

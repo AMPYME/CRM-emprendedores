@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import { verificationService, type VerificationQuery } from '@/services/verification.service';
 import { importsService } from '@/services/imports.service';
+import { getApiErrorMessage } from '@/services/api-client';
 
 export function useVerifications(params: VerificationQuery) {
   return useQuery({
@@ -24,8 +26,20 @@ export function useValidateVerification() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => verificationService.validate(id),
-    onSuccess: () => {
+    onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ['verifications'] });
+      qc.invalidateQueries({ queryKey: ['persons'] });
+      qc.invalidateQueries({ queryKey: ['companies'] });
+      qc.invalidateQueries({ queryKey: ['intake-sessions'] });
+      const n = result.entities?.length ?? 0;
+      toast.success(
+        n > 0
+          ? `Validado y guardado en el CRM (${n} registro(s)).`
+          : 'Validado y guardado en el CRM.'
+      );
+    },
+    onError: (err) => {
+      toast.error(getApiErrorMessage(err));
     },
   });
 }

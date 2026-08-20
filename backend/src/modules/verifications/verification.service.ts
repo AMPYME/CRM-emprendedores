@@ -263,6 +263,21 @@ export const verificationService = {
     const payload = item.data as unknown as VerificationDataPayload;
     let entities: VerificationValidateResult['entities'] = [];
 
+    // Migrar desde la sesión revisada (aplica ediciones). Si la cédula/RUC ya existe, actualiza.
+    const migrateResult = await intakeService.validateAndMigrate(
+      item.intakeSessionId,
+      userId,
+      undefined,
+      userEmail,
+      { skipAccessCheck: true, onDuplicate: 'update' }
+    );
+    entities = migrateResult.entities.map((e) => ({
+      id: e.id,
+      entityType: e.entityType,
+      displayName: e.displayName,
+    }));
+
+    // Plantilla UNIFICADA: además asegura persona+empresa+relación OWNER desde el Excel.
     if (payload.importMeta?.sourceType === 'UNIFICADA') {
       const meta = payload.importMeta;
       const sourceOrigin = `IMPORT_${meta.sourceType}_${meta.importBatchId.substring(0, 8)}`;
@@ -274,41 +289,18 @@ export const verificationService = {
         meta.importBatchId,
         userId
       );
-      entities = [
-        { id: result.personId, entityType: 'PERSON', displayName: result.personName },
-        { id: result.companyId, entityType: 'COMPANY', displayName: result.companyName },
-      ];
-      await auditService.log({
-        action: 'CREATE',
+      const byId = new Map(entities.map((e) => [e.id, e]));
+      byId.set(result.personId, {
+        id: result.personId,
         entityType: 'PERSON',
-        entityId: result.personId,
-        entityLabel: result.personName,
-        userId,
-        userEmail,
-        metadata: { verificationId: id, importBatchId: meta.importBatchId },
+        displayName: result.personName,
       });
-      await auditService.log({
-        action: 'CREATE',
+      byId.set(result.companyId, {
+        id: result.companyId,
         entityType: 'COMPANY',
-        entityId: result.companyId,
-        entityLabel: result.companyName,
-        userId,
-        userEmail,
-        metadata: { verificationId: id, importBatchId: meta.importBatchId },
+        displayName: result.companyName,
       });
-    } else {
-      const migrateResult = await intakeService.validateAndMigrate(
-        item.intakeSessionId,
-        userId,
-        undefined,
-        userEmail,
-        { skipAccessCheck: true }
-      );
-      entities = migrateResult.entities.map((e) => ({
-        id: e.id,
-        entityType: e.entityType,
-        displayName: e.displayName,
-      }));
+      entities = [...byId.values()];
     }
 
     await verificationRepository.updateStatus(id, 'VALIDATED', {

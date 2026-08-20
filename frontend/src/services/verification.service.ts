@@ -67,11 +67,11 @@ export const verificationService = {
     const res = await apiClient.post<ApiResponse<{ verificationId: string; entities: Array<{ id: string; entityType: string; displayName: string }> }>>(
       `/verifications/${id}/validate`
     );
-    return res.data;
+    return res.data.data;
   },
 
   async reject(id: string, reason: string) {
     const res = await apiClient.post<ApiResponse<{ rejected: boolean }>>(`/verifications/${id}/reject`, { reason });
-    return res.data;
+    return res.data.data;
   },
 };

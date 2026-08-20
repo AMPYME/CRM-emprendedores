@@ -150,7 +150,7 @@ export const intakeService = {
     createdById?: string,
     accessCode?: string,
     actorEmail?: string,
-    options?: { skipAccessCheck?: boolean }
+    options?: { skipAccessCheck?: boolean; onDuplicate?: 'reject' | 'update' }
   ): Promise<IntakeMigrateResult> {
     if (!options?.skipAccessCheck) {
       await this.assertAccess(sessionId, accessCode);
@@ -164,6 +164,7 @@ export const intakeService = {
     }
 
     const primary = snapshot.entityType;
+    const onDuplicate = options?.onDuplicate ?? 'reject';
 
     try {
       const created = await prisma.$transaction(async (tx) => {
@@ -171,108 +172,176 @@ export const intakeService = {
 
         if (primary === 'PERSON' && hasPerson(snapshot.person)) {
           const input = snapshotToCreatePerson(snapshot);
-          if (input.cedula) {
-            const existing = await tx.entity.findFirst({
-              where: {
-                entityType: 'PERSON',
-                status: { not: 'MERGED' },
-                person: { cedula: input.cedula },
-              },
-              select: { id: true, displayName: true },
+          let existing = input.cedula
+            ? await tx.entity.findFirst({
+                where: {
+                  entityType: 'PERSON',
+                  status: { not: 'MERGED' },
+                  person: { cedula: input.cedula },
+                },
+                select: { id: true, displayName: true },
+              })
+            : null;
+
+          if (existing && onDuplicate === 'reject') {
+            throw new ConflictError(DUPLICATE_MSG, {
+              existingEntityId: existing.id,
+              existingName: existing.displayName,
+              entityType: 'PERSON',
             });
-            if (existing) {
-              throw new ConflictError(DUPLICATE_MSG, {
-                existingEntityId: existing.id,
-                existingName: existing.displayName,
-                entityType: 'PERSON',
-              });
-            }
           }
+
           const displayName = [titleCase(input.firstName), titleCase(input.lastName)]
             .concat(input.secondLastName ? [titleCase(input.secondLastName)] : [])
             .join(' ');
-          const entity = await tx.entity.create({
-            data: {
-              entityType: 'PERSON',
-              status: 'ACTIVE',
-              displayName,
-              province: input.province,
-              district: input.district,
-              corregimiento: input.corregimiento,
-              address: input.address,
-              notes: input.notes,
-              sourceOrigin: input.sourceOrigin || 'EMPRENDEDORES_INTAKE',
-              createdById,
-              person: {
-                create: {
-                  firstName: input.firstName,
-                  lastName: input.lastName,
-                  secondLastName: input.secondLastName,
-                  cedula: input.cedula,
-                  gender: input.gender,
-                  birthDate: input.birthDate ? new Date(input.birthDate) : undefined,
-                  nationalityCode: input.nationalityCode,
-                  educationLevel: input.educationLevel,
-                  hasArtisanCard: input.hasArtisanCard,
+
+          if (existing && onDuplicate === 'update') {
+            await tx.entityContact.deleteMany({ where: { entityId: existing.id } });
+            const entity = await tx.entity.update({
+              where: { id: existing.id },
+              data: {
+                displayName,
+                province: input.province,
+                district: input.district,
+                corregimiento: input.corregimiento,
+                address: input.address,
+                notes: input.notes,
+                status: 'ACTIVE',
+                person: {
+                  update: {
+                    firstName: input.firstName,
+                    lastName: input.lastName,
+                    secondLastName: input.secondLastName,
+                    gender: input.gender,
+                    birthDate: input.birthDate ? new Date(input.birthDate) : null,
+                    nationalityCode: input.nationalityCode,
+                    educationLevel: input.educationLevel,
+                    hasArtisanCard: input.hasArtisanCard,
+                  },
                 },
+                contacts: input.contacts?.length
+                  ? { create: input.contacts as Prisma.EntityContactCreateWithoutEntityInput[] }
+                  : undefined,
               },
-              contacts: input.contacts?.length
-                ? { create: input.contacts as Prisma.EntityContactCreateWithoutEntityInput[] }
-                : undefined,
-            },
-          });
-          entities.push({ id: entity.id, entityType: 'PERSON', displayName: entity.displayName });
+            });
+            entities.push({ id: entity.id, entityType: 'PERSON', displayName: entity.displayName });
+          } else {
+            const entity = await tx.entity.create({
+              data: {
+                entityType: 'PERSON',
+                status: 'ACTIVE',
+                displayName,
+                province: input.province,
+                district: input.district,
+                corregimiento: input.corregimiento,
+                address: input.address,
+                notes: input.notes,
+                sourceOrigin: input.sourceOrigin || 'EMPRENDEDORES_INTAKE',
+                createdById,
+                person: {
+                  create: {
+                    firstName: input.firstName,
+                    lastName: input.lastName,
+                    secondLastName: input.secondLastName,
+                    cedula: input.cedula,
+                    gender: input.gender,
+                    birthDate: input.birthDate ? new Date(input.birthDate) : undefined,
+                    nationalityCode: input.nationalityCode,
+                    educationLevel: input.educationLevel,
+                    hasArtisanCard: input.hasArtisanCard,
+                  },
+                },
+                contacts: input.contacts?.length
+                  ? { create: input.contacts as Prisma.EntityContactCreateWithoutEntityInput[] }
+                  : undefined,
+              },
+            });
+            entities.push({ id: entity.id, entityType: 'PERSON', displayName: entity.displayName });
+          }
         } else if (primary === 'COMPANY' && hasCompany(snapshot.company)) {
           const input = snapshotToCreateCompany(snapshot);
-          if (input.ruc) {
-            const existing = await tx.entity.findFirst({
-              where: {
-                entityType: 'COMPANY',
-                status: { not: 'MERGED' },
-                company: { ruc: input.ruc },
-              },
-              select: { id: true, displayName: true },
+          let existing = input.ruc
+            ? await tx.entity.findFirst({
+                where: {
+                  entityType: 'COMPANY',
+                  status: { not: 'MERGED' },
+                  company: { ruc: input.ruc },
+                },
+                select: { id: true, displayName: true },
+              })
+            : null;
+
+          if (existing && onDuplicate === 'reject') {
+            throw new ConflictError(DUPLICATE_MSG, {
+              existingEntityId: existing.id,
+              existingName: existing.displayName,
+              entityType: 'COMPANY',
             });
-            if (existing) {
-              throw new ConflictError(DUPLICATE_MSG, {
-                existingEntityId: existing.id,
-                existingName: existing.displayName,
-                entityType: 'COMPANY',
-              });
-            }
           }
+
           const displayName = input.tradeName
             ? `${input.tradeName} (${input.legalName})`
             : input.legalName;
-          const entity = await tx.entity.create({
-            data: {
-              entityType: 'COMPANY',
-              status: 'ACTIVE',
-              displayName,
-              province: input.province,
-              district: input.district,
-              corregimiento: input.corregimiento,
-              address: input.address,
-              notes: input.notes,
-              sourceOrigin: input.sourceOrigin || 'EMPRENDEDORES_INTAKE',
-              createdById,
-              company: {
-                create: {
-                  legalName: input.legalName,
-                  tradeName: input.tradeName,
-                  ruc: input.ruc,
-                  dv: input.dv,
-                  companyType: input.companyType,
-                  companySizeClass: input.companySizeClass,
-                  foundedDate: input.foundedDate ? new Date(input.foundedDate) : undefined,
+
+          if (existing && onDuplicate === 'update') {
+            await tx.entityContact.deleteMany({ where: { entityId: existing.id } });
+            const entity = await tx.entity.update({
+              where: { id: existing.id },
+              data: {
+                displayName,
+                province: input.province,
+                district: input.district,
+                corregimiento: input.corregimiento,
+                address: input.address,
+                notes: input.notes,
+                status: 'ACTIVE',
+                company: {
+                  update: {
+                    legalName: input.legalName,
+                    tradeName: input.tradeName,
+                    dv: input.dv,
+                    companyType: input.companyType,
+                    companySizeClass: input.companySizeClass,
+                    foundedDate: input.foundedDate ? new Date(input.foundedDate) : null,
+                  },
                 },
+                contacts: input.contacts?.length
+                  ? { create: input.contacts as Prisma.EntityContactCreateWithoutEntityInput[] }
+                  : undefined,
               },
-              contacts: input.contacts?.length
-                ? { create: input.contacts as Prisma.EntityContactCreateWithoutEntityInput[] }
-                : undefined,
-            },
-          });
-          entities.push({ id: entity.id, entityType: 'COMPANY', displayName: entity.displayName });
+            });
+            entities.push({ id: entity.id, entityType: 'COMPANY', displayName: entity.displayName });
+          } else {
+            const entity = await tx.entity.create({
+              data: {
+                entityType: 'COMPANY',
+                status: 'ACTIVE',
+                displayName,
+                province: input.province,
+                district: input.district,
+                corregimiento: input.corregimiento,
+                address: input.address,
+                notes: input.notes,
+                sourceOrigin: input.sourceOrigin || 'EMPRENDEDORES_INTAKE',
+                createdById,
+                company: {
+                  create: {
+                    legalName: input.legalName,
+                    tradeName: input.tradeName,
+                    ruc: input.ruc,
+                    dv: input.dv,
+                    companyType: input.companyType,
+                    companySizeClass: input.companySizeClass,
+                    foundedDate: input.foundedDate ? new Date(input.foundedDate) : undefined,
+                  },
+                },
+                contacts: input.contacts?.length
+                  ? { create: input.contacts as Prisma.EntityContactCreateWithoutEntityInput[] }
+                  : undefined,
+              },
+            });
+            entities.push({ id: entity.id, entityType: 'COMPANY', displayName: entity.displayName });
+          }
         } else {
           throw new BadRequestError('No hay datos para migrar según el tipo de sesión.');
         }
@@ -289,13 +358,14 @@ export const intakeService = {
           entityLabel: e.displayName,
           userId: createdById,
           userEmail: actorEmail,
-          metadata: { source: 'INTAKE', sessionId },
+          metadata: { source: 'INTAKE', sessionId, onDuplicate },
         });
       }
 
       logger.info('[intake] sesión migrada a PostgreSQL', {
         sessionId,
         entities: created.map((e) => e.id),
+        onDuplicate,
       });
 
       return { sessionId, entities: created };
