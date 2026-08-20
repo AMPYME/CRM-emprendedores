@@ -1,8 +1,7 @@
 #!/bin/sh
 # Arranque producción:
 # 1) migrate deploy (+ recuperación P3009 si aplica)
-# 2) si faltan tablas críticas, reparar con scripts/repair-schema.js
-#    (no usa db push: falla con enums legacy como ESTABLISHMENT / P1014)
+# 2) repair-schema.js SIEMPRE (idempotente: crea tablas faltantes, ignora "already exists")
 # 3) levanta API
 set -e
 
@@ -24,6 +23,21 @@ const prisma = new PrismaClient();
   }
 })();
 NODE
+}
+
+run_repair() {
+  if [ -f prisma/repair-schema.js ]; then
+    echo "🔧 Ejecutando prisma/repair-schema.js (idempotente)..."
+    node prisma/repair-schema.js
+  elif [ -f scripts/repair-schema.js ]; then
+    echo "🔧 Ejecutando scripts/repair-schema.js (idempotente)..."
+    node scripts/repair-schema.js
+  else
+    echo "❌ No se encontró repair-schema.js en la imagen."
+    echo "   En Dokploy: rebuild SIN caché y asegure Context Path = raíz del repo."
+    ls -la prisma scripts 2>/dev/null || true
+    exit 1
+  fi
 }
 
 echo "🗄️  Aplicando migraciones..."
@@ -48,17 +62,12 @@ else
   echo "✅ Migraciones aplicadas tras recuperación"
 fi
 
-NEED_REPAIR=0
-for t in users audit_logs entities persons companies verification_items; do
-  if [ "$(table_exists "$t")" != "1" ]; then
-    echo "⚠️  Falta la tabla public.$t"
-    NEED_REPAIR=1
-  fi
-done
+# Siempre reparar: en prod el historial puede decir "OK" y faltar audit_logs / verification_items.
+run_repair
 
-if [ "$NEED_REPAIR" = "1" ]; then
-  echo "🔧 Reparando esquema incompleto (baseline + roles, idempotente)..."
-  node scripts/repair-schema.js
+if [ "$(table_exists audit_logs)" != "1" ]; then
+  echo "❌ Tras repair sigue faltando public.audit_logs"
+  exit 1
 fi
 
 echo "🚀 Iniciando servidor..."

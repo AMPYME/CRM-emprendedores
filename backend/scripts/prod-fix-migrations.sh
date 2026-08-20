@@ -1,6 +1,5 @@
 #!/bin/sh
-# Uso puntual en Dokploy (Run Command / shell) si faltan tablas o hay P3009.
-# NO dejar como comando permanente de cada deploy.
+# Uso puntual en Dokploy (Run Command / shell). NO dejar permanente.
 set -e
 
 echo "→ rolled-back baseline fallido (si aplica)..."
@@ -25,14 +24,22 @@ NODE
 )"
 
 if [ "$EXISTS" = "1" ]; then
-  echo "→ marcando baseline como aplicada (BD ya tenía tablas)..."
+  echo "→ marcando baseline como aplicada..."
   npx prisma migrate resolve --applied "20260820140000_baseline" || true
 fi
 
-echo "→ apply migraciones pendientes..."
+echo "→ migrate deploy..."
 npx prisma migrate deploy || true
 
-echo "→ reparando esquema (crea audit_logs, verification_items, etc.)..."
-node scripts/repair-schema.js
+if [ -f prisma/repair-schema.js ]; then
+  echo "→ node prisma/repair-schema.js"
+  node prisma/repair-schema.js
+elif [ -f scripts/repair-schema.js ]; then
+  echo "→ node scripts/repair-schema.js"
+  node scripts/repair-schema.js
+else
+  echo "❌ repair-schema.js no está en la imagen. Redeploy con rebuild sin caché."
+  exit 1
+fi
 
 echo "✅ Listo. Reinicie el servicio backend."

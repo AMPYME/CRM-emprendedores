@@ -4,13 +4,31 @@
  * 2) Aplica el SQL del baseline ignorando "already exists"
  * 3) Aplica sync de UserRole
  *
- * Uso: node scripts/repair-schema.js
+ * Uso (en contenedor):
+ *   node prisma/repair-schema.js
+ *   node scripts/repair-schema.js
  */
 const fs = require('fs');
 const path = require('path');
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
+
+/** Carpeta prisma/ tanto si el script vive en prisma/ o en scripts/ */
+function resolvePrismaRoot() {
+  const candidates = [
+    path.join(__dirname), // prisma/repair-schema.js
+    path.join(__dirname, '../prisma'), // scripts/repair-schema.js
+    path.join(process.cwd(), 'prisma'),
+  ];
+  for (const dir of candidates) {
+    const marker = path.join(dir, 'schema.prisma');
+    if (fs.existsSync(marker)) return dir;
+  }
+  throw new Error('No se encontró prisma/schema.prisma');
+}
+
+const PRISMA_ROOT = resolvePrismaRoot();
 
 async function tableExists(name) {
   if (!/^[a-z0-9_]+$/.test(name)) throw new Error(`Nombre de tabla inválido: ${name}`);
@@ -39,9 +57,9 @@ function isIgnorableError(err) {
   return (
     /already exists/i.test(msg) ||
     /duplicate key/i.test(msg) ||
-    /42710/.test(msg) || // duplicate_object
-    /42P07/.test(msg) || // duplicate_table
-    /42701/.test(msg) // duplicate_column
+    /42710/.test(msg) ||
+    /42P07/.test(msg) ||
+    /42701/.test(msg)
   );
 }
 
@@ -102,16 +120,15 @@ function splitSqlStatements(sql) {
     .filter((s) => s.length > 0);
 }
 
-async function applySqlFile(filePath, label, options = {}) {
+async function applySqlFile(filePath, label) {
   if (!fs.existsSync(filePath)) {
     console.warn(`⚠️  No existe ${filePath}, se omite (${label})`);
     return;
   }
-  console.log(`→ Aplicando ${label}: ${path.basename(path.dirname(filePath)) || path.basename(filePath)}`);
+  console.log(`→ Aplicando ${label}`);
   const sql = fs.readFileSync(filePath, 'utf8');
 
-  // Archivos con DO $$ ... $$ no se pueden partir por ";"
-  if (options.wholeFile || /DO\s+\$\$/i.test(sql)) {
+  if (/DO\s+\$\$/i.test(sql)) {
     try {
       await prisma.$executeRawUnsafe(sql);
       console.log(`✓ ${label}: aplicado (archivo completo)`);
@@ -148,24 +165,31 @@ async function applySqlFile(filePath, label, options = {}) {
   console.log(`✓ ${label}: ${ok} ok, ${skipped} ya existían, ${failed} avisos`);
 }
 
-
 async function main() {
   console.log('🔧 Reparando esquema de producción...');
+  console.log(`   prisma root: ${PRISMA_ROOT}`);
   await normalizeEntityType();
 
   const baseline = path.join(
-    __dirname,
-    '../prisma/migrations/20260820140000_baseline/migration.sql'
+    PRISMA_ROOT,
+    'migrations/20260820140000_baseline/migration.sql'
   );
   const roles = path.join(
-    __dirname,
-    '../prisma/migrations/20260820150000_sync_crm_user_roles/migration.sql'
+    PRISMA_ROOT,
+    'migrations/20260820150000_sync_crm_user_roles/migration.sql'
   );
 
   await applySqlFile(baseline, 'baseline');
   await applySqlFile(roles, 'roles');
 
-  const critical = ['users', 'audit_logs', 'entities', 'persons', 'companies', 'verification_items'];
+  const critical = [
+    'users',
+    'audit_logs',
+    'entities',
+    'persons',
+    'companies',
+    'verification_items',
+  ];
   const missing = [];
   for (const t of critical) {
     if (!(await tableExists(t))) missing.push(t);

@@ -42,11 +42,15 @@ RUN npm install --omit=dev && npm cache clean --force
 COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build /app/node_modules/@prisma/client ./node_modules/@prisma/client
 COPY --from=build /app/dist ./dist
+# Incluye schema, migrations y repair-schema.js
 COPY --from=build /app/prisma ./prisma
+RUN mkdir -p ./scripts
 COPY backend/scripts/prod-entrypoint.sh ./scripts/prod-entrypoint.sh
 COPY backend/scripts/prod-fix-migrations.sh ./scripts/prod-fix-migrations.sh
 COPY backend/scripts/repair-schema.js ./scripts/repair-schema.js
-RUN chmod +x ./scripts/prod-entrypoint.sh ./scripts/prod-fix-migrations.sh
+RUN chmod +x ./scripts/prod-entrypoint.sh ./scripts/prod-fix-migrations.sh \
+  && test -f ./prisma/repair-schema.js \
+  && test -f ./scripts/repair-schema.js
 
 EXPOSE 4000
 
