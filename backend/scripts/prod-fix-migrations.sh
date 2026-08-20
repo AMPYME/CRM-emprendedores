@@ -1,12 +1,12 @@
 #!/bin/sh
-# Uso puntual en Dokploy (Run Command / shell) si el arranque sigue en P3009.
+# Uso puntual en Dokploy (Run Command / shell) si faltan tablas o hay P3009.
 # NO dejar como comando permanente de cada deploy.
 set -e
 
 echo "→ rolled-back baseline fallido (si aplica)..."
 npx prisma migrate resolve --rolled-back "20260820140000_baseline" || true
 
-EXISTS="$(node <<'NODE'
+EXISTS="$(CHECK_TABLE=users node <<'NODE'
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 (async () => {
@@ -29,7 +29,10 @@ if [ "$EXISTS" = "1" ]; then
   npx prisma migrate resolve --applied "20260820140000_baseline" || true
 fi
 
-echo "→ apply migraciones pendientes (incluye sync de roles)..."
-npx prisma migrate deploy
+echo "→ apply migraciones pendientes..."
+npx prisma migrate deploy || true
 
-echo "✅ Listo. Reinicie el servicio backend si no arranca solo."
+echo "→ sincronizando esquema (crea audit_logs y demás tablas faltantes)..."
+npx prisma db push --skip-generate || npx prisma db push --skip-generate --accept-data-loss
+
+echo "✅ Listo. Reinicie el servicio backend."

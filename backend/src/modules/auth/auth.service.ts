@@ -40,14 +40,22 @@ import { auditService } from '../audit/audit.service';
 const SALT_ROUNDS = 12;
 
 async function logLogin(user: SafeUser): Promise<void> {
-  await auditService.log({
-    action: 'LOGIN',
-    entityType: 'USER',
-    entityId: user.id,
-    entityLabel: user.email,
-    userId: user.id,
-    userEmail: user.email,
-  });
+  try {
+    await auditService.log({
+      action: 'LOGIN',
+      entityType: 'USER',
+      entityId: user.id,
+      entityLabel: user.email,
+      userId: user.id,
+      userEmail: user.email,
+    });
+  } catch (error) {
+    // No bloquear el login si la auditoría falla (esquema incompleto, etc.).
+    logger.warn('No se pudo registrar LOGIN en auditoría', {
+      userId: user.id,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 // ── Helpers de JWT ──────────────────────────────────────────────
