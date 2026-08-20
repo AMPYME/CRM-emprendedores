@@ -45,6 +45,7 @@ COPY --from=build /app/dist ./dist
 COPY --from=build /app/prisma ./prisma
 COPY backend/scripts/prod-entrypoint.sh ./scripts/prod-entrypoint.sh
 COPY backend/scripts/prod-fix-migrations.sh ./scripts/prod-fix-migrations.sh
+COPY backend/scripts/repair-schema.js ./scripts/repair-schema.js
 RUN chmod +x ./scripts/prod-entrypoint.sh ./scripts/prod-fix-migrations.sh
 
 EXPOSE 4000

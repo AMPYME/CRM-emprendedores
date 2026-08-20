@@ -32,7 +32,7 @@ fi
 echo "→ apply migraciones pendientes..."
 npx prisma migrate deploy || true
 
-echo "→ sincronizando esquema (crea audit_logs y demás tablas faltantes)..."
-npx prisma db push --skip-generate || npx prisma db push --skip-generate --accept-data-loss
+echo "→ reparando esquema (crea audit_logs, verification_items, etc.)..."
+node scripts/repair-schema.js
 
 echo "✅ Listo. Reinicie el servicio backend."

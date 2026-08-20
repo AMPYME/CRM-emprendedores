@@ -1,8 +1,8 @@
 #!/bin/sh
 # Arranque producción:
 # 1) migrate deploy (+ recuperación P3009 si aplica)
-# 2) si el historial dice "OK" pero faltan tablas (baseline marcado applied a medias),
-#    sincroniza el esquema con db push
+# 2) si faltan tablas críticas, reparar con scripts/repair-schema.js
+#    (no usa db push: falla con enums legacy como ESTABLISHMENT / P1014)
 # 3) levanta API
 set -e
 
@@ -48,23 +48,17 @@ else
   echo "✅ Migraciones aplicadas tras recuperación"
 fi
 
-# Esquema incompleto: historial OK pero faltan tablas críticas (p. ej. audit_logs).
-NEED_PUSH=0
-for t in users audit_logs entities persons companies; do
+NEED_REPAIR=0
+for t in users audit_logs entities persons companies verification_items; do
   if [ "$(table_exists "$t")" != "1" ]; then
-    echo "⚠️  Falta la tabla public.$t — se sincronizará el esquema."
-    NEED_PUSH=1
+    echo "⚠️  Falta la tabla public.$t"
+    NEED_REPAIR=1
   fi
 done
 
-if [ "$NEED_PUSH" = "1" ]; then
-  echo "🔧 Sincronizando esquema con prisma db push..."
-  # Primero sin pérdida de datos; si Prisma exige confirmación por drift, reintenta.
-  if ! npx prisma db push --skip-generate; then
-    echo "⚠️  db push requiere aceptar cambios; reintentando..."
-    npx prisma db push --skip-generate --accept-data-loss
-  fi
-  echo "✅ Esquema sincronizado"
+if [ "$NEED_REPAIR" = "1" ]; then
+  echo "🔧 Reparando esquema incompleto (baseline + roles, idempotente)..."
+  node scripts/repair-schema.js
 fi
 
 echo "🚀 Iniciando servidor..."
