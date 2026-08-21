@@ -1,8 +1,10 @@
 /**
- * Repara una BD de producción con historial Prisma "OK" pero tablas/enums incompletos.
+ * Repara una BD de producción con historial Prisma "OK" pero tablas/enums/columnas incompletos.
  * 1) Normaliza EntityType (quita ESTABLISHMENT → COMPANY)
  * 2) Aplica el SQL del baseline ignorando "already exists"
  * 3) Aplica sync de UserRole
+ * 4) Añade columnas del baseline que faltan en tablas ya existentes
+ *    (p. ej. persons.has_artisan_card si el baseline se marcó applied sobre BD vieja)
  *
  * Uso (en contenedor):
  *   node prisma/repair-schema.js
@@ -36,6 +38,104 @@ async function tableExists(name) {
     `SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '${name}' LIMIT 1`
   );
   return Array.isArray(rows) && rows.length > 0;
+}
+
+async function columnExists(table, column) {
+  if (!/^[a-z0-9_]+$/.test(table) || !/^[a-z0-9_]+$/.test(column)) {
+    throw new Error(`Nombre de tabla/columna inválido: ${table}.${column}`);
+  }
+  const rows = await prisma.$queryRawUnsafe(
+    `SELECT 1 FROM information_schema.columns
+     WHERE table_schema = 'public' AND table_name = '${table}' AND column_name = '${column}'
+     LIMIT 1`
+  );
+  return Array.isArray(rows) && rows.length > 0;
+}
+
+/** Extrae columnas de cada CREATE TABLE del baseline (CREATE se omite si la tabla ya existe). */
+function parseCreateTableColumns(sql) {
+  const result = [];
+  const tableRe = /CREATE TABLE\s+"([a-z0-9_]+)"\s*\(([\s\S]*?)\);/gi;
+  let match;
+  while ((match = tableRe.exec(sql))) {
+    const table = match[1];
+    const columns = [];
+    for (const rawLine of match[2].split('\n')) {
+      const line = rawLine.trim().replace(/,\s*$/, '');
+      if (!line || /^(CONSTRAINT|PRIMARY KEY|UNIQUE|FOREIGN KEY|CHECK)\b/i.test(line)) continue;
+      const col = line.match(/^"([a-z0-9_]+)"\s+(.+)$/i);
+      if (!col) continue;
+      columns.push({ name: col[1], ddl: col[2].trim() });
+    }
+    result.push({ table, columns });
+  }
+  return result;
+}
+
+function ddlForAddColumn(ddl) {
+  let out = ddl.replace(/\bUNIQUE\b/gi, '').replace(/\s+/g, ' ').trim();
+  if (/\bNOT NULL\b/i.test(out) && !/\bDEFAULT\b/i.test(out)) {
+    out = out.replace(/\s+NOT NULL\b/i, '');
+  }
+  return out.trim();
+}
+
+/**
+ * La BD de prod puede tener `persons` de un esquema viejo y el baseline marcado
+ * como aplicado: CREATE TABLE se ignora y faltan columnas como has_artisan_card.
+ */
+async function ensureMissingColumnsFromBaseline() {
+  const baseline = path.join(PRISMA_ROOT, 'migrations/20260820140000_baseline/migration.sql');
+  if (!fs.existsSync(baseline)) {
+    console.warn('⚠️  No hay baseline para sincronizar columnas');
+    return;
+  }
+
+  console.log('→ Sincronizando columnas faltantes en tablas existentes');
+  const tables = parseCreateTableColumns(fs.readFileSync(baseline, 'utf8'));
+  let added = 0;
+  let skipped = 0;
+
+  for (const { table, columns } of tables) {
+    if (!(await tableExists(table))) continue;
+    for (const { name, ddl } of columns) {
+      if (await columnExists(table, name)) {
+        skipped += 1;
+        continue;
+      }
+      const addDdl = ddlForAddColumn(ddl);
+      if (!addDdl) continue;
+      try {
+        await prisma.$executeRawUnsafe(
+          `ALTER TABLE "${table}" ADD COLUMN IF NOT EXISTS "${name}" ${addDdl}`
+        );
+        console.log(`  + ${table}.${name}`);
+        added += 1;
+      } catch (err) {
+        console.warn(`  ⚠️  ${table}.${name}: ${String(err.message || err).slice(0, 200)}`);
+      }
+    }
+  }
+
+  const extras = [
+    { table: 'persons', column: 'has_artisan_card', ddl: 'BOOLEAN' },
+    { table: 'intake_persons', column: 'has_artisan_card', ddl: 'BOOLEAN' },
+  ];
+  for (const { table, column, ddl } of extras) {
+    if (!(await tableExists(table))) continue;
+    if (await columnExists(table, column)) continue;
+    try {
+      await prisma.$executeRawUnsafe(
+        `ALTER TABLE "${table}" ADD COLUMN IF NOT EXISTS "${column}" ${ddl}`
+      );
+      console.log(`  + ${table}.${column}`);
+      added += 1;
+    } catch (err) {
+      console.warn(`  ⚠️  ${table}.${column}: ${String(err.message || err).slice(0, 200)}`);
+    }
+  }
+
+  console.log(`✓ columnas: ${added} añadidas, ${skipped} ya existían`);
 }
 
 async function enumHasLabel(typeName, label) {
@@ -178,9 +278,15 @@ async function main() {
     PRISMA_ROOT,
     'migrations/20260820150000_sync_crm_user_roles/migration.sql'
   );
+  const personCols = path.join(
+    PRISMA_ROOT,
+    'migrations/20260821180000_add_missing_person_columns/migration.sql'
+  );
 
   await applySqlFile(baseline, 'baseline');
   await applySqlFile(roles, 'roles');
+  await applySqlFile(personCols, 'person-columns');
+  await ensureMissingColumnsFromBaseline();
 
   const critical = [
     'users',
@@ -197,6 +303,22 @@ async function main() {
 
   if (missing.length) {
     console.error('❌ Siguen faltando tablas:', missing.join(', '));
+    process.exit(1);
+  }
+
+  const criticalColumns = [
+    ['persons', 'has_artisan_card'],
+    ['persons', 'cedula'],
+    ['persons', 'first_name'],
+  ];
+  const missingCols = [];
+  for (const [table, column] of criticalColumns) {
+    if ((await tableExists(table)) && !(await columnExists(table, column))) {
+      missingCols.push(`${table}.${column}`);
+    }
+  }
+  if (missingCols.length) {
+    console.error('❌ Siguen faltando columnas:', missingCols.join(', '));
     process.exit(1);
   }
 

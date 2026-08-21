@@ -109,10 +109,13 @@ apiClient.interceptors.response.use(
   }
 );
 
-/** Extrae mensaje de error del backend */
+/** Extrae mensaje de error del backend o de un Error lanzado en el cliente */
 export function getApiErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
     return error.response?.data?.error?.message || error.message || 'Error de conexión';
+  }
+  if (error instanceof Error && error.message) {
+    return error.message;
   }
   return 'Error inesperado';
 }

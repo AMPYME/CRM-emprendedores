@@ -398,6 +398,9 @@ export default function ImportDetailPage() {
               <p className="text-sm text-amber-800">
                 Reprocesa el mismo archivo sin volver a subirlo (se reinician las filas de staging).
               </p>
+              {batch.status === 'FAILED' && batch.progressMessage && (
+                <p className="mt-2 text-sm text-red-700">{batch.progressMessage}</p>
+              )}
             </div>
             <Button
               variant="outline"

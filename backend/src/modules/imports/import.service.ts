@@ -21,7 +21,7 @@ import { iterateCsvRows, peekCsvHeadersAndSample, getCsvHeaders } from './csv-st
 import {
   buildProgressFields,
   persistProgress,
-  readErrorLog,
+  markImportFailed,
 } from './import-progress.util';
 import {
   enqueueImportProcess,
@@ -506,15 +506,7 @@ export const importService = {
       if (error instanceof BadRequestError && error.message === 'Importación cancelada') {
         throw error;
       }
-      await importRepository.updateBatch(batchId, {
-        status: 'FAILED',
-        errorLog: {
-          ...readErrorLog((await importRepository.findBatchById(batchId))?.errorLog),
-          message: error instanceof Error ? error.message : 'Error desconocido',
-          timestamp: new Date().toISOString(),
-        } as any,
-        completedAt: new Date(),
-      });
+      await markImportFailed(batchId, error);
       throw error;
     }
   },
@@ -616,19 +608,10 @@ export const importService = {
         return;
       }
 
+      const message = await markImportFailed(batchId, error);
       logger.error('Worker: error crítico en importación', {
         batchId,
-        error: error instanceof Error ? error.message : error,
-      });
-
-      await importRepository.updateBatch(batchId, {
-        status: 'FAILED',
-        completedAt: new Date(),
-        errorLog: {
-          ...readErrorLog((await importRepository.findBatchById(batchId))?.errorLog),
-          message: error instanceof Error ? error.message : 'Error desconocido',
-          timestamp: new Date().toISOString(),
-        } as any,
+        error: message,
       });
     }
   },

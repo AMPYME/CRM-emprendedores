@@ -56,6 +56,20 @@ export function buildProgressFields(batch: {
   const log = readErrorLog(batch.errorLog);
   const progress = log.progress;
 
+  if (batch.status === 'FAILED') {
+    const failMsg =
+      log.message ||
+      (progress?.phase === 'failed' ? progress.message : null) ||
+      'La importación falló';
+    return {
+      processed: progress?.processed ?? 0,
+      total: progress?.total || batch.totalRows,
+      progressPercent: 0,
+      progressMessage: failMsg,
+      phase: 'failed',
+    };
+  }
+
   if (progress) {
     return {
       processed: progress.processed,
@@ -69,7 +83,6 @@ export function buildProgressFields(batch: {
   const terminal: ImportStatus[] = [
     'REVIEW_REQUIRED',
     'COMPLETED',
-    'FAILED',
     'CANCELLED',
     'VERIFICATION_QUEUED',
   ];
@@ -81,6 +94,44 @@ export function buildProgressFields(batch: {
     progressMessage: done ? 'Procesamiento completado' : 'En cola',
     phase: done ? 'done' : 'staging',
   };
+}
+
+/** Mensaje corto para UI (evita el dump completo de Prisma). */
+export function toImportFailureMessage(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error ?? 'Error desconocido');
+  const missingCol = raw.match(/The column `([^`]+)` does not exist/i);
+  if (missingCol) {
+    return `Esquema de base de datos incompleto: falta la columna ${missingCol[1]}.`;
+  }
+  const compact = raw.replace(/\s+/g, ' ').trim();
+  if (compact.length > 400) return `${compact.slice(0, 397)}…`;
+  return compact || 'Error desconocido';
+}
+
+export async function markImportFailed(batchId: string, error: unknown): Promise<string> {
+  const message = toImportFailureMessage(error);
+  const batch = await importRepository.findBatchById(batchId);
+  if (!batch) return message;
+
+  const log = readErrorLog(batch.errorLog);
+  await importRepository.updateBatch(batchId, {
+    status: 'FAILED',
+    completedAt: new Date(),
+    errorLog: {
+      ...log,
+      message,
+      timestamp: new Date().toISOString(),
+      progress: {
+        processed: log.progress?.processed ?? 0,
+        total: log.progress?.total || batch.totalRows || 0,
+        percent: 0,
+        message,
+        phase: 'failed',
+        updatedAt: new Date().toISOString(),
+      },
+    } as Prisma.InputJsonValue,
+  });
+  return message;
 }
 
 export async function persistProgress(
