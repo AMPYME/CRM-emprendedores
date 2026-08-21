@@ -1,26 +1,38 @@
 /**
  * Servicio principal del modulo de importaciones.
  *
- * Flujo completo:
- * 1. Upload   → Multer guarda archivo, se crea ImportBatch (PENDING)
- * 2. Preview  → Se parsean headers + primeras N filas, se sugiere mapeo
- * 3. Mapping  → El usuario confirma/ajusta el mapeo de columnas
- * 4. Process  → Se parsea todo el Excel, se crea StagingRows con campos extraidos,
- *               se valida y se ejecuta deduplicacion
- * 5. Review   → El usuario revisa filas DUPLICATE_POSSIBLE / INVALID
- * 6. Import   → Se crean entidades desde filas VALID
- * 7. Complete → Se actualizan estadisticas y se marca COMPLETED
+ * Flujo masivo (RAM constante):
+ * 1. Upload   → archivo en disco + ImportBatch PENDING
+ * 2. Mapping  → usuario confirma columnas
+ * 3. Process  → 202 + worker (CSV stream → createMany 500 → validate → dedup)
+ * 4. Review / verificación / execute
  */
+import fs from 'fs';
 import path from 'path';
 import { ImportStatus, StagingRowStatus, EntityType, Prisma, Gender } from '@prisma/client';
 import { prisma } from '../../config/database';
 import { importRepository, BatchWithRelations, StagingRowWithRelations } from './import.repository';
-import { parseExcelFile, getExcelHeaders, getExcelPreview } from './parser.service';
+import { getExcelHeaders, getExcelPreview } from './parser.service';
 import { buildMapping, applyMapping, getAvailableSystemFields, inferEntityType } from './mapper.service';
 import { deduplicateRow } from './dedup.service';
 import { StagingToEntityData, ColumnMapping, ExtractedFields, ValidationResult, ImportBatchProgress, ImportExecuteBatchProgress } from './import.types';
 import { auditService } from '../audit/audit.service';
 import { getImportBatchSettings, sleep } from './import-batch.util';
+import { iterateCsvRows } from './csv-stream.service';
+import {
+  convertExcelFileToCsv,
+  isCsvFile,
+  isExcelFile,
+} from './excel-to-csv.service';
+import {
+  buildProgressFields,
+  persistProgress,
+  readErrorLog,
+} from './import-progress.util';
+import {
+  enqueueImportProcess,
+  registerImportProcessRunner,
+} from './import.worker';
 import {
   ImportQueryInput,
   StagingQueryInput,
@@ -142,6 +154,48 @@ async function countAllStagingRows(batchId: string): Promise<number> {
   return prisma.stagingRow.count({ where: { importBatchId: batchId } });
 }
 
+async function assertNotCancelled(batchId: string): Promise<void> {
+  const batch = await importRepository.findBatchById(batchId);
+  if (!batch) throw new NotFoundError('Lote de importación', batchId);
+  if (batch.status === 'CANCELLED') {
+    throw new BadRequestError('Importación cancelada');
+  }
+}
+
+/**
+ * Asegura un CSV UTF-8 en disco. Si el lote es Excel, convierte por stream y
+ * actualiza fileName del batch al .csv generado.
+ */
+async function ensureBatchCsvPath(batchId: string, fileName: string): Promise<string> {
+  const uploadDir = path.resolve(config.uploadDir);
+  const sourcePath = path.resolve(uploadDir, fileName);
+
+  if (!fs.existsSync(sourcePath)) {
+    throw new BadRequestError('El archivo de importación ya no existe en el servidor');
+  }
+
+  if (isCsvFile(fileName)) {
+    return sourcePath;
+  }
+
+  if (!isExcelFile(fileName)) {
+    throw new BadRequestError('Formato de archivo no soportado. Use CSV UTF-8 o Excel (.xlsx)');
+  }
+
+  const csvName = `${path.parse(fileName).name}.csv`;
+  const csvPath = path.resolve(uploadDir, csvName);
+
+  if (!fs.existsSync(csvPath)) {
+    await convertExcelFileToCsv(sourcePath, csvPath);
+  }
+
+  if (fileName !== csvName) {
+    await importRepository.updateBatch(batchId, { fileName: csvName });
+  }
+
+  return csvPath;
+}
+
 // ── Service ──────────────────────────────────────────────────────
 
 export const importService = {
@@ -169,8 +223,17 @@ export const importService = {
 
     // Agregar estadisticas por status de staging rows
     const stats = await importRepository.getBatchStats(id);
+    const progress = buildProgressFields(batch);
 
-    return { ...batch, stagingStats: stats };
+    return {
+      ...batch,
+      stagingStats: stats,
+      processed: progress.processed,
+      total: progress.total,
+      progressPercent: progress.progressPercent,
+      progressMessage: progress.progressMessage,
+      phase: progress.phase,
+    };
   },
 
   /**
@@ -291,15 +354,20 @@ export const importService = {
   // ═══════════════════════════════════════════════════════════════
 
   /**
-   * Prepara el lote: parsea Excel e inserta filas staging (por lotes con pausa).
+   * Prepara el lote: CSV stream → createMany por lotes de ~500 (sin cargar todo en RAM).
    */
   async prepareProcessing(batchId: string): Promise<ImportBatchProgress> {
     const batch = await importRepository.findBatchById(batchId);
     if (!batch) throw new NotFoundError('Lote de importación', batchId);
 
-    if (batch.status !== 'PENDING' && batch.status !== 'REVIEW_REQUIRED') {
+    if (
+      batch.status !== 'PENDING' &&
+      batch.status !== 'REVIEW_REQUIRED' &&
+      batch.status !== 'PROCESSING' &&
+      batch.status !== 'VALIDATING'
+    ) {
       throw new BadRequestError(
-        `No se puede procesar un lote en estado ${batch.status}. Solo PENDING o REVIEW_REQUIRED.`
+        `No se puede procesar un lote en estado ${batch.status}. Solo PENDING, PROCESSING o VALIDATING.`
       );
     }
 
@@ -314,7 +382,15 @@ export const importService = {
 
     await importRepository.updateBatch(batchId, {
       status: 'PROCESSING',
-      startedAt: new Date(),
+      startedAt: batch.startedAt ?? new Date(),
+    });
+
+    await persistProgress(batchId, {
+      processed: 0,
+      total: batch.totalRows || 0,
+      message: 'Preparando archivo (CSV stream)…',
+      phase: 'staging',
+      status: 'PROCESSING',
     });
 
     try {
@@ -322,36 +398,96 @@ export const importService = {
       let totalRows = batch.totalRows;
 
       if (existingCount === 0) {
-        const filePath = path.resolve(config.uploadDir, batch.fileName);
-        const parsed = parseExcelFile(filePath);
-        totalRows = parsed.totalRows;
+        const csvPath = await ensureBatchCsvPath(batchId, batch.fileName);
+        logger.info('Iniciando staging por stream CSV', { batchId, csvPath });
 
-        logger.info(`Parseadas ${parsed.totalRows} filas del Excel`, { batchId });
+        let rowNumber = 0;
+        let chunk: Array<{
+          importBatchId: string;
+          rowNumber: number;
+          rawData: Record<string, unknown>;
+          extractedCedula?: string;
+          extractedRuc?: string;
+          extractedFirstName?: string;
+          extractedLastName?: string;
+          extractedEmail?: string;
+          extractedPhone?: string;
+          extractedBusinessName?: string;
+        }> = [];
 
-        const stagingData = parsed.rows.map((rawRow, index) => {
-          const fields = applyMapping(rawRow, mapping);
-          return {
-            importBatchId: batchId,
-            rowNumber: index + 1,
-            rawData: rawRow,
-            ...fields,
-          };
-        });
+        for await (const rawRow of iterateCsvRows(csvPath)) {
+          await assertNotCancelled(batchId);
+          rowNumber += 1;
 
-        for (let i = 0; i < stagingData.length; i += stagingInsertBatchSize) {
-          const chunk = stagingData.slice(i, i + stagingInsertBatchSize);
-          await importRepository.createManyStagingRows(chunk);
-          if (i + stagingInsertBatchSize < stagingData.length) {
+          try {
+            const fields = applyMapping(rawRow, mapping);
+            chunk.push({
+              importBatchId: batchId,
+              rowNumber,
+              rawData: rawRow,
+              ...fields,
+            });
+          } catch (rowErr) {
+            await persistProgress(batchId, {
+              processed: rowNumber,
+              total: Math.max(totalRows, rowNumber),
+              message: `Error en fila ${rowNumber}; se omite y continúa`,
+              phase: 'staging',
+              appendRowError: {
+                row: rowNumber,
+                reason: rowErr instanceof Error ? rowErr.message : 'Error de mapeo',
+              },
+            });
+            continue;
+          }
+
+          if (chunk.length >= stagingInsertBatchSize) {
+            await importRepository.createManyStagingRows(chunk);
+            totalRows = rowNumber;
+            const inserted = chunk.length;
+            chunk = [];
+            await persistProgress(batchId, {
+              processed: rowNumber,
+              total: rowNumber,
+              totalRows: rowNumber,
+              message: `Cargando staging: ${rowNumber.toLocaleString('es-PA')} filas`,
+              phase: 'staging',
+            });
+            logger.info(`Staging batch insertado (${inserted} filas)`, {
+              batchId,
+              rowNumber,
+            });
             await sleep(rowBatchDelayMs);
           }
         }
 
-        logger.info(`${stagingData.length} staging rows creados`, { batchId });
+        if (chunk.length > 0) {
+          await importRepository.createManyStagingRows(chunk);
+          chunk = [];
+        }
+
+        totalRows = rowNumber;
+        if (totalRows === 0) {
+          throw new BadRequestError('El archivo CSV no contiene filas de datos');
+        }
+
+        logger.info(`${totalRows} staging rows creados (stream)`, { batchId });
+      } else {
+        totalRows = existingCount;
       }
 
       await importRepository.updateBatch(batchId, {
         status: 'VALIDATING',
         totalRows,
+      });
+
+      await persistProgress(batchId, {
+        processed: 0,
+        total: totalRows,
+        totalRows,
+        message: `Validando registros (0 de ${totalRows.toLocaleString('es-PA')})`,
+        phase: 'validation',
+        status: 'VALIDATING',
       });
 
       const pending = await importRepository.countStagingByStatus(batchId, 'PENDING');
@@ -366,15 +502,133 @@ export const importService = {
         done: pending === 0,
       };
     } catch (error) {
+      if (error instanceof BadRequestError && error.message === 'Importación cancelada') {
+        throw error;
+      }
       await importRepository.updateBatch(batchId, {
         status: 'FAILED',
         errorLog: {
+          ...readErrorLog((await importRepository.findBatchById(batchId))?.errorLog),
           message: error instanceof Error ? error.message : 'Error desconocido',
           timestamp: new Date().toISOString(),
         } as any,
         completedAt: new Date(),
       });
       throw error;
+    }
+  },
+
+  /**
+   * Encola procesamiento completo en background (respuesta inmediata 202).
+   */
+  async startBackgroundProcess(batchId: string) {
+    const batch = await importRepository.findBatchById(batchId);
+    if (!batch) throw new NotFoundError('Lote de importación', batchId);
+
+    if (batch.status !== 'PENDING') {
+      throw new BadRequestError(
+        `No se puede procesar un lote en estado ${batch.status}. Solo PENDING (use reintentar si ya se procesó).`
+      );
+    }
+
+    const mapping = (batch.columnMapping as ColumnMapping) || {};
+    if (Object.keys(mapping).length === 0) {
+      throw new BadRequestError(
+        'Debe configurar el mapeo de columnas antes de procesar. Use PUT /imports/:id/mapping'
+      );
+    }
+
+    await importRepository.updateBatch(batchId, {
+      status: 'PROCESSING',
+      startedAt: new Date(),
+    });
+
+    await persistProgress(batchId, {
+      processed: 0,
+      total: batch.totalRows || 0,
+      message: 'Importación encolada; el worker iniciará en breve',
+      phase: 'staging',
+      status: 'PROCESSING',
+    });
+
+    enqueueImportProcess(batchId);
+
+    return this.getBatch(batchId);
+  },
+
+  /**
+   * Worker: staging stream → validación → dedup (secuencial, concurrencia 1).
+   */
+  async runBackgroundProcess(batchId: string): Promise<void> {
+    const batch = await importRepository.findBatchById(batchId);
+    if (!batch) {
+      logger.warn('Worker: lote no encontrado', { batchId });
+      return;
+    }
+
+    if (batch.status === 'CANCELLED' || batch.status === 'COMPLETED') {
+      return;
+    }
+
+    try {
+      if (
+        batch.status === 'PROCESSING' ||
+        batch.status === 'PENDING'
+      ) {
+        const stagingCount = await countAllStagingRows(batchId);
+        if (stagingCount === 0) {
+          await this.prepareProcessing(batchId);
+        } else if (batch.status === 'PROCESSING') {
+          await importRepository.updateBatch(batchId, { status: 'VALIDATING' });
+        }
+      }
+
+      // Validación + dedup por lotes secuenciales
+      let progress = await this.runProcessingBatch(batchId);
+      while (!progress.done) {
+        await assertNotCancelled(batchId);
+        const total = progress.totalRows || 1;
+        const processed = Math.max(0, total - progress.remaining);
+        await persistProgress(batchId, {
+          processed,
+          total,
+          message:
+            progress.phase === 'validation'
+              ? `Validando registros ${processed.toLocaleString('es-PA')} de ${total.toLocaleString('es-PA')}`
+              : `Deduplicando ${processed.toLocaleString('es-PA')} de ${total.toLocaleString('es-PA')}`,
+          phase: progress.phase === 'deduplication' ? 'deduplication' : 'validation',
+        });
+        progress = await this.runProcessingBatch(batchId);
+      }
+
+      await persistProgress(batchId, {
+        processed: progress.totalRows,
+        total: progress.totalRows,
+        message: 'Procesamiento completado',
+        phase: 'done',
+      });
+
+      logger.info('Worker: importación completada', { batchId });
+    } catch (error) {
+      if (error instanceof BadRequestError && error.message === 'Importación cancelada') {
+        logger.info('Worker: importación cancelada', { batchId });
+        return;
+      }
+
+      logger.error('Worker: error crítico en importación', {
+        batchId,
+        error: error instanceof Error ? error.message : error,
+      });
+
+      await importRepository.updateBatch(batchId, {
+        status: 'FAILED',
+        completedAt: new Date(),
+        errorLog: {
+          ...readErrorLog((await importRepository.findBatchById(batchId))?.errorLog),
+          message: error instanceof Error ? error.message : 'Error desconocido',
+          timestamp: new Date().toISOString(),
+        } as any,
+      });
     }
   },
 
@@ -533,18 +787,10 @@ export const importService = {
   },
 
   /**
-   * Procesa el Excel completo por lotes (compatibilidad con una sola petición).
+   * Encola el procesamiento en background (compat + path principal).
    */
   async process(batchId: string) {
-    await this.prepareProcessing(batchId);
-
-    let progress = await this.runProcessingBatch(batchId);
-    while (!progress.done) {
-      progress = await this.runProcessingBatch(batchId);
-    }
-
-    const finalBatch = await importRepository.findBatchById(batchId);
-    return finalBatch;
+    return this.startBackgroundProcess(batchId);
   },
 
   /**
@@ -572,8 +818,8 @@ export const importService = {
       await importRepository.updateBatch(batchId, { status: 'IMPORTING' });
     }
 
-    const validRows = await importRepository.findValidStagingRows(batchId);
-    const chunk = validRows.slice(0, rowBatchSize);
+    const validRows = await importRepository.findValidStagingRows(batchId, rowBatchSize);
+    const chunk = validRows;
 
     if (chunk.length === 0) {
       await importRepository.refreshBatchStats(batchId);
@@ -678,7 +924,7 @@ export const importService = {
 
     await sleep(rowBatchDelayMs);
 
-    const remaining = (await importRepository.findValidStagingRows(batchId)).length;
+    const remaining = await importRepository.countStagingByStatus(batchId, 'VALID');
     const updatedBatch = await importRepository.refreshBatchStats(batchId);
 
     if (remaining === 0) {
@@ -1153,3 +1399,5 @@ export const importService = {
     return getAvailableSystemFields();
   },
 };
+
+registerImportProcessRunner((batchId) => importService.runBackgroundProcess(batchId));

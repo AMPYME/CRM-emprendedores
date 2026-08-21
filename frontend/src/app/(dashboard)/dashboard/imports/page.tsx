@@ -101,7 +101,7 @@ export default function ImportsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Importaciones"
-        description="Carga masiva de datos desde archivos Excel"
+        description="Carga masiva desde CSV (recomendado) o Excel"
         actions={
           <Button icon={<Upload className="h-4 w-4" />} onClick={() => setIsUploadOpen(true)}>
             Subir archivo
@@ -212,8 +212,8 @@ export default function ImportsPage() {
       <Modal
         isOpen={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}
-        title="Subir archivo Excel"
-        description="Selecciona un archivo .xlsx o .xls para importar datos"
+        title="Subir archivo de importación"
+        description="Preferible CSV UTF-8 para archivos grandes (100k+ filas). También .xlsx / .xls."
         footer={
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setIsUploadOpen(false)}>Cancelar</Button>
@@ -229,18 +229,18 @@ export default function ImportsPage() {
             onChange={(e) => setSourceType(e.target.value)}
           />
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Archivo Excel</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Archivo</label>
             <input
               ref={fileInputRef}
               type="file"
-              accept=".xlsx,.xls"
+              accept=".csv,.xlsx,.xls,text/csv"
               className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 cursor-pointer"
             />
           </div>
           <div className="rounded-lg bg-blue-50 p-3">
             <p className="text-xs text-blue-700">
-              <strong>Formatos aceptados:</strong> .xlsx, .xls<br />
-              El archivo será procesado en etapas: previsualización → mapeo de columnas → validación → deduplicación → importación.
+              <strong>Recomendado:</strong> CSV UTF-8 (menos RAM). También .xlsx / .xls.<br />
+              El procesamiento corre en el servidor por lotes de 500 filas; puedes cerrar la pestaña y volver después.
             </p>
           </div>
         </div>

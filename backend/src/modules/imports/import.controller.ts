@@ -7,6 +7,7 @@ import { importService } from './import.service';
 import {
   sendSuccess,
   sendCreated,
+  sendAccepted,
   sendPaginated,
   sendNoContent,
 } from '../../shared/utils/response.utils';
@@ -29,7 +30,7 @@ export const importController = {
 
   /**
    * GET /api/v1/imports/:id
-   * Detalle de un lote con estadisticas de staging.
+   * Detalle de un lote con estadisticas de staging y progreso.
    */
   async getById(req: Request, res: Response): Promise<void> {
     const batch = await importService.getBatch(req.params.id as string);
@@ -38,7 +39,7 @@ export const importController = {
 
   /**
    * POST /api/v1/imports/upload
-   * Subir archivo Excel y crear lote de importacion.
+   * Subir archivo Excel/CSV y crear lote de importacion.
    * Body: multipart/form-data con campo 'file' y 'sourceType'.
    */
   async upload(req: Request, res: Response): Promise<void> {
@@ -83,16 +84,16 @@ export const importController = {
 
   /**
    * POST /api/v1/imports/:id/process
-   * Procesar el Excel: staging → validacion → deduplicacion.
+   * Encola procesamiento en background (202 Accepted).
    */
   async process(req: Request, res: Response): Promise<void> {
-    const batch = await importService.process(req.params.id as string);
-    sendSuccess(res, batch);
+    const batch = await importService.startBackgroundProcess(req.params.id as string);
+    sendAccepted(res, batch);
   },
 
   /**
    * POST /api/v1/imports/:id/process/prepare
-   * Parsea Excel e inserta filas staging.
+   * Parsea CSV e inserta filas staging (uso interno / debug; el flujo normal usa /process).
    */
   async prepareProcess(req: Request, res: Response): Promise<void> {
     const progress = await importService.prepareProcessing(req.params.id as string);

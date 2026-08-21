@@ -43,7 +43,7 @@ export const config = {
 
   // Uploads
   uploadDir: requiredEnv('UPLOAD_DIR', './uploads'),
-  maxFileSizeMb: parseInt(requiredEnv('MAX_FILE_SIZE_MB', '10'), 10),
+  maxFileSizeMb: parseInt(requiredEnv('MAX_FILE_SIZE_MB', '80'), 10),
 
   // Rate Limiting
   rateLimitWindowMs: parseInt(requiredEnv('RATE_LIMIT_WINDOW_MS', '900000'), 10),
@@ -93,9 +93,11 @@ export const config = {
   },
 
   /** Importaciones Excel: tamaño de lote y pausa entre lotes (evita saturar el servidor). */
-  importBatchSize: parseInt(process.env.IMPORT_BATCH_SIZE || '25', 10),
-  importBatchDelayMs: parseInt(process.env.IMPORT_BATCH_DELAY_MS || '150', 10),
-  importStagingInsertBatchSize: parseInt(process.env.IMPORT_STAGING_INSERT_BATCH_SIZE || '200', 10),
+  /** Filas de validación/dedup por ciclo (secuencial, no concurrente). */
+  importBatchSize: parseInt(process.env.IMPORT_BATCH_SIZE || '100', 10),
+  importBatchDelayMs: parseInt(process.env.IMPORT_BATCH_DELAY_MS || '50', 10),
+  /** createMany staging: lotes de ~500 para memoria constante. */
+  importStagingInsertBatchSize: parseInt(process.env.IMPORT_STAGING_INSERT_BATCH_SIZE || '500', 10),
 } as const;
 
 export type Config = typeof config;

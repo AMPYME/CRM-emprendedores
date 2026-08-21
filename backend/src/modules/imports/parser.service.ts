@@ -11,7 +11,7 @@ import { logger } from '../../shared/logger/logger';
  * Normaliza el nombre de una columna Excel para comparación.
  * Trim, lowercase, sin acentos, sin caracteres especiales.
  */
-function normalizeHeader(header: string): string {
+export function normalizeHeader(header: string): string {
   return header
     .toString()
     .trim()

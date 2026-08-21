@@ -48,6 +48,7 @@ export const importsService = {
 
     const res = await apiClient.post<ApiResponse<ImportBatch>>('/imports/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 300000, // 5 min para archivos grandes
     });
     return res.data.data;
   },

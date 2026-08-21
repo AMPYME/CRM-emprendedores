@@ -60,7 +60,7 @@ export function useProcessImport() {
     mutationFn: (id: string) => importsService.process(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [IMPORTS_KEY] });
-      toast.success('Procesamiento completado');
+      toast.success('Procesamiento iniciado en segundo plano');
     },
     onError: (err) => {
       toast.error(getApiErrorMessage(err));

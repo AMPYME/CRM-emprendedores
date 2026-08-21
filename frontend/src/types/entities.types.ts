@@ -199,6 +199,12 @@ export interface ImportBatch {
   createdAt: string;
   updatedAt: string;
   importedBy?: { id: string; firstName: string; lastName: string };
+  /** Progreso worker (GET /imports/:id) */
+  processed?: number;
+  total?: number;
+  progressPercent?: number;
+  progressMessage?: string;
+  phase?: string;
 }
 
 export interface StagingRow {

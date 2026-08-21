@@ -39,6 +39,10 @@ export function sendCreated<T>(res: Response, data: T): void {
   sendSuccess(res, data, 201);
 }
 
+export function sendAccepted<T>(res: Response, data: T): void {
+  sendSuccess(res, data, 202);
+}
+
 /**
  * Respuesta sin contenido (204).
  */

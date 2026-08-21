@@ -385,15 +385,16 @@ export const importRepository = {
   },
 
   /**
-   * Obtiene filas VALID listas para importar.
+   * Obtiene filas VALID listas para importar (siempre con límite para no saturar RAM).
    */
-  async findValidStagingRows(batchId: string): Promise<StagingRow[]> {
+  async findValidStagingRows(batchId: string, limit: number = 100): Promise<StagingRow[]> {
     return prisma.stagingRow.findMany({
       where: {
         importBatchId: batchId,
         status: 'VALID',
       },
       orderBy: { rowNumber: 'asc' },
+      take: Math.max(1, limit),
     });
   },
 

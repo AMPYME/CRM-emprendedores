@@ -13,6 +13,9 @@ import { prisma } from './config/database';
 import { appState } from './shared/state/app-state';
 import { intakeWs } from './modules/intake/intake.ws';
 import { intakeService } from './modules/intake/intake.service';
+import { resumeInterruptedImports } from './modules/imports/import.worker';
+// Registra el runner del worker de importaciones
+import './modules/imports/import.service';
 
 async function bootstrap(): Promise<void> {
   // Intentar conexión a base de datos (no bloquea el arranque)
@@ -46,6 +49,11 @@ async function bootstrap(): Promise<void> {
       logger.info(`🌍 Entorno: ${config.nodeEnv}`);
       if (!appState.isDatabaseConnected) {
         logger.warn('⚠️ Servidor en modo degradado (sin conexión a BD)');
+      }
+
+      // Reanudar importaciones cortadas por reinicio (SIGTERM / deploy)
+      if (appState.isDatabaseConnected) {
+        void resumeInterruptedImports();
       }
     });
   } catch (error) {

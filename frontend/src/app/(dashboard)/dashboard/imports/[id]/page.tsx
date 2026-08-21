@@ -318,8 +318,20 @@ export default function ImportDetailPage() {
   const canRetry = ['PENDING', 'REVIEW_REQUIRED', 'FAILED', 'CANCELLED'].includes(batch.status) && !isProcessing;
 
   const progress = batchProgress
-    ? { percent: progressPercentFromBatch(batchProgress, batch.validRows), label: progressLabelFromBatch(batchProgress) }
-    : progressFromStatus(batch.status, batch.totalRows);
+    ? {
+        percent: progressPercentFromBatch(
+          batchProgress,
+          batch.validRows,
+          batch.progressPercent
+        ),
+        label: progressLabelFromBatch(batchProgress, batch.progressMessage),
+      }
+    : batch.progressPercent != null
+      ? {
+          percent: batch.progressPercent,
+          label: batch.progressMessage || progressFromStatus(batch.status, batch.totalRows).label,
+        }
+      : progressFromStatus(batch.status, batch.totalRows);
   const showProgress = isProcessing || clientBusy;
 
   const handleRetry = async () => {
