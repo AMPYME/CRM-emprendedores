@@ -14,5 +14,5 @@ export {
   detectCsvDelimiter,
   normalizeHeader,
 } from './parser.service';
-export { buildMapping, applyMapping, autoDetectMapping, getAvailableSystemFields, inferEntityType } from './mapper.service';
+export { buildMapping, applyMapping, autoDetectMapping, getAvailableSystemFields, inferEntityType, classifyImportRow, isUnifiedCsvSource } from './mapper.service';
 export { deduplicateRow } from './dedup.service';

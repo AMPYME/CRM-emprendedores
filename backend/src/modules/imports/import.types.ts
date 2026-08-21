@@ -106,16 +106,14 @@ export const EVENTO_TEMPLATE: ColumnMapping = {
 };
 
 export function getTemplate(sourceType: string): ColumnMapping | null {
-  switch (sourceType) {
-    case 'UNIFICADA':
-      return { ...UNIFICADA_TEMPLATE };
-    case 'EVENTO':
-    default:
-      if (sourceType.startsWith('EVENTO')) {
-        return { ...EVENTO_TEMPLATE };
-      }
-      return null;
+  const kind = (sourceType || '').trim().toUpperCase();
+  if (kind === 'UNIFICADA' || kind === 'GENERAL' || kind === 'CENSUS') {
+    return { ...UNIFICADA_TEMPLATE };
   }
+  if (kind === 'EVENTO' || kind.startsWith('EVENTO') || kind === 'EVENT_REGISTRATION') {
+    return { ...EVENTO_TEMPLATE };
+  }
+  return null;
 }
 
 export interface DeduplicationMatch {

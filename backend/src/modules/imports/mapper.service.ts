@@ -313,19 +313,51 @@ export function getAvailableSystemFields(): Array<{ key: string; label: string; 
   }));
 }
 
+function isMeaningful(value?: string | null): boolean {
+  if (!value) return false;
+  const t = value.trim().toLowerCase();
+  return t !== '' && t !== '-' && t !== 'n/a' && t !== 'na' && t !== 'null' && t !== 's/n' && t !== 'sn';
+}
+
+export function hasPersonFields(fields: ExtractedFields): boolean {
+  return (
+    isMeaningful(fields.extractedCedula) ||
+    isMeaningful(fields.extractedFirstName) ||
+    isMeaningful(fields.extractedLastName)
+  );
+}
+
+export function hasCompanyFields(fields: ExtractedFields): boolean {
+  return isMeaningful(fields.extractedRuc) || isMeaningful(fields.extractedBusinessName);
+}
+
+export type ImportRowKind = 'PERSON' | 'COMPANY' | 'BOTH';
+
 /**
- * Infiere el entityType segun el sourceType y los datos extraidos.
+ * Clasifica una fila CSV:
+ * - persona: Nombre/Apellido/Cédula sin RUC ni Empresa
+ * - empresa: RUC/Empresa sin datos de persona
+ * - ambas: tiene persona y empresa (comparten teléfono, correo, ubicación)
+ */
+export function classifyImportRow(fields: ExtractedFields): ImportRowKind {
+  const person = hasPersonFields(fields);
+  const company = hasCompanyFields(fields);
+  if (person && company) return 'BOTH';
+  if (company) return 'COMPANY';
+  return 'PERSON';
+}
+
+export function isUnifiedCsvSource(sourceType: string): boolean {
+  const kind = (sourceType || '').trim().toUpperCase();
+  return kind === 'UNIFICADA' || kind === 'GENERAL' || kind === 'CENSUS';
+}
+
+/**
+ * Tipo primario para colas/validación (BOTH se trata como PERSON + empresa vinculada).
  */
 export function inferEntityType(
-  sourceType: string,
+  _sourceType: string,
   extractedFields: ExtractedFields
 ): 'PERSON' | 'COMPANY' {
-  if (sourceType === 'UNIFICADA') return 'PERSON';
-  if (sourceType.startsWith('EVENTO')) return 'PERSON';
-
-  if (extractedFields.extractedCedula) return 'PERSON';
-  if (extractedFields.extractedRuc) return 'COMPANY';
-  if (extractedFields.extractedBusinessName && !extractedFields.extractedFirstName) return 'COMPANY';
-
-  return 'PERSON';
+  return classifyImportRow(extractedFields) === 'COMPANY' ? 'COMPANY' : 'PERSON';
 }

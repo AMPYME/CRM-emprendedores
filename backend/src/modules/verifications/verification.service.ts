@@ -6,6 +6,7 @@ import type { VerificationDataPayload, VerificationListItem, VerificationClaimRe
 import { stagingRowToVerificationCreateInput } from './verification.mapper';
 import { importRepository } from '../imports/import.repository';
 import { importService } from '../imports/import.service';
+import { isUnifiedCsvSource } from '../imports/mapper.service';
 import { intakeRepository } from '../intake/intake.repository';
 import { seedIntakeFromVerificationPayload } from '../intake/intake.writer';
 import { intakeService } from '../intake/intake.service';
@@ -331,8 +332,8 @@ export const verificationService = {
       displayName: e.displayName,
     }));
 
-    // Plantilla UNIFICADA: además asegura persona+empresa+relación OWNER desde el Excel.
-    if (payload.importMeta?.sourceType === 'UNIFICADA') {
+    // CSV unificado: crea persona, empresa o ambas (con datos compartidos) según la fila.
+    if (payload.importMeta && isUnifiedCsvSource(payload.importMeta.sourceType)) {
       const meta = payload.importMeta;
       const sourceOrigin = `IMPORT_${meta.sourceType}_${meta.importBatchId.substring(0, 8)}`;
       const result = await importService.importUnificadaRow(
@@ -344,16 +345,20 @@ export const verificationService = {
         userId
       );
       const byId = new Map(entities.map((e) => [e.id, e]));
-      byId.set(result.personId, {
-        id: result.personId,
-        entityType: 'PERSON',
-        displayName: result.personName,
-      });
-      byId.set(result.companyId, {
-        id: result.companyId,
-        entityType: 'COMPANY',
-        displayName: result.companyName,
-      });
+      if (result.personId) {
+        byId.set(result.personId, {
+          id: result.personId,
+          entityType: 'PERSON',
+          displayName: result.personName || 'Sin nombre',
+        });
+      }
+      if (result.companyId) {
+        byId.set(result.companyId, {
+          id: result.companyId,
+          entityType: 'COMPANY',
+          displayName: result.companyName || 'Empresa sin nombre',
+        });
+      }
       entities = [...byId.values()];
     }
 

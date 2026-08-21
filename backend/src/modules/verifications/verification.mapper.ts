@@ -4,7 +4,7 @@
 import { randomUUID } from 'crypto';
 import { EntityType, Prisma } from '@prisma/client';
 import type { ColumnMapping, ExtractedFields } from '../imports/import.types';
-import { inferEntityType } from '../imports/mapper.service';
+import { classifyImportRow } from '../imports/mapper.service';
 import { locationInputToCodes } from '../../shared/utils/division-politica';
 import type { VerificationDataPayload } from './verification.types';
 
@@ -108,7 +108,10 @@ function buildCompanySnapshot(
     intake_entity_id: '',
     ruc: fields.extractedRuc ?? null,
     dv: getMapped(rawData, mapping, 'dv') ?? null,
-    legal_name: getMapped(rawData, mapping, 'legalName') || fields.extractedBusinessName || null,
+    legal_name:
+      getMapped(rawData, mapping, 'legalName') ||
+      fields.extractedBusinessName ||
+      (fields.extractedRuc ? `RUC ${fields.extractedRuc}` : null),
     trade_name: getMapped(rawData, mapping, 'tradeName') ?? null,
     company_type: getMapped(rawData, mapping, 'companyType') ?? null,
     company_size_class: getMapped(rawData, mapping, 'companySizeClass') ?? null,
@@ -134,12 +137,16 @@ export function stagingRowToVerificationCreateInput(params: {
     corregimiento: getMapped(rawData, mapping, 'corregimiento'),
   });
 
-  const entityType: EntityType =
-    sourceType === 'UNIFICADA'
-      ? 'PERSON'
-      : (inferEntityType(sourceType, fields) as EntityType);
+  const kind = classifyImportRow(fields);
+  const entityType: EntityType = kind === 'COMPANY' ? 'COMPANY' : 'PERSON';
 
-  const displayName = buildDisplayName(entityType, fields, rawData, mapping);
+  const personName = [fields.extractedFirstName, fields.extractedLastName].filter(Boolean).join(' ');
+  const companyName =
+    getMapped(rawData, mapping, 'legalName') || fields.extractedBusinessName || '';
+  const displayName =
+    kind === 'BOTH' && personName && companyName
+      ? `${personName} · ${companyName}`
+      : buildDisplayName(entityType, fields, rawData, mapping);
   const contacts = buildContacts(fields, rawData, mapping);
 
   const payload: VerificationDataPayload = {
@@ -154,14 +161,8 @@ export function stagingRowToVerificationCreateInput(params: {
         address: getMapped(rawData, mapping, 'address') ?? null,
       },
       notes: null,
-      person:
-        entityType === 'PERSON' || sourceType === 'UNIFICADA'
-          ? buildPersonSnapshot(fields, rawData, mapping)
-          : null,
-      company:
-        entityType === 'COMPANY' || sourceType === 'UNIFICADA'
-          ? buildCompanySnapshot(fields, rawData, mapping)
-          : null,
+      person: kind === 'PERSON' || kind === 'BOTH' ? buildPersonSnapshot(fields, rawData, mapping) : null,
+      company: kind === 'COMPANY' || kind === 'BOTH' ? buildCompanySnapshot(fields, rawData, mapping) : null,
       contacts,
     },
     importMeta: {

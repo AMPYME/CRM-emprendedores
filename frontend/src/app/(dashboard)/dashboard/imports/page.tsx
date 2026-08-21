@@ -241,7 +241,9 @@ export default function ImportsPage() {
             <p className="text-xs text-blue-700">
               <strong>Formato:</strong> CSV UTF-8 (separador <code>,</code> o <code>;</code>).
               <br />
-              El procesamiento corre en el servidor por lotes; puedes cerrar la pestaña y volver después.
+              Columnas: Nombre; Apellido; Cédula; RUC; Empresa; Teléfono; Correo; Provincia; Distrito; Corregimiento.
+              <br />
+              Con nombre/cédula se crea persona; con RUC/empresa se crea empresa; si trae ambos, se crean los dos y comparten teléfono, correo y ubicación.
             </p>
           </div>
         </div>

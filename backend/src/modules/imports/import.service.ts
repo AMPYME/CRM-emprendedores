@@ -12,7 +12,7 @@ import path from 'path';
 import { ImportStatus, StagingRowStatus, EntityType, Prisma, Gender } from '@prisma/client';
 import { prisma } from '../../config/database';
 import { importRepository, BatchWithRelations, StagingRowWithRelations } from './import.repository';
-import { buildMapping, applyMapping, getAvailableSystemFields, inferEntityType } from './mapper.service';
+import { buildMapping, applyMapping, getAvailableSystemFields, inferEntityType, classifyImportRow, isUnifiedCsvSource } from './mapper.service';
 import { deduplicateRow } from './dedup.service';
 import { StagingToEntityData, ColumnMapping, ExtractedFields, ValidationResult, ImportBatchProgress, ImportExecuteBatchProgress } from './import.types';
 import { auditService } from '../audit/audit.service';
@@ -852,7 +852,7 @@ export const importService = {
         const fields = rowToExtractedFields(row);
         let primaryEntityId: string;
 
-        if (batch.sourceType === 'UNIFICADA') {
+        if (isUnifiedCsvSource(batch.sourceType)) {
           const result = await this.importUnificadaRow(
             fields,
             rawData,
@@ -861,23 +861,30 @@ export const importService = {
             batchId,
             batch.importedById ?? undefined
           );
-          primaryEntityId = result.personId;
-          await auditService.log({
-            action: 'CREATE',
-            entityType: 'PERSON',
-            entityId: result.personId,
-            entityLabel: result.personName,
-            userId: batch.importedById ?? undefined,
-            metadata: { importBatchId: batchId, companyId: result.companyId },
-          });
-          await auditService.log({
-            action: 'CREATE',
-            entityType: 'COMPANY',
-            entityId: result.companyId,
-            entityLabel: result.companyName,
-            userId: batch.importedById ?? undefined,
-            metadata: { importBatchId: batchId, personId: result.personId },
-          });
+          primaryEntityId = result.personId || result.companyId || '';
+          if (!primaryEntityId) {
+            throw new Error('La fila no produjo persona ni empresa');
+          }
+          if (result.personId) {
+            await auditService.log({
+              action: 'CREATE',
+              entityType: 'PERSON',
+              entityId: result.personId,
+              entityLabel: result.personName,
+              userId: batch.importedById ?? undefined,
+              metadata: { importBatchId: batchId, companyId: result.companyId },
+            });
+          }
+          if (result.companyId) {
+            await auditService.log({
+              action: 'CREATE',
+              entityType: 'COMPANY',
+              entityId: result.companyId,
+              entityLabel: result.companyName,
+              userId: batch.importedById ?? undefined,
+              metadata: { importBatchId: batchId, personId: result.personId },
+            });
+          }
         } else {
           const entityType = inferEntityType(batch.sourceType, fields);
           const entityData = this.buildEntityData(
@@ -1203,7 +1210,13 @@ export const importService = {
     sourceOrigin: string,
     importBatchId: string,
     createdById?: string
-  ): Promise<{ personId: string; companyId: string; personName: string; companyName: string }> {
+  ): Promise<{
+    personId?: string;
+    companyId?: string;
+    personName?: string;
+    companyName?: string;
+  }> {
+    const kind = classifyImportRow(fields);
     const get = (field: string): string | undefined => {
       const col = mapping[field];
       if (!col) return undefined;
@@ -1225,111 +1238,130 @@ export const importService = {
     if (fields.extractedPhone) {
       contacts.push({ contactType: 'PHONE', contactValue: fields.extractedPhone });
     }
+    const contactNestedCreate = () =>
+      contacts.length
+        ? {
+            create: contacts.map((c) => ({
+              contactType: c.contactType,
+              contactValue: c.contactValue,
+            })) as Prisma.EntityContactCreateWithoutEntityInput[],
+          }
+        : undefined;
 
     const personName = [fields.extractedFirstName, fields.extractedLastName].filter(Boolean).join(' ');
     const companyLegalName =
-      get('legalName') || fields.extractedBusinessName || `Empresa de ${personName}`;
+      get('legalName') ||
+      fields.extractedBusinessName ||
+      (fields.extractedRuc ? `RUC ${fields.extractedRuc}` : undefined);
 
     return prisma.$transaction(async (tx) => {
-      let personEntity = fields.extractedCedula
-        ? await tx.entity.findFirst({
-            where: {
-              entityType: 'PERSON',
-              status: { not: 'MERGED' },
-              person: { cedula: fields.extractedCedula },
-            },
-            include: { person: true },
-          })
-        : null;
+      let personEntity: { id: string; displayName: string } | null = null;
+      let companyEntity: { id: string; displayName: string } | null = null;
 
-      if (!personEntity) {
-        personEntity = await tx.entity.create({
-          data: {
-            entityType: 'PERSON',
-            status: 'ACTIVE',
-            displayName: personName || 'Sin nombre',
-            province: loc.province,
-            district: loc.district,
-            corregimiento: loc.corregimiento,
-            address,
-            sourceOrigin,
-            importBatchId,
-            createdById,
-            person: {
-              create: {
-                firstName: fields.extractedFirstName || 'Sin nombre',
-                lastName: fields.extractedLastName || 'Sin apellido',
-                cedula: fields.extractedCedula,
+      if (kind === 'PERSON' || kind === 'BOTH') {
+        const existing = fields.extractedCedula
+          ? await tx.entity.findFirst({
+              where: {
+                entityType: 'PERSON',
+                status: { not: 'MERGED' },
+                person: { cedula: fields.extractedCedula },
               },
-            },
-            contacts: contacts.length
-              ? { create: contacts as Prisma.EntityContactCreateWithoutEntityInput[] }
-              : undefined,
-          },
-          include: { person: true },
-        });
+              select: { id: true, displayName: true },
+            })
+          : null;
+
+        personEntity = existing
+          ? existing
+          : await tx.entity.create({
+              data: {
+                entityType: 'PERSON',
+                status: 'ACTIVE',
+                displayName: personName || 'Sin nombre',
+                province: loc.province,
+                district: loc.district,
+                corregimiento: loc.corregimiento,
+                address,
+                sourceOrigin,
+                importBatchId,
+                createdById,
+                person: {
+                  create: {
+                    firstName: fields.extractedFirstName || 'Sin nombre',
+                    lastName: fields.extractedLastName || 'Sin apellido',
+                    cedula: fields.extractedCedula,
+                  },
+                },
+                contacts: contactNestedCreate(),
+              },
+              select: { id: true, displayName: true },
+            });
       }
 
-      let companyEntity = fields.extractedRuc
-        ? await tx.entity.findFirst({
-            where: {
-              entityType: 'COMPANY',
-              status: { not: 'MERGED' },
-              company: { ruc: fields.extractedRuc },
-            },
-            include: { company: true },
-          })
-        : null;
-
-      if (!companyEntity) {
-        companyEntity = await tx.entity.create({
-          data: {
-            entityType: 'COMPANY',
-            status: 'ACTIVE',
-            displayName: companyLegalName,
-            province: loc.province,
-            district: loc.district,
-            corregimiento: loc.corregimiento,
-            address,
-            sourceOrigin,
-            importBatchId,
-            createdById,
-            company: {
-              create: {
-                legalName: companyLegalName,
-                ruc: fields.extractedRuc,
+      if (kind === 'COMPANY' || kind === 'BOTH') {
+        const existing = fields.extractedRuc
+          ? await tx.entity.findFirst({
+              where: {
+                entityType: 'COMPANY',
+                status: { not: 'MERGED' },
+                company: { ruc: fields.extractedRuc },
               },
-            },
-          },
-          include: { company: true },
-        });
+              select: { id: true, displayName: true },
+            })
+          : null;
+
+        companyEntity = existing
+          ? existing
+          : await tx.entity.create({
+              data: {
+                entityType: 'COMPANY',
+                status: 'ACTIVE',
+                displayName: companyLegalName || 'Empresa sin nombre',
+                province: loc.province,
+                district: loc.district,
+                corregimiento: loc.corregimiento,
+                address,
+                sourceOrigin,
+                importBatchId,
+                createdById,
+                company: {
+                  create: {
+                    legalName: companyLegalName || 'Empresa sin nombre',
+                    ruc: fields.extractedRuc,
+                  },
+                },
+                contacts: contactNestedCreate(),
+              },
+              select: { id: true, displayName: true },
+            });
       }
 
-      const existingRel = await tx.entityRelationship.findFirst({
-        where: {
-          OR: [
-            { fromEntityId: personEntity.id, toEntityId: companyEntity.id },
-            { fromEntityId: companyEntity.id, toEntityId: personEntity.id },
-          ],
-        },
-      });
-
-      if (!existingRel) {
-        await tx.entityRelationship.create({
-          data: {
-            fromEntityId: personEntity.id,
-            toEntityId: companyEntity.id,
-            relationshipType: 'OWNER',
-            isActive: true,
+      if (personEntity && companyEntity) {
+        const existingRel = await tx.entityRelationship.findFirst({
+          where: {
+            OR: [
+              { fromEntityId: personEntity.id, toEntityId: companyEntity.id },
+              { fromEntityId: companyEntity.id, toEntityId: personEntity.id },
+            ],
           },
         });
+
+        if (!existingRel) {
+          await tx.entityRelationship.create({
+            data: {
+              fromEntityId: personEntity.id,
+              toEntityId: companyEntity.id,
+              relationshipType: 'OWNER',
+              isActive: true,
+            },
+          });
+        }
       }
 
       return {
-        personId: personEntity.id,
-        companyId: companyEntity.id,
-        personName: personEntity.displayName,
-        companyName: companyEntity.displayName,
+        personId: personEntity?.id,
+        companyId: companyEntity?.id,
+        personName: personEntity?.displayName,
+        companyName: companyEntity?.displayName,
       };
     });
   },
