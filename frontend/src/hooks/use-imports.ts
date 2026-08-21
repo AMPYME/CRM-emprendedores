@@ -23,9 +23,9 @@ export function useImport(id: string | undefined, options?: { poll?: boolean }) 
     queryFn: () => importsService.getById(id!),
     enabled: !!id,
     refetchInterval: (query) => {
-      if (options?.poll) return 1500;
+      if (options?.poll) return 3000;
       const status = query.state.data?.status;
-      if (status && runningStatuses.has(status)) return 1500;
+      if (status && runningStatuses.has(status)) return 3000;
       return false;
     },
   });

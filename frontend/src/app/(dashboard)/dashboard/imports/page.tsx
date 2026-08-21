@@ -36,10 +36,10 @@ const statusOptions = [
 ];
 
 const sourceTypeOptions = [
+  { value: 'UNIFICADA', label: 'Base unificada' },
   { value: 'general', label: 'Carga general' },
   { value: 'event_registration', label: 'Inscripción a evento' },
   { value: 'census', label: 'Censo / Encuesta' },
-  { value: 'UNIFICADA', label: 'Base unificada' },
 ];
 
 const statusBadge: Record<string, 'default' | 'primary' | 'success' | 'warning' | 'danger' | 'info'> = {
@@ -73,7 +73,7 @@ export default function ImportsPage() {
   const { page, limit, setPage } = usePagination();
   const [statusFilter, setStatusFilter] = useState('');
   const [isUploadOpen, setIsUploadOpen] = useState(false);
-  const [sourceType, setSourceType] = useState('general');
+  const [sourceType, setSourceType] = useState('UNIFICADA');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data, isLoading, error } = useImports({

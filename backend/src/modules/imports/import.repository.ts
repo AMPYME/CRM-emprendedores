@@ -356,6 +356,53 @@ export const importRepository = {
   },
 
   /**
+   * Actualiza muchas filas a VALID de una vez (validación por lotes).
+   */
+  async markStagingRowsValid(ids: string[]): Promise<number> {
+    if (ids.length === 0) return 0;
+    const result = await prisma.stagingRow.updateMany({
+      where: { id: { in: ids } },
+      data: {
+        status: 'VALID',
+        processedAt: new Date(),
+        validationErrors: Prisma.DbNull,
+      },
+    });
+    return result.count;
+  },
+
+  /**
+   * Marca filas INVALID con el mismo payload de errores (agrupado).
+   */
+  async markStagingRowsInvalid(ids: string[], errors: string[]): Promise<number> {
+    if (ids.length === 0) return 0;
+    const result = await prisma.stagingRow.updateMany({
+      where: { id: { in: ids } },
+      data: {
+        status: 'INVALID',
+        processedAt: new Date(),
+        validationErrors: { general: errors } as any,
+      },
+    });
+    return result.count;
+  },
+
+  /**
+   * Marca filas dedup sin match en lote.
+   */
+  async markStagingRowsNoMatch(ids: string[]): Promise<number> {
+    if (ids.length === 0) return 0;
+    const result = await prisma.stagingRow.updateMany({
+      where: { id: { in: ids } },
+      data: {
+        matchReason: 'sin_coincidencia',
+        matchScore: 0,
+      },
+    });
+    return result.count;
+  },
+
+  /**
    * Obtiene filas PENDING de un batch (para procesamiento por lotes).
    */
   async findPendingStagingRows(batchId: string, limit?: number): Promise<StagingRow[]> {

@@ -8,7 +8,7 @@ import type { ImportBatch } from '@/types/entities.types';
 import type { ImportBatchProgress, ImportVerificationBatchProgress } from '@/types/imports.types';
 
 const CLIENT_BATCH_DELAY_MS = 100;
-const POLL_INTERVAL_MS = 1500;
+const POLL_INTERVAL_MS = 3000;
 
 function sleep(ms: number): Promise<void> {
   if (ms <= 0) return Promise.resolve();

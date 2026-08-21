@@ -47,7 +47,8 @@ export const config = {
 
   // Rate Limiting
   rateLimitWindowMs: parseInt(requiredEnv('RATE_LIMIT_WINDOW_MS', '900000'), 10),
-  rateLimitMaxRequests: parseInt(requiredEnv('RATE_LIMIT_MAX_REQUESTS', '100'), 10),
+  /** Límite alto: el frontend hace polling de imports + healthchecks. */
+  rateLimitMaxRequests: parseInt(requiredEnv('RATE_LIMIT_MAX_REQUESTS', '3000'), 10),
 
   /**
    * API interna de usuarios (AD-user-api). Obligatoria: el CRM solo autentica vía AD.
@@ -94,8 +95,8 @@ export const config = {
 
   /** Importaciones Excel: tamaño de lote y pausa entre lotes (evita saturar el servidor). */
   /** Filas de validación/dedup por ciclo (secuencial, no concurrente). */
-  importBatchSize: parseInt(process.env.IMPORT_BATCH_SIZE || '100', 10),
-  importBatchDelayMs: parseInt(process.env.IMPORT_BATCH_DELAY_MS || '50', 10),
+  importBatchSize: parseInt(process.env.IMPORT_BATCH_SIZE || '500', 10),
+  importBatchDelayMs: parseInt(process.env.IMPORT_BATCH_DELAY_MS || '100', 10),
   /** createMany staging: lotes de ~500 para memoria constante. */
   importStagingInsertBatchSize: parseInt(process.env.IMPORT_STAGING_INSERT_BATCH_SIZE || '500', 10),
 } as const;

@@ -17,6 +17,9 @@ import { apiRouter } from './routes';
 export function createApp(): Application {
   const app = express();
 
+  // Detrás de reverse proxy (Dokploy/Traefik) para rate-limit por IP real
+  app.set('trust proxy', 1);
+
   // ── Middlewares de seguridad ───────────────────────────────────
   app.use(helmet());
   // Soporta múltiples orígenes separados por coma en CORS_ORIGIN
@@ -43,7 +46,21 @@ export function createApp(): Application {
       max: config.rateLimitMaxRequests,
       standardHeaders: true,
       legacyHeaders: false,
-      skip: (req) => req.path.includes('/intake/public'),
+      message: {
+        success: false,
+        error: {
+          code: 'RATE_LIMIT',
+          message: 'Demasiadas peticiones. Espere un momento e intente de nuevo.',
+        },
+      },
+      skip: (req) => {
+        const p = req.path || '';
+        return (
+          p.includes('/health') ||
+          p.endsWith('/health') ||
+          p.includes('/intake/public')
+        );
+      },
     })
   );
 

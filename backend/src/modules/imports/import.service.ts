@@ -101,27 +101,49 @@ function validateRow(
   fields: ExtractedFields
 ): ValidationResult {
   const errors: string[] = [];
+  const hasPersonName = !!(fields.extractedFirstName && fields.extractedLastName);
+  const hasCompany = !!(fields.extractedBusinessName || fields.extractedRuc);
+  const hasCedula = !!fields.extractedCedula;
+  const hasPhone = !!fields.extractedPhone;
 
-  if (sourceType === 'UNIFICADA') {
-    if (!fields.extractedFirstName) errors.push('Nombre es requerido');
-    if (!fields.extractedLastName) errors.push('Apellido es requerido');
-    if (!fields.extractedBusinessName && !fields.extractedRuc) {
-      errors.push('Empresa o RUC es requerido');
+  // Base unificada / carga general: aceptar persona O empresa (CSV suele traer solo empresa).
+  if (
+    sourceType === 'UNIFICADA' ||
+    sourceType === 'general' ||
+    sourceType === 'census'
+  ) {
+    if (hasPersonName || hasCompany || hasCedula) {
+      return { isValid: true, errors: [] };
     }
-    return { isValid: errors.length === 0, errors };
+    if (hasPhone && (fields.extractedFirstName || fields.extractedBusinessName)) {
+      return { isValid: true, errors: [] };
+    }
+    errors.push('Se requiere al menos nombre y apellido, cédula, o empresa/RUC');
+    return { isValid: false, errors };
   }
 
   switch (entityType) {
     case 'PERSON':
-      if (!fields.extractedFirstName) errors.push('Nombre es requerido');
-      if (!fields.extractedLastName) errors.push('Apellido es requerido');
+      if (!fields.extractedFirstName && !hasCedula) {
+        errors.push('Nombre o cédula es requerido');
+      }
+      if (!fields.extractedLastName && !hasCedula && fields.extractedFirstName) {
+        errors.push('Apellido es requerido');
+      }
       break;
     case 'COMPANY':
-      if (!fields.extractedBusinessName) errors.push('Nombre de empresa es requerido');
+      if (!hasCompany) errors.push('Nombre de empresa o RUC es requerido');
       break;
   }
 
   return { isValid: errors.length === 0, errors };
+}
+
+/** Libera referencias del lote y cede el event loop. */
+async function releaseBatchMemory(delayMs: number): Promise<void> {
+  await sleep(delayMs);
+  // Permite al GC recuperar el chunk del lote anterior
+  await new Promise<void>((resolve) => setImmediate(resolve));
 }
 
 function rowToExtractedFields(row: {
@@ -424,7 +446,7 @@ export const importService = {
             await importRepository.createManyStagingRows(chunk);
             totalRows = rowNumber;
             const inserted = chunk.length;
-            chunk = [];
+            chunk.length = 0;
             await persistProgress(batchId, {
               processed: rowNumber,
               total: rowNumber,
@@ -436,13 +458,13 @@ export const importService = {
               batchId,
               rowNumber,
             });
-            await sleep(rowBatchDelayMs);
+            await releaseBatchMemory(rowBatchDelayMs);
           }
         }
 
         if (chunk.length > 0) {
           await importRepository.createManyStagingRows(chunk);
-          chunk = [];
+          chunk.length = 0;
         }
 
         totalRows = rowNumber;
@@ -638,26 +660,41 @@ export const importService = {
         };
       }
 
+      const validIds: string[] = [];
+      const invalidByError = new Map<string, { errors: string[]; ids: string[] }>();
+
       for (const row of pendingRows) {
         const fields = rowToExtractedFields(row);
         const entityType = inferEntityType(batch.sourceType, fields);
         const validation = validateRow(batch.sourceType, entityType, fields);
 
-        if (!validation.isValid) {
-          await importRepository.updateStagingRow(row.id, {
-            status: 'INVALID',
-            validationErrors: { general: validation.errors },
-            processedAt: new Date(),
-          });
+        if (validation.isValid) {
+          validIds.push(row.id);
         } else {
-          await importRepository.updateStagingRow(row.id, {
-            status: 'VALID',
-            processedAt: new Date(),
-          });
+          const key = validation.errors.join('|') || 'invalid';
+          const bucket = invalidByError.get(key);
+          if (bucket) {
+            bucket.ids.push(row.id);
+          } else {
+            invalidByError.set(key, { errors: validation.errors, ids: [row.id] });
+          }
         }
       }
 
-      await sleep(rowBatchDelayMs);
+      const processedInBatch = pendingRows.length;
+      // Liberar referencias del chunk leído antes de escribir
+      pendingRows.length = 0;
+
+      await importRepository.markStagingRowsValid(validIds);
+      validIds.length = 0;
+
+      for (const group of invalidByError.values()) {
+        await importRepository.markStagingRowsInvalid(group.ids, group.errors);
+        group.ids.length = 0;
+      }
+      invalidByError.clear();
+
+      await releaseBatchMemory(rowBatchDelayMs);
 
       const remaining = await importRepository.countStagingByStatus(batchId, 'PENDING');
 
@@ -669,7 +706,7 @@ export const importService = {
         batchId,
         status: remaining === 0 ? 'DEDUPLICATING' : 'VALIDATING',
         phase: remaining === 0 ? 'deduplication' : 'validation',
-        processedInBatch: pendingRows.length,
+        processedInBatch,
         remaining,
         totalRows: batch.totalRows,
         done: false,
@@ -696,6 +733,8 @@ export const importService = {
         };
       }
 
+      const noMatchIds: string[] = [];
+
       for (const row of validRows) {
         const fields = rowToExtractedFields(row);
         const dedupResult = await deduplicateRow(row.id, fields);
@@ -709,14 +748,17 @@ export const importService = {
             matchReason: dedupResult.bestMatch.reason,
           });
         } else {
-          await importRepository.updateStagingRow(row.id, {
-            matchReason: 'sin_coincidencia',
-            matchScore: 0,
-          });
+          noMatchIds.push(row.id);
         }
       }
 
-      await sleep(rowBatchDelayMs);
+      const processedInBatch = validRows.length;
+      validRows.length = 0;
+
+      await importRepository.markStagingRowsNoMatch(noMatchIds);
+      noMatchIds.length = 0;
+
+      await releaseBatchMemory(rowBatchDelayMs);
 
       const remaining = await importRepository.countValidStagingRowsPendingDedup(batchId);
 
@@ -730,7 +772,7 @@ export const importService = {
           batchId,
           status: 'REVIEW_REQUIRED',
           phase: 'done',
-          processedInBatch: validRows.length,
+          processedInBatch,
           remaining: 0,
           totalRows: batch.totalRows,
           done: true,
@@ -741,7 +783,7 @@ export const importService = {
         batchId,
         status: 'DEDUPLICATING',
         phase: 'deduplication',
-        processedInBatch: validRows.length,
+        processedInBatch,
         remaining,
         totalRows: batch.totalRows,
         done: false,

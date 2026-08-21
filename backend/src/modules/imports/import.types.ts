@@ -78,6 +78,7 @@ export const UNIFICADA_TEMPLATE: ColumnMapping = {
   cedula: 'cedula',
   ruc: 'ruc',
   legalName: 'empresa',
+  businessName: 'empresa',
   email: 'correo',
   phone: 'telefono',
   phone2: 'telefono_2',
