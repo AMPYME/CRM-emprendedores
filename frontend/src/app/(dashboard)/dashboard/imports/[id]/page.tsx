@@ -634,7 +634,7 @@ export default function ImportDetailPage() {
             </Card>
           )}
 
-          {batch.status === 'IMPORTING' && !sendToVerificationMutation.isPending && (
+          {batch.status === 'IMPORTING' && !batchRunning && (
             <Card className="border-primary-200 bg-primary-50">
               <ImportProgressBar percent={progress.percent} label={progress.label} />
             </Card>
