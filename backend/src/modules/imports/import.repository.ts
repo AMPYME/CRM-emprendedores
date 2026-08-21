@@ -356,15 +356,31 @@ export const importRepository = {
   },
 
   /**
-   * Obtiene todas las filas PENDING de un batch (para procesamiento).
+   * Obtiene filas PENDING de un batch (para procesamiento por lotes).
    */
-  async findPendingStagingRows(batchId: string): Promise<StagingRow[]> {
+  async findPendingStagingRows(batchId: string, limit?: number): Promise<StagingRow[]> {
     return prisma.stagingRow.findMany({
       where: {
         importBatchId: batchId,
         status: 'PENDING',
       },
       orderBy: { rowNumber: 'asc' },
+      ...(limit ? { take: limit } : {}),
+    });
+  },
+
+  /**
+   * Filas VALID aún sin pasar deduplicación (matchReason null).
+   */
+  async findValidStagingRowsPendingDedup(batchId: string, limit?: number): Promise<StagingRow[]> {
+    return prisma.stagingRow.findMany({
+      where: {
+        importBatchId: batchId,
+        status: 'VALID',
+        matchReason: null,
+      },
+      orderBy: { rowNumber: 'asc' },
+      ...(limit ? { take: limit } : {}),
     });
   },
 
@@ -378,6 +394,19 @@ export const importRepository = {
         status: 'VALID',
       },
       orderBy: { rowNumber: 'asc' },
+    });
+  },
+
+  /**
+   * Cuenta filas VALID pendientes de deduplicación.
+   */
+  async countValidStagingRowsPendingDedup(batchId: string): Promise<number> {
+    return prisma.stagingRow.count({
+      where: {
+        importBatchId: batchId,
+        status: 'VALID',
+        matchReason: null,
+      },
     });
   },
 

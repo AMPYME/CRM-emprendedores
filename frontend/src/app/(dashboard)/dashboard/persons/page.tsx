@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback } from 'react';
 import Link from 'next/link';
-import { Users, Eye, Edit, Trash2 } from 'lucide-react';
+import { Users, Plus, Eye, Edit, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -73,6 +73,11 @@ export default function PersonsPage() {
     }
   };
 
+  const openCreate = () => {
+    setEditId(null);
+    setIsModalOpen(true);
+  };
+
   const openEdit = (id: string) => {
     setEditId(id);
     setIsModalOpen(true);
@@ -91,6 +96,13 @@ export default function PersonsPage() {
       <PageHeader
         title="Personas"
         description="Gestión de emprendedores registrados"
+        actions={
+          !readOnly ? (
+            <Button icon={<Plus className="h-4 w-4" />} onClick={openCreate}>
+              Nueva persona
+            </Button>
+          ) : undefined
+        }
       />
 
       {/* Filters */}
@@ -159,7 +171,14 @@ export default function PersonsPage() {
           <EmptyState
             icon={Users}
             title="No hay personas registradas"
-            description={searchQuery ? 'No se encontraron resultados para tu búsqueda.' : 'Los registros se crean desde el formulario de intake.'}
+            description={searchQuery ? 'No se encontraron resultados para tu búsqueda.' : 'Comienza registrando un nuevo emprendedor.'}
+            action={
+              !readOnly && !searchQuery ? (
+                <Button icon={<Plus className="h-4 w-4" />} onClick={openCreate}>
+                  Nueva persona
+                </Button>
+              ) : undefined
+            }
           />
         ) : (
           <>
@@ -271,13 +290,11 @@ export default function PersonsPage() {
         )}
       </Card>
 
-      {editId && (
-        <PersonFormModal
-          isOpen={isModalOpen}
-          onClose={closeModal}
-          editId={editId}
-        />
-      )}
+      <PersonFormModal
+        isOpen={isModalOpen}
+        onClose={closeModal}
+        editId={editId}
+      />
     </div>
   );
 }

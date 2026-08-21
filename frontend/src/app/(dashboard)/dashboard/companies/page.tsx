@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback } from 'react';
 import Link from 'next/link';
-import { Building, Eye, Edit, Trash2 } from 'lucide-react';
+import { Building, Plus, Eye, Edit, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -81,6 +81,11 @@ export default function CompaniesPage() {
     }
   };
 
+  const openCreate = () => {
+    setEditId(null);
+    setIsModalOpen(true);
+  };
+
   const openEdit = (id: string) => { setEditId(id); setIsModalOpen(true); };
   const closeModal = () => {
     setIsModalOpen(false);
@@ -92,7 +97,17 @@ export default function CompaniesPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Empresas" description="Gestión de empresas registradas" />
+      <PageHeader
+        title="Empresas"
+        description="Gestión de empresas registradas"
+        actions={
+          !readOnly ? (
+            <Button icon={<Plus className="h-4 w-4" />} onClick={openCreate}>
+              Nueva empresa
+            </Button>
+          ) : undefined
+        }
+      />
 
       <Card>
         <div className="flex flex-col gap-4">
@@ -156,7 +171,14 @@ export default function CompaniesPage() {
           <EmptyState
             icon={Building}
             title="No hay empresas registradas"
-            description={searchQuery ? 'No se encontraron resultados.' : 'Los registros se crean desde el formulario de intake.'}
+            description={searchQuery ? 'No se encontraron resultados.' : 'Comienza registrando una nueva empresa.'}
+            action={
+              !readOnly && !searchQuery ? (
+                <Button icon={<Plus className="h-4 w-4" />} onClick={openCreate}>
+                  Nueva empresa
+                </Button>
+              ) : undefined
+            }
           />
         ) : (
           <>
@@ -232,9 +254,7 @@ export default function CompaniesPage() {
         )}
       </Card>
 
-      {editId && (
-        <CompanyFormModal isOpen={isModalOpen} onClose={closeModal} editId={editId} />
-      )}
+      <CompanyFormModal isOpen={isModalOpen} onClose={closeModal} editId={editId} />
     </div>
   );
 }

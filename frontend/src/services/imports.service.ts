@@ -4,6 +4,11 @@
 import { apiClient } from './api-client';
 import type { ApiResponse, PaginationParams } from '@/types/api.types';
 import type { ImportBatch, StagingRow, SystemField } from '@/types/entities.types';
+import type {
+  ImportBatchProgress,
+  ImportExecuteBatchProgress,
+  ImportVerificationBatchProgress,
+} from '@/types/imports.types';
 
 interface GetImportsParams extends PaginationParams {
   status?: string;
@@ -84,6 +89,16 @@ export const importsService = {
     return res.data.data;
   },
 
+  async prepareProcess(id: string): Promise<ImportBatchProgress> {
+    const res = await apiClient.post<ApiResponse<ImportBatchProgress>>(`/imports/${id}/process/prepare`);
+    return res.data.data;
+  },
+
+  async processBatch(id: string): Promise<ImportBatchProgress> {
+    const res = await apiClient.post<ApiResponse<ImportBatchProgress>>(`/imports/${id}/process/batch`);
+    return res.data.data;
+  },
+
   async retry(id: string): Promise<ImportBatch> {
     const res = await apiClient.post<ApiResponse<ImportBatch>>(`/imports/${id}/retry`);
     return res.data.data;
@@ -94,9 +109,21 @@ export const importsService = {
     return res.data.data;
   },
 
+  async executeBatch(id: string): Promise<ImportExecuteBatchProgress> {
+    const res = await apiClient.post<ApiResponse<ImportExecuteBatchProgress>>(`/imports/${id}/execute/batch`);
+    return res.data.data;
+  },
+
   async sendToVerification(id: string): Promise<{ batchId: string; queued: number }> {
     const res = await apiClient.post<ApiResponse<{ batchId: string; queued: number }>>(
       `/imports/${id}/send-to-verification`
+    );
+    return res.data.data;
+  },
+
+  async sendToVerificationBatch(id: string): Promise<ImportVerificationBatchProgress> {
+    const res = await apiClient.post<ApiResponse<ImportVerificationBatchProgress>>(
+      `/imports/${id}/send-to-verification/batch`
     );
     return res.data.data;
   },

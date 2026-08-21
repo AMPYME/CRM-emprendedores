@@ -9,11 +9,12 @@ interface AuthState {
   user: AuthUser | null;
   accessToken: string | null;
   refreshToken: string | null;
+  adAccessToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
 
   // Actions
-  setAuth: (user: AuthUser, accessToken: string, refreshToken: string) => void;
+  setAuth: (user: AuthUser, accessToken: string, refreshToken: string, adAccessToken?: string) => void;
   setUser: (user: AuthUser) => void;
   setLoading: (loading: boolean) => void;
   logout: () => void;
@@ -24,15 +25,28 @@ export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   accessToken: null,
   refreshToken: null,
+  adAccessToken: null,
   isAuthenticated: false,
   isLoading: true,
 
-  setAuth: (user, accessToken, refreshToken) => {
+  setAuth: (user, accessToken, refreshToken, adAccessToken) => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('token', accessToken);
       localStorage.setItem('refreshToken', refreshToken);
+      if (adAccessToken) {
+        localStorage.setItem('adAccessToken', adAccessToken);
+      } else {
+        localStorage.removeItem('adAccessToken');
+      }
     }
-    set({ user, accessToken, refreshToken, isAuthenticated: true, isLoading: false });
+    set({
+      user,
+      accessToken,
+      refreshToken,
+      adAccessToken: adAccessToken ?? null,
+      isAuthenticated: true,
+      isLoading: false,
+    });
   },
 
   setUser: (user) => {
@@ -47,16 +61,25 @@ export const useAuthStore = create<AuthState>((set) => ({
     if (typeof window !== 'undefined') {
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
+      localStorage.removeItem('adAccessToken');
     }
-    set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false, isLoading: false });
+    set({
+      user: null,
+      accessToken: null,
+      refreshToken: null,
+      adAccessToken: null,
+      isAuthenticated: false,
+      isLoading: false,
+    });
   },
 
   initialize: () => {
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('token');
       const refreshToken = localStorage.getItem('refreshToken');
+      const adAccessToken = localStorage.getItem('adAccessToken');
       if (token && refreshToken) {
-        set({ accessToken: token, refreshToken, isLoading: true });
+        set({ accessToken: token, refreshToken, adAccessToken, isLoading: true });
       } else {
         set({ isLoading: false });
       }

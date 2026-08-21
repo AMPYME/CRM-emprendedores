@@ -92,6 +92,18 @@ importRoutes.put(
 );
 
 importRoutes.post(
+  '/:id/process/prepare',
+  validate(importIdParamSchema, 'params'),
+  asyncHandler(importController.prepareProcess)
+);
+
+importRoutes.post(
+  '/:id/process/batch',
+  validate(importIdParamSchema, 'params'),
+  asyncHandler(importController.processBatch)
+);
+
+importRoutes.post(
   '/:id/process',
   validate(importIdParamSchema, 'params'),
   asyncHandler(importController.process)
@@ -104,9 +116,21 @@ importRoutes.post(
 );
 
 importRoutes.post(
+  '/:id/send-to-verification/batch',
+  validate(importIdParamSchema, 'params'),
+  asyncHandler(importController.sendToVerificationBatch)
+);
+
+importRoutes.post(
   '/:id/send-to-verification',
   validate(importIdParamSchema, 'params'),
   asyncHandler(importController.sendToVerification)
+);
+
+importRoutes.post(
+  '/:id/execute/batch',
+  validate(importIdParamSchema, 'params'),
+  asyncHandler(importController.executeBatch)
 );
 
 importRoutes.post(

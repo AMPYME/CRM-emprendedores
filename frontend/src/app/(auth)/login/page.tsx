@@ -52,7 +52,7 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginFormData) => {
     try {
       const result = await authService.login(data);
-      setAuth(result.user, result.accessToken, result.refreshToken);
+      setAuth(result.user, result.accessToken, result.refreshToken, result.adAccessToken);
       toast.success(`¡Bienvenido, ${result.user.firstName}!`);
       router.replace('/dashboard');
     } catch (error) {

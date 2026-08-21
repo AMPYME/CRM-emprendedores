@@ -33,6 +33,7 @@ import { auditRoutes } from './modules/audit/audit.routes';
 import { verificationRoutes } from './modules/verifications/verification.routes';
 
 import { authRoutes } from './modules/auth/auth.routes';
+import { ampymeFormsRoutes } from './modules/forms/forms.routes';
 
 export const apiRouter = Router();
 
@@ -74,6 +75,9 @@ apiRouter.use('/verifications', verificationRoutes);
 
 // ── Autenticación y autorización (FASE 8) ───────────────────────
 apiRouter.use('/auth', authRoutes);
+
+// ── Formularios AMPYME (proxy admin vía token AD) ───────────────
+apiRouter.use('/ampyme-forms', ampymeFormsRoutes);
 
 // ── Auditoría (solo ADMIN) ───────────────────────────────────────
 apiRouter.use('/audit', auditRoutes);

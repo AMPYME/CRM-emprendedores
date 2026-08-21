@@ -38,6 +38,9 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/emprendedores_db?schema=public
       WS_PATH: /ws/intake
       INTAKE_SESSION_TTL_MIN: '20'
+      FORMS_MYSQL_HOST: 192.168.2.184
+      FORMS_MYSQL_PORT: '3306'
+      FORMS_MYSQL_DATABASE: forms_ampyme
       CHOKIDAR_USEPOLLING: 'true'
       CHOKIDAR_INTERVAL: 1000
     command: sh scripts/dev-entrypoint.sh

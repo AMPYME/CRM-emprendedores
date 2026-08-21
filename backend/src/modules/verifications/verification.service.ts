@@ -19,8 +19,7 @@ import {
 } from '../../shared/errors/app-error';
 import { logger } from '../../shared/logger/logger';
 import { locationInputToCodes } from '../../shared/utils/division-politica';
-
-const BATCH_SIZE = 500;
+import { getImportBatchSettings, sleep } from '../imports/import-batch.util';
 
 function buildPaginationMeta(total: number, page: number, limit: number): PaginationMeta {
   const totalPages = Math.ceil(total / limit);
@@ -81,47 +80,68 @@ export const verificationService = {
   },
 
   /**
-   * Convierte filas VALID de un lote de importación en registros de cola (bulk).
+   * Envía un lote de filas VALID a la cola de verificación.
    */
-  async sendImportToVerification(batchId: string, userId?: string) {
+  async runVerificationBatch(batchId: string, userId?: string) {
     const batch = await importRepository.findBatchById(batchId);
     if (!batch) throw new NotFoundError('Lote de importación', batchId);
 
-    if (batch.status !== 'REVIEW_REQUIRED') {
+    if (batch.status !== 'REVIEW_REQUIRED' && batch.status !== 'IMPORTING') {
       throw new BadRequestError(
-        `No se puede enviar a verificación en estado ${batch.status}. El lote debe estar en REVIEW_REQUIRED.`
+        `No se puede enviar a verificación en estado ${batch.status}.`
       );
     }
 
     const mapping = (batch.columnMapping as Record<string, string>) || {};
-    const validRows = await importRepository.findValidStagingRows(batchId);
-    if (validRows.length === 0) {
-      throw new BadRequestError('No hay filas válidas para enviar a verificación');
+    const { rowBatchSize, rowBatchDelayMs } = getImportBatchSettings();
+
+    if (batch.status === 'REVIEW_REQUIRED') {
+      const validCount = await importRepository.countStagingByStatus(batchId, 'VALID');
+      if (validCount === 0) {
+        throw new BadRequestError('No hay filas válidas para enviar a verificación');
+      }
+      await importRepository.updateBatch(batchId, { status: 'IMPORTING' });
     }
 
-    await importRepository.updateBatch(batchId, { status: 'IMPORTING' });
+    const validRows = await importRepository.findValidStagingRows(batchId);
+    const chunk = validRows.slice(0, rowBatchSize);
 
-    try {
-      let queued = 0;
-      for (let i = 0; i < validRows.length; i += BATCH_SIZE) {
-        const chunk = validRows.slice(i, i + BATCH_SIZE);
-        const items = chunk.map((row) =>
-          stagingRowToVerificationCreateInput({
-            row,
-            importBatchId: batchId,
-            sourceType: batch.sourceType,
-            mapping,
-          })
-        );
-        const result = await verificationRepository.createMany(items);
-        queued += result.count;
+    if (chunk.length === 0) {
+      await importRepository.refreshBatchStats(batchId);
+      await importRepository.updateBatch(batchId, {
+        status: 'VERIFICATION_QUEUED',
+        completedAt: new Date(),
+      });
 
-        await prisma.stagingRow.updateMany({
-          where: { id: { in: chunk.map((r) => r.id) } },
-          data: { status: 'QUEUED_FOR_VERIFICATION', processedAt: new Date() },
-        });
-      }
+      return {
+        batchId,
+        queued: 0,
+        processedInBatch: 0,
+        remaining: 0,
+        done: true,
+      };
+    }
 
+    const items = chunk.map((row) =>
+      stagingRowToVerificationCreateInput({
+        row,
+        importBatchId: batchId,
+        sourceType: batch.sourceType,
+        mapping,
+      })
+    );
+    const result = await verificationRepository.createMany(items);
+
+    await prisma.stagingRow.updateMany({
+      where: { id: { in: chunk.map((r) => r.id) } },
+      data: { status: 'QUEUED_FOR_VERIFICATION', processedAt: new Date() },
+    });
+
+    await sleep(rowBatchDelayMs);
+
+    const remaining = (await importRepository.findValidStagingRows(batchId)).length;
+
+    if (remaining === 0) {
       await importRepository.refreshBatchStats(batchId);
       await importRepository.updateBatch(batchId, {
         status: 'VERIFICATION_QUEUED',
@@ -134,11 +154,45 @@ export const verificationService = {
         entityId: batchId,
         entityLabel: batch.originalFileName,
         userId,
-        metadata: { queued, action: 'send_to_verification' },
+        metadata: { queued: result.count, action: 'send_to_verification' },
       });
 
-      logger.info('Importación enviada a cola de verificación', { batchId, queued });
-      return { batchId, queued };
+      logger.info('Importación enviada a cola de verificación', { batchId, queued: result.count });
+    }
+
+    return {
+      batchId,
+      queued: result.count,
+      processedInBatch: chunk.length,
+      remaining,
+      done: remaining === 0,
+    };
+  },
+
+  /**
+   * Convierte filas VALID de un lote de importación en registros de cola (por lotes).
+   */
+  async sendImportToVerification(batchId: string, userId?: string) {
+    const batch = await importRepository.findBatchById(batchId);
+    if (!batch) throw new NotFoundError('Lote de importación', batchId);
+
+    if (batch.status !== 'REVIEW_REQUIRED') {
+      throw new BadRequestError(
+        `No se puede enviar a verificación en estado ${batch.status}. El lote debe estar en REVIEW_REQUIRED.`
+      );
+    }
+
+    try {
+      let totalQueued = 0;
+      let progress = await this.runVerificationBatch(batchId, userId);
+      totalQueued += progress.queued;
+
+      while (!progress.done) {
+        progress = await this.runVerificationBatch(batchId, userId);
+        totalQueued += progress.queued;
+      }
+
+      return { batchId, queued: totalQueued };
     } catch (error) {
       await importRepository.updateBatch(batchId, { status: 'FAILED' });
       throw error;

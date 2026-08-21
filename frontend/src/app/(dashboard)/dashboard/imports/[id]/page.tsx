@@ -17,9 +17,8 @@ import {
   Table, TableHead, TableBody, TableRow, TableHeaderCell, TableCell,
 } from '@/components/ui/table';
 import {
-  useImport, useImportPreview, useProcessImport, useRetryImport, useImportRows, useSystemFields,
+  useImport, useImportPreview, useImportRows, useSystemFields,
 } from '@/hooks/use-imports';
-import { useSendImportToVerification } from '@/hooks/use-verifications';
 import { importsService } from '@/services/imports.service';
 import { usePagination } from '@/hooks/use-pagination';
 import { formatDate, cn } from '@/lib/utils';
@@ -27,6 +26,14 @@ import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { getApiErrorMessage } from '@/services/api-client';
 import { ImportProgressBar } from '@/components/imports/import-progress-bar';
+import {
+  runImportProcessBatched,
+  runImportVerificationBatched,
+  progressPercentFromBatch,
+  progressLabelFromBatch,
+  verificationProgressPercent,
+} from '@/lib/import-batch-runner';
+import type { ImportBatchProgress, ImportVerificationBatchProgress } from '@/types/imports.types';
 import type { ImportStatus, StagingRowStatus } from '@/types/entities.types';
 
 /* ──────────────────────────────────────────────── */
@@ -163,14 +170,11 @@ export default function ImportDetailPage() {
   const router = useRouter();
   const qc = useQueryClient();
 
-  const processMutation = useProcessImport();
-  const retryMutation = useRetryImport();
-  const sendToVerificationMutation = useSendImportToVerification();
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<ImportBatchProgress | null>(null);
+  const [verificationProgress, setVerificationProgress] = useState<ImportVerificationBatchProgress | null>(null);
 
-  const clientBusy =
-    processMutation.isPending ||
-    retryMutation.isPending ||
-    sendToVerificationMutation.isPending;
+  const clientBusy = batchRunning;
 
   const { data: batch, isLoading, error } = useImport(id, { poll: clientBusy });
   const preview = useImportPreview(id);
@@ -241,23 +245,40 @@ export default function ImportDetailPage() {
       return;
     }
     setActiveStep('process');
+    setBatchRunning(true);
+    setBatchProgress(null);
     try {
-      await processMutation.mutateAsync(id);
+      await runImportProcessBatched(id, (progress) => {
+        setBatchProgress(progress);
+        qc.invalidateQueries({ queryKey: ['imports', id] });
+      });
       qc.invalidateQueries({ queryKey: ['imports', id] });
-    } catch {
-      /* toast del mutation */
+      qc.invalidateQueries({ queryKey: ['import-rows', id] });
+      toast.success('Procesamiento completado');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+    } finally {
+      setBatchRunning(false);
     }
   };
 
   const handleSendToVerification = async () => {
     if (!id) return;
     if (!window.confirm('¿Enviar filas válidas a la cola de verificación? No se crearán Personas/Empresas hasta que un funcionario las valide.')) return;
+    setBatchRunning(true);
+    setVerificationProgress(null);
     try {
-      const result = await sendToVerificationMutation.mutateAsync(id);
+      const result = await runImportVerificationBatched(id, (progress) => {
+        setVerificationProgress(progress);
+        qc.invalidateQueries({ queryKey: ['imports', id] });
+      });
       qc.invalidateQueries({ queryKey: ['imports', id] });
-      toast.success(`${result.queued} registros enviados a verificación`);
+      qc.invalidateQueries({ queryKey: ['import-rows', id] });
+      toast.success(`${result.totalQueued} registros enviados a verificación`);
     } catch {
       toast.error('Error al enviar a verificación');
+    } finally {
+      setBatchRunning(false);
     }
   };
 
@@ -296,7 +317,9 @@ export default function ImportDetailPage() {
   const canExecute = batch.status === 'REVIEW_REQUIRED';
   const canRetry = ['PENDING', 'REVIEW_REQUIRED', 'FAILED', 'CANCELLED'].includes(batch.status) && !isProcessing;
 
-  const progress = progressFromStatus(batch.status, batch.totalRows);
+  const progress = batchProgress
+    ? { percent: progressPercentFromBatch(batchProgress, batch.validRows), label: progressLabelFromBatch(batchProgress) }
+    : progressFromStatus(batch.status, batch.totalRows);
   const showProgress = isProcessing || clientBusy;
 
   const handleRetry = async () => {
@@ -307,13 +330,21 @@ export default function ImportDetailPage() {
       if (Object.keys(columnMapping).length > 0) {
         await importsService.updateMapping(id, columnMapping);
       }
+      await importsService.retry(id);
       setActiveStep('process');
-      await retryMutation.mutateAsync(id);
+      setBatchRunning(true);
+      setBatchProgress(null);
+      await runImportProcessBatched(id, (progress) => {
+        setBatchProgress(progress);
+        qc.invalidateQueries({ queryKey: ['imports', id] });
+      });
       qc.invalidateQueries({ queryKey: ['imports', id] });
       qc.invalidateQueries({ queryKey: ['import-rows', id] });
+      toast.success('Reintento completado');
     } catch (err) {
-      // Si falla el updateMapping (antes del mutation), mostrar error aquí
-      if (!retryMutation.isError) toast.error(getApiErrorMessage(err));
+      toast.error(getApiErrorMessage(err));
+    } finally {
+      setBatchRunning(false);
     }
   };
 
@@ -360,7 +391,7 @@ export default function ImportDetailPage() {
               variant="outline"
               icon={<RefreshCw className="h-4 w-4" />}
               onClick={handleRetry}
-              isLoading={retryMutation.isPending}
+              isLoading={batchRunning}
             >
               Reintentar
             </Button>
@@ -492,7 +523,7 @@ export default function ImportDetailPage() {
                     Guardar mapeo
                   </Button>
                   {canProcess && (
-                    <Button size="sm" icon={<Play className="h-4 w-4" />} onClick={handleProcess} isLoading={processMutation.isPending}>
+                    <Button size="sm" icon={<Play className="h-4 w-4" />} onClick={handleProcess} isLoading={batchRunning}>
                       Procesar
                     </Button>
                   )}
@@ -532,7 +563,7 @@ export default function ImportDetailPage() {
                   <Button variant="outline" size="sm" onClick={() => setActiveStep('mapping')}>
                     Ir a mapeo
                   </Button>
-                  <Button size="sm" icon={<Play className="h-4 w-4" />} onClick={handleProcess} isLoading={processMutation.isPending}>
+                  <Button size="sm" icon={<Play className="h-4 w-4" />} onClick={handleProcess} isLoading={batchRunning}>
                     Procesar ahora
                   </Button>
                 </div>
@@ -576,17 +607,27 @@ export default function ImportDetailPage() {
                 <Button
                   icon={<Upload className="h-4 w-4" />}
                   onClick={handleSendToVerification}
-                  isLoading={sendToVerificationMutation.isPending}
-                  disabled={sendToVerificationMutation.isPending}
+                  isLoading={batchRunning}
+                  disabled={batchRunning}
                 >
                   Enviar a verificación
                 </Button>
               </div>
-              {sendToVerificationMutation.isPending && (
+              {(batchRunning || verificationProgress) && (
                 <div className="mt-4 border-t border-blue-200 pt-4">
                   <ImportProgressBar
-                    percent={progress.percent}
-                    label={progress.label}
+                    percent={
+                      verificationProgress
+                        ? verificationProgressPercent(verificationProgress)
+                        : progress.percent
+                    }
+                    label={
+                      verificationProgress
+                        ? verificationProgress.done
+                          ? 'Enviado a verificación'
+                          : `Enviando a verificación (${verificationProgress.remaining.toLocaleString('es-PA')} pendientes)…`
+                        : progress.label
+                    }
                   />
                 </div>
               )}

@@ -214,6 +214,7 @@ export const authService = {
         user: toAuthUser(safe),
         accessToken,
         refreshToken,
+        adAccessToken: adTokens.accessToken,
       };
     }
 
@@ -231,6 +232,7 @@ export const authService = {
       user: toAuthUser(safeUser),
       accessToken,
       refreshToken,
+      adAccessToken: adTokens.accessToken,
     };
   },
 

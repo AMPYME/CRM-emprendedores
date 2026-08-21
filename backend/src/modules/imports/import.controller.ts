@@ -91,6 +91,24 @@ export const importController = {
   },
 
   /**
+   * POST /api/v1/imports/:id/process/prepare
+   * Parsea Excel e inserta filas staging.
+   */
+  async prepareProcess(req: Request, res: Response): Promise<void> {
+    const progress = await importService.prepareProcessing(req.params.id as string);
+    sendSuccess(res, progress);
+  },
+
+  /**
+   * POST /api/v1/imports/:id/process/batch
+   * Procesa un lote (validación o deduplicación).
+   */
+  async processBatch(req: Request, res: Response): Promise<void> {
+    const progress = await importService.runProcessingBatch(req.params.id as string);
+    sendSuccess(res, progress);
+  },
+
+  /**
    * POST /api/v1/imports/:id/retry
    * Reintenta el procesamiento sin re-subir el archivo.
    */
@@ -109,11 +127,32 @@ export const importController = {
   },
 
   /**
+   * POST /api/v1/imports/:id/execute/batch
+   * Importa un lote de filas válidas.
+   */
+  async executeBatch(req: Request, res: Response): Promise<void> {
+    const progress = await importService.runExecuteBatch(req.params.id as string);
+    sendSuccess(res, progress);
+  },
+
+  /**
    * POST /api/v1/imports/:id/send-to-verification
    * Envía filas VALID a la cola de verificación (sin crear entidades).
    */
   async sendToVerification(req: Request, res: Response): Promise<void> {
     const result = await verificationService.sendImportToVerification(
+      req.params.id as string,
+      (req as Request & { user?: { id: string } }).user?.id
+    );
+    sendSuccess(res, result);
+  },
+
+  /**
+   * POST /api/v1/imports/:id/send-to-verification/batch
+   * Envía un lote de filas a verificación.
+   */
+  async sendToVerificationBatch(req: Request, res: Response): Promise<void> {
+    const result = await verificationService.runVerificationBatch(
       req.params.id as string,
       (req as Request & { user?: { id: string } }).user?.id
     );

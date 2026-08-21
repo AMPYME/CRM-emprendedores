@@ -1,6 +1,7 @@
 /**
  * Tipos e interfaces del módulo de importaciones.
  */
+import type { ImportStatus } from '@prisma/client';
 
 export interface ColumnMapping {
   [systemField: string]: string;
@@ -47,6 +48,26 @@ export const SYSTEM_FIELDS = {
 } as const;
 
 export type SystemFieldKey = keyof typeof SYSTEM_FIELDS;
+
+export interface ImportBatchProgress {
+  batchId: string;
+  status: ImportStatus;
+  phase: 'staging' | 'validation' | 'deduplication' | 'import' | 'verification' | 'done';
+  processedInBatch: number;
+  remaining: number;
+  totalRows: number;
+  done: boolean;
+}
+
+export interface ImportExecuteBatchProgress {
+  batchId: string;
+  status: ImportStatus;
+  processedInBatch: number;
+  remaining: number;
+  importedTotal: number;
+  errorTotal: number;
+  done: boolean;
+}
 
 export type SourceType = 'EVENTO' | 'UNIFICADA' | 'CUSTOM';
 

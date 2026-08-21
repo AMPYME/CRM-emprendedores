@@ -82,6 +82,20 @@ export const config = {
 
   /** Minutos de inactividad tras los que expira una sesión de intake. */
   intakeSessionTtlMin: parseInt(requiredEnv('INTAKE_SESSION_TTL_MIN', '20'), 10),
+
+  /** MySQL de formularios AMPYME (lectura directa, misma BD que forms-app). */
+  formsMysql: {
+    host: (process.env.FORMS_MYSQL_HOST || '192.168.2.184').trim(),
+    port: parseInt(process.env.FORMS_MYSQL_PORT || '3306', 10),
+    user: (process.env.FORMS_MYSQL_USER || '').trim(),
+    password: process.env.FORMS_MYSQL_PASSWORD || '',
+    database: (process.env.FORMS_MYSQL_DATABASE || 'forms_ampyme').trim(),
+  },
+
+  /** Importaciones Excel: tamaño de lote y pausa entre lotes (evita saturar el servidor). */
+  importBatchSize: parseInt(process.env.IMPORT_BATCH_SIZE || '25', 10),
+  importBatchDelayMs: parseInt(process.env.IMPORT_BATCH_DELAY_MS || '150', 10),
+  importStagingInsertBatchSize: parseInt(process.env.IMPORT_STAGING_INSERT_BATCH_SIZE || '200', 10),
 } as const;
 
 export type Config = typeof config;

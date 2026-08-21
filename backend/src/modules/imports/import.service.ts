@@ -18,8 +18,9 @@ import { importRepository, BatchWithRelations, StagingRowWithRelations } from '.
 import { parseExcelFile, getExcelHeaders, getExcelPreview } from './parser.service';
 import { buildMapping, applyMapping, getAvailableSystemFields, inferEntityType } from './mapper.service';
 import { deduplicateRow } from './dedup.service';
-import { StagingToEntityData, ColumnMapping, ExtractedFields, ValidationResult } from './import.types';
+import { StagingToEntityData, ColumnMapping, ExtractedFields, ValidationResult, ImportBatchProgress, ImportExecuteBatchProgress } from './import.types';
 import { auditService } from '../audit/audit.service';
+import { getImportBatchSettings, sleep } from './import-batch.util';
 import {
   ImportQueryInput,
   StagingQueryInput,
@@ -115,6 +116,30 @@ function validateRow(
   }
 
   return { isValid: errors.length === 0, errors };
+}
+
+function rowToExtractedFields(row: {
+  extractedCedula: string | null;
+  extractedRuc: string | null;
+  extractedFirstName: string | null;
+  extractedLastName: string | null;
+  extractedEmail: string | null;
+  extractedPhone: string | null;
+  extractedBusinessName: string | null;
+}): ExtractedFields {
+  return {
+    extractedCedula: row.extractedCedula || undefined,
+    extractedRuc: row.extractedRuc || undefined,
+    extractedFirstName: row.extractedFirstName || undefined,
+    extractedLastName: row.extractedLastName || undefined,
+    extractedEmail: row.extractedEmail || undefined,
+    extractedPhone: row.extractedPhone || undefined,
+    extractedBusinessName: row.extractedBusinessName || undefined,
+  };
+}
+
+async function countAllStagingRows(batchId: string): Promise<number> {
+  return prisma.stagingRow.count({ where: { importBatchId: batchId } });
 }
 
 // ── Service ──────────────────────────────────────────────────────
@@ -266,10 +291,9 @@ export const importService = {
   // ═══════════════════════════════════════════════════════════════
 
   /**
-   * Procesa el Excel completo: parseo → staging → validación → deduplicación.
-   * Cambia status: PENDING → PROCESSING → VALIDATING → DEDUPLICATING → REVIEW_REQUIRED
+   * Prepara el lote: parsea Excel e inserta filas staging (por lotes con pausa).
    */
-  async process(batchId: string) {
+  async prepareProcessing(batchId: string): Promise<ImportBatchProgress> {
     const batch = await importRepository.findBatchById(batchId);
     if (!batch) throw new NotFoundError('Lote de importación', batchId);
 
@@ -286,60 +310,103 @@ export const importService = {
       );
     }
 
-    // ── PASO 1: Marcar como PROCESSING ──────────────────────
+    const { stagingInsertBatchSize, rowBatchDelayMs } = getImportBatchSettings();
+
     await importRepository.updateBatch(batchId, {
       status: 'PROCESSING',
       startedAt: new Date(),
     });
 
     try {
-      // ── PASO 2: Parsear Excel completo ──────────────────────
-      const filePath = path.resolve(config.uploadDir, batch.fileName);
-      const parsed = parseExcelFile(filePath);
+      const existingCount = await countAllStagingRows(batchId);
+      let totalRows = batch.totalRows;
 
-      logger.info(`Parseadas ${parsed.totalRows} filas del Excel`, { batchId });
+      if (existingCount === 0) {
+        const filePath = path.resolve(config.uploadDir, batch.fileName);
+        const parsed = parseExcelFile(filePath);
+        totalRows = parsed.totalRows;
 
-      // totalRows es estado de negocio (cuántas filas tiene el archivo)
-      await importRepository.updateBatch(batchId, {
-        status: 'VALIDATING',
-        totalRows: parsed.totalRows,
-      });
+        logger.info(`Parseadas ${parsed.totalRows} filas del Excel`, { batchId });
 
-      const stagingData = parsed.rows.map((rawRow, index) => {
-        const fields = applyMapping(rawRow, mapping);
-        return {
-          importBatchId: batchId,
-          rowNumber: index + 1,
-          rawData: rawRow,
-          ...fields,
-        };
-      });
+        const stagingData = parsed.rows.map((rawRow, index) => {
+          const fields = applyMapping(rawRow, mapping);
+          return {
+            importBatchId: batchId,
+            rowNumber: index + 1,
+            rawData: rawRow,
+            ...fields,
+          };
+        });
 
-      // Bulk insert en lotes de 500
-      const BATCH_SIZE = 500;
-      let insertedCount = 0;
-      for (let i = 0; i < stagingData.length; i += BATCH_SIZE) {
-        const chunk = stagingData.slice(i, i + BATCH_SIZE);
-        const count = await importRepository.createManyStagingRows(chunk);
-        insertedCount += count;
+        for (let i = 0; i < stagingData.length; i += stagingInsertBatchSize) {
+          const chunk = stagingData.slice(i, i + stagingInsertBatchSize);
+          await importRepository.createManyStagingRows(chunk);
+          if (i + stagingInsertBatchSize < stagingData.length) {
+            await sleep(rowBatchDelayMs);
+          }
+        }
+
+        logger.info(`${stagingData.length} staging rows creados`, { batchId });
       }
 
-      logger.info(`${insertedCount} staging rows creados`, { batchId });
+      await importRepository.updateBatch(batchId, {
+        status: 'VALIDATING',
+        totalRows,
+      });
 
-      // ── PASO 4: Validar filas ───────────────────────────────
-      const pendingRows = await importRepository.findPendingStagingRows(batchId);
+      const pending = await importRepository.countStagingByStatus(batchId, 'PENDING');
+
+      return {
+        batchId,
+        status: 'VALIDATING',
+        phase: 'validation',
+        processedInBatch: 0,
+        remaining: pending,
+        totalRows,
+        done: pending === 0,
+      };
+    } catch (error) {
+      await importRepository.updateBatch(batchId, {
+        status: 'FAILED',
+        errorLog: {
+          message: error instanceof Error ? error.message : 'Error desconocido',
+          timestamp: new Date().toISOString(),
+        } as any,
+        completedAt: new Date(),
+      });
+      throw error;
+    }
+  },
+
+  /**
+   * Procesa un lote de filas (validación o deduplicación) con pausa al final.
+   */
+  async runProcessingBatch(batchId: string): Promise<ImportBatchProgress> {
+    const batch = await importRepository.findBatchById(batchId);
+    if (!batch) throw new NotFoundError('Lote de importación', batchId);
+
+    const { rowBatchSize, rowBatchDelayMs } = getImportBatchSettings();
+    const mapping = (batch.columnMapping as ColumnMapping) || {};
+
+    if (batch.status === 'VALIDATING') {
+      const pendingRows = await importRepository.findPendingStagingRows(batchId, rowBatchSize);
+
+      if (pendingRows.length === 0) {
+        await importRepository.updateBatch(batchId, { status: 'DEDUPLICATING' });
+        const dedupRemaining = await importRepository.countValidStagingRowsPendingDedup(batchId);
+        return {
+          batchId,
+          status: 'DEDUPLICATING',
+          phase: 'deduplication',
+          processedInBatch: 0,
+          remaining: dedupRemaining,
+          totalRows: batch.totalRows,
+          done: dedupRemaining === 0,
+        };
+      }
 
       for (const row of pendingRows) {
-        const fields: ExtractedFields = {
-          extractedCedula: row.extractedCedula || undefined,
-          extractedRuc: row.extractedRuc || undefined,
-          extractedFirstName: row.extractedFirstName || undefined,
-          extractedLastName: row.extractedLastName || undefined,
-          extractedEmail: row.extractedEmail || undefined,
-          extractedPhone: row.extractedPhone || undefined,
-          extractedBusinessName: row.extractedBusinessName || undefined,
-        };
-
+        const fields = rowToExtractedFields(row);
         const entityType = inferEntityType(batch.sourceType, fields);
         const validation = validateRow(batch.sourceType, entityType, fields);
 
@@ -357,22 +424,47 @@ export const importService = {
         }
       }
 
-      // ── PASO 5: Deduplicar filas validas ────────────────────
-      await importRepository.updateBatch(batchId, { status: 'DEDUPLICATING' });
+      await sleep(rowBatchDelayMs);
 
-      const validRows = await importRepository.findValidStagingRows(batchId);
+      const remaining = await importRepository.countStagingByStatus(batchId, 'PENDING');
+
+      if (remaining === 0) {
+        await importRepository.updateBatch(batchId, { status: 'DEDUPLICATING' });
+      }
+
+      return {
+        batchId,
+        status: remaining === 0 ? 'DEDUPLICATING' : 'VALIDATING',
+        phase: remaining === 0 ? 'deduplication' : 'validation',
+        processedInBatch: pendingRows.length,
+        remaining,
+        totalRows: batch.totalRows,
+        done: false,
+      };
+    }
+
+    if (batch.status === 'DEDUPLICATING') {
+      const validRows = await importRepository.findValidStagingRowsPendingDedup(batchId, rowBatchSize);
+
+      if (validRows.length === 0) {
+        await importRepository.refreshBatchStats(batchId);
+        await importRepository.updateBatch(batchId, { status: 'REVIEW_REQUIRED' });
+
+        logger.info('Procesamiento completado', { batchId });
+
+        return {
+          batchId,
+          status: 'REVIEW_REQUIRED',
+          phase: 'done',
+          processedInBatch: 0,
+          remaining: 0,
+          totalRows: batch.totalRows,
+          done: true,
+        };
+      }
 
       for (const row of validRows) {
-        const fields: ExtractedFields = {
-          extractedCedula: row.extractedCedula || undefined,
-          extractedRuc: row.extractedRuc || undefined,
-          extractedFirstName: row.extractedFirstName || undefined,
-          extractedLastName: row.extractedLastName || undefined,
-          extractedEmail: row.extractedEmail || undefined,
-          extractedPhone: row.extractedPhone || undefined,
-          extractedBusinessName: row.extractedBusinessName || undefined,
-        };
-
+        const fields = rowToExtractedFields(row);
         const dedupResult = await deduplicateRow(row.id, fields);
 
         if (dedupResult.bestMatch) {
@@ -383,39 +475,233 @@ export const importService = {
             matchScore: dedupResult.bestMatch.score,
             matchReason: dedupResult.bestMatch.reason,
           });
+        } else {
+          await importRepository.updateStagingRow(row.id, {
+            matchReason: 'sin_coincidencia',
+            matchScore: 0,
+          });
         }
       }
 
-      // ── PASO 6: Actualizar estadisticas y marcar REVIEW_REQUIRED ──
-      const updatedBatch = await importRepository.refreshBatchStats(batchId);
+      await sleep(rowBatchDelayMs);
 
-      await importRepository.updateBatch(batchId, {
-        status: 'REVIEW_REQUIRED',
-      });
+      const remaining = await importRepository.countValidStagingRowsPendingDedup(batchId);
 
-      const finalBatch = await importRepository.findBatchById(batchId);
+      if (remaining === 0) {
+        await importRepository.refreshBatchStats(batchId);
+        await importRepository.updateBatch(batchId, { status: 'REVIEW_REQUIRED' });
 
-      logger.info('Procesamiento completado', {
+        logger.info('Procesamiento completado', { batchId });
+
+        return {
+          batchId,
+          status: 'REVIEW_REQUIRED',
+          phase: 'done',
+          processedInBatch: validRows.length,
+          remaining: 0,
+          totalRows: batch.totalRows,
+          done: true,
+        };
+      }
+
+      return {
         batchId,
-        total: updatedBatch.totalRows,
-        valid: updatedBatch.validRows,
-        invalid: updatedBatch.invalidRows,
-        duplicates: updatedBatch.duplicateRows,
-      });
+        status: 'DEDUPLICATING',
+        phase: 'deduplication',
+        processedInBatch: validRows.length,
+        remaining,
+        totalRows: batch.totalRows,
+        done: false,
+      };
+    }
 
-      return finalBatch;
-    } catch (error) {
-      // Marcar como FAILED si hay error
+    if (batch.status === 'REVIEW_REQUIRED') {
+      return {
+        batchId,
+        status: 'REVIEW_REQUIRED',
+        phase: 'done',
+        processedInBatch: 0,
+        remaining: 0,
+        totalRows: batch.totalRows,
+        done: true,
+      };
+    }
+
+    throw new BadRequestError(
+      `El lote debe estar en VALIDATING o DEDUPLICATING para procesar por lotes. Estado actual: ${batch.status}`
+    );
+  },
+
+  /**
+   * Procesa el Excel completo por lotes (compatibilidad con una sola petición).
+   */
+  async process(batchId: string) {
+    await this.prepareProcessing(batchId);
+
+    let progress = await this.runProcessingBatch(batchId);
+    while (!progress.done) {
+      progress = await this.runProcessingBatch(batchId);
+    }
+
+    const finalBatch = await importRepository.findBatchById(batchId);
+    return finalBatch;
+  },
+
+  /**
+   * Ejecuta un lote de importación final (crear entidades).
+   */
+  async runExecuteBatch(batchId: string): Promise<ImportExecuteBatchProgress> {
+    const batch = await importRepository.findBatchById(batchId);
+    if (!batch) throw new NotFoundError('Lote de importación', batchId);
+
+    if (batch.status !== 'REVIEW_REQUIRED' && batch.status !== 'IMPORTING') {
+      throw new BadRequestError(
+        `No se puede importar en estado ${batch.status}. El lote debe estar en REVIEW_REQUIRED o IMPORTING.`
+      );
+    }
+
+    const { rowBatchSize, rowBatchDelayMs } = getImportBatchSettings();
+    const mapping = (batch.columnMapping as ColumnMapping) || {};
+    const sourceOrigin = `IMPORT_${batch.sourceType}_${batch.id.substring(0, 8)}`;
+
+    if (batch.status === 'REVIEW_REQUIRED') {
+      const validCount = await importRepository.countStagingByStatus(batchId, 'VALID');
+      if (validCount === 0) {
+        throw new BadRequestError('No hay filas válidas para importar');
+      }
+      await importRepository.updateBatch(batchId, { status: 'IMPORTING' });
+    }
+
+    const validRows = await importRepository.findValidStagingRows(batchId);
+    const chunk = validRows.slice(0, rowBatchSize);
+
+    if (chunk.length === 0) {
+      await importRepository.refreshBatchStats(batchId);
       await importRepository.updateBatch(batchId, {
-        status: 'FAILED',
-        errorLog: {
-          message: error instanceof Error ? error.message : 'Error desconocido',
-          timestamp: new Date().toISOString(),
-        } as any,
+        status: 'COMPLETED',
         completedAt: new Date(),
       });
-      throw error;
+
+      return {
+        batchId,
+        status: 'COMPLETED',
+        processedInBatch: 0,
+        remaining: 0,
+        importedTotal: batch.importedRows,
+        errorTotal: await importRepository.countStagingByStatus(batchId, 'ERROR'),
+        done: true,
+      };
     }
+
+    let importedInBatch = 0;
+    let errorsInBatch = 0;
+
+    for (const row of chunk) {
+      try {
+        const rawData = row.rawData as Record<string, unknown>;
+        const fields = rowToExtractedFields(row);
+        let primaryEntityId: string;
+
+        if (batch.sourceType === 'UNIFICADA') {
+          const result = await this.importUnificadaRow(
+            fields,
+            rawData,
+            mapping,
+            sourceOrigin,
+            batchId,
+            batch.importedById ?? undefined
+          );
+          primaryEntityId = result.personId;
+          await auditService.log({
+            action: 'CREATE',
+            entityType: 'PERSON',
+            entityId: result.personId,
+            entityLabel: result.personName,
+            userId: batch.importedById ?? undefined,
+            metadata: { importBatchId: batchId, companyId: result.companyId },
+          });
+          await auditService.log({
+            action: 'CREATE',
+            entityType: 'COMPANY',
+            entityId: result.companyId,
+            entityLabel: result.companyName,
+            userId: batch.importedById ?? undefined,
+            metadata: { importBatchId: batchId, personId: result.personId },
+          });
+        } else {
+          const entityType = inferEntityType(batch.sourceType, fields);
+          const entityData = this.buildEntityData(
+            entityType,
+            fields,
+            rawData,
+            mapping,
+            sourceOrigin,
+            batchId
+          );
+          const entity = await this.createEntityFromStaging(entityData);
+          primaryEntityId = entity.id;
+          await auditService.log({
+            action: 'CREATE',
+            entityType: entity.entityType,
+            entityId: entity.id,
+            entityLabel: entity.displayName,
+            userId: batch.importedById ?? undefined,
+            metadata: { importBatchId: batchId },
+          });
+        }
+
+        await importRepository.updateStagingRow(row.id, {
+          status: 'IMPORTED',
+          matchedEntityId: primaryEntityId,
+          processedAt: new Date(),
+        });
+
+        importedInBatch++;
+      } catch (err) {
+        logger.warn(`Error importando fila ${row.rowNumber}`, {
+          batchId,
+          rowId: row.id,
+          error: err instanceof Error ? err.message : 'Error desconocido',
+        });
+
+        await importRepository.updateStagingRow(row.id, {
+          status: 'ERROR',
+          validationErrors: {
+            import: [err instanceof Error ? err.message : 'Error al crear entidad'],
+          },
+          processedAt: new Date(),
+        });
+
+        errorsInBatch++;
+      }
+    }
+
+    await sleep(rowBatchDelayMs);
+
+    const remaining = (await importRepository.findValidStagingRows(batchId)).length;
+    const updatedBatch = await importRepository.refreshBatchStats(batchId);
+
+    if (remaining === 0) {
+      await importRepository.updateBatch(batchId, {
+        status: 'COMPLETED',
+        completedAt: new Date(),
+      });
+
+      logger.info('Importación completada', {
+        batchId,
+        imported: updatedBatch.importedRows,
+      });
+    }
+
+    return {
+      batchId,
+      status: remaining === 0 ? 'COMPLETED' : 'IMPORTING',
+      processedInBatch: chunk.length,
+      remaining,
+      importedTotal: updatedBatch.importedRows,
+      errorTotal: await importRepository.countStagingByStatus(batchId, 'ERROR'),
+      done: remaining === 0,
+    };
   },
 
   /**
@@ -442,7 +728,7 @@ export const importService = {
     }
 
     await importRepository.resetBatchForRetry(batchId);
-    return this.process(batchId);
+    return importRepository.findBatchById(batchId);
   },
 
   // ═══════════════════════════════════════════════════════════════
@@ -531,150 +817,14 @@ export const importService = {
   // ═══════════════════════════════════════════════════════════════
 
   /**
-   * Importa las filas VALID creando entidades reales.
-   * Cambia status: REVIEW_REQUIRED → IMPORTING → COMPLETED
+   * Importa las filas VALID creando entidades reales (por lotes con pausa).
    */
   async executeImport(batchId: string) {
-    const batch = await importRepository.findBatchById(batchId);
-    if (!batch) throw new NotFoundError('Lote de importación', batchId);
-
-    if (batch.status !== 'REVIEW_REQUIRED') {
-      throw new BadRequestError(
-        `No se puede importar en estado ${batch.status}. El lote debe estar en REVIEW_REQUIRED.`
-      );
+    let progress = await this.runExecuteBatch(batchId);
+    while (!progress.done) {
+      progress = await this.runExecuteBatch(batchId);
     }
-
-    await importRepository.updateBatch(batchId, { status: 'IMPORTING' });
-
-    try {
-      const mapping = (batch.columnMapping as ColumnMapping) || {};
-      const validRows = await importRepository.findValidStagingRows(batchId);
-
-      if (validRows.length === 0) {
-        throw new BadRequestError('No hay filas válidas para importar');
-      }
-
-      let importedCount = 0;
-      let errorCount = 0;
-      const sourceOrigin = `IMPORT_${batch.sourceType}_${batch.id.substring(0, 8)}`;
-
-      for (const row of validRows) {
-        try {
-          const rawData = row.rawData as Record<string, unknown>;
-          const fields: ExtractedFields = {
-            extractedCedula: row.extractedCedula || undefined,
-            extractedRuc: row.extractedRuc || undefined,
-            extractedFirstName: row.extractedFirstName || undefined,
-            extractedLastName: row.extractedLastName || undefined,
-            extractedEmail: row.extractedEmail || undefined,
-            extractedPhone: row.extractedPhone || undefined,
-            extractedBusinessName: row.extractedBusinessName || undefined,
-          };
-
-          let primaryEntityId: string;
-
-          if (batch.sourceType === 'UNIFICADA') {
-            const result = await this.importUnificadaRow(
-              fields,
-              rawData,
-              mapping,
-              sourceOrigin,
-              batchId,
-              batch.importedById ?? undefined
-            );
-            primaryEntityId = result.personId;
-            await auditService.log({
-              action: 'CREATE',
-              entityType: 'PERSON',
-              entityId: result.personId,
-              entityLabel: result.personName,
-              userId: batch.importedById ?? undefined,
-              metadata: { importBatchId: batchId, companyId: result.companyId },
-            });
-            await auditService.log({
-              action: 'CREATE',
-              entityType: 'COMPANY',
-              entityId: result.companyId,
-              entityLabel: result.companyName,
-              userId: batch.importedById ?? undefined,
-              metadata: { importBatchId: batchId, personId: result.personId },
-            });
-          } else {
-            const entityType = inferEntityType(batch.sourceType, fields);
-            const entityData = this.buildEntityData(
-              entityType,
-              fields,
-              rawData,
-              mapping,
-              sourceOrigin,
-              batchId
-            );
-            const entity = await this.createEntityFromStaging(entityData);
-            primaryEntityId = entity.id;
-            await auditService.log({
-              action: 'CREATE',
-              entityType: entity.entityType,
-              entityId: entity.id,
-              entityLabel: entity.displayName,
-              userId: batch.importedById ?? undefined,
-              metadata: { importBatchId: batchId },
-            });
-          }
-
-          await importRepository.updateStagingRow(row.id, {
-            status: 'IMPORTED',
-            matchedEntityId: primaryEntityId,
-            processedAt: new Date(),
-          });
-
-          importedCount++;
-        } catch (err) {
-          logger.warn(`Error importando fila ${row.rowNumber}`, {
-            batchId,
-            rowId: row.id,
-            error: err instanceof Error ? err.message : 'Error desconocido',
-          });
-
-          await importRepository.updateStagingRow(row.id, {
-            status: 'ERROR',
-            validationErrors: {
-              import: [err instanceof Error ? err.message : 'Error al crear entidad'],
-            },
-            processedAt: new Date(),
-          });
-
-          errorCount++;
-        }
-      }
-
-      // Actualizar estadisticas finales
-      await importRepository.refreshBatchStats(batchId);
-      await importRepository.updateBatch(batchId, {
-        status: 'COMPLETED',
-        completedAt: new Date(),
-      });
-
-      const finalBatch = await importRepository.findBatchById(batchId);
-
-      logger.info('Importación completada', {
-        batchId,
-        imported: importedCount,
-        errors: errorCount,
-      });
-
-      return finalBatch;
-    } catch (error) {
-      await importRepository.updateBatch(batchId, {
-        status: 'FAILED',
-        errorLog: {
-          message: error instanceof Error ? error.message : 'Error desconocido',
-          phase: 'import',
-          timestamp: new Date().toISOString(),
-        } as any,
-        completedAt: new Date(),
-      });
-      throw error;
-    }
+    return importRepository.findBatchById(batchId);
   },
 
   /**

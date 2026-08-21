@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Calendar, Plus, Eye, Edit, Users as UsersIcon } from 'lucide-react';
+import React, { useMemo, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { Calendar, Eye, ExternalLink } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,240 +11,200 @@ import { SearchBar } from '@/components/ui/search-bar';
 import { Select } from '@/components/ui/select';
 import { EmptyState } from '@/components/ui/empty-state';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { Pagination } from '@/components/ui/pagination';
 import {
   Table, TableHead, TableBody, TableRow, TableHeaderCell, TableCell,
 } from '@/components/ui/table';
-import { useEvents, useCreateEvent, useUpdateEvent } from '@/hooks/use-events';
-import { usePagination } from '@/hooks/use-pagination';
-import { Modal } from '@/components/ui/modal';
-import { Input } from '@/components/ui/input';
-import { useForm } from 'react-hook-form';
+import { useAmpymeForms } from '@/hooks/use-forms';
+import { getApiErrorMessage } from '@/services/api-client';
+import { formsService } from '@/services/forms.service';
 import { formatDate } from '@/lib/utils';
-import { getProvinciaOptions, provinciaNombre } from '@/lib/division-politica';
-
-const eventTypeOptions = [
-  { value: '', label: 'Seleccionar' },
-  { value: 'Feria', label: 'Feria' },
-  { value: 'Capacitación', label: 'Capacitación' },
-  { value: 'Soltando Cinta', label: 'Soltando Cinta' },
-  { value: 'Expo', label: 'Expo' },
-];
-
-const provinciaFormOptions = getProvinciaOptions();
+import {
+  ampymeFormStatusBadge,
+  ampymeFormStatusLabels,
+  computeAmpymeFormStatus,
+  filterAmpymeFormsByStatus,
+} from '@/lib/ampyme-form-status';
+import type { AmpymeForm } from '@/types/forms.types';
 
 const statusOptions = [
-  { value: '', label: 'Todos los estados' },
-  { value: 'DRAFT', label: 'Borrador' },
-  { value: 'PUBLISHED', label: 'Publicado' },
-  { value: 'IN_PROGRESS', label: 'En progreso' },
-  { value: 'COMPLETED', label: 'Completado' },
-  { value: 'CANCELLED', label: 'Cancelado' },
+  { value: 'all', label: 'Todos los estados' },
+  { value: 'open', label: 'Abierto' },
+  { value: 'draft', label: 'Borrador' },
+  { value: 'closed', label: 'Cerrado' },
+  { value: 'active', label: 'Activo' },
+  { value: 'future_open', label: 'Próxima apertura' },
+  { value: 'expired', label: 'Expirado' },
 ];
 
-const statusBadgeVariant: Record<string, 'default' | 'primary' | 'success' | 'warning' | 'danger'> = {
-  DRAFT: 'default',
-  PUBLISHED: 'primary',
-  IN_PROGRESS: 'warning',
-  COMPLETED: 'success',
-  CANCELLED: 'danger',
-};
-
-const statusLabels: Record<string, string> = {
-  DRAFT: 'Borrador',
-  PUBLISHED: 'Publicado',
-  IN_PROGRESS: 'En progreso',
-  COMPLETED: 'Completado',
-  CANCELLED: 'Cancelado',
-};
+function matchesSearch(form: AmpymeForm, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return [
+    form.form_name,
+    form.description,
+    form.conferencista,
+    form.ubicacion,
+    String(form.id),
+  ]
+    .filter(Boolean)
+    .some((value) => String(value).toLowerCase().includes(q));
+}
 
 export default function EventsPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const showCreate = searchParams.get('action') === 'create';
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
-  const { page, limit, setPage, searchQuery, setSearchQuery } = usePagination();
-  const [statusFilter, setStatusFilter] = useState('');
-  const [isModalOpen, setIsModalOpen] = useState(showCreate);
-
-  const { data, isLoading, error } = useEvents({
-    page, limit,
-    search: searchQuery || undefined,
-    status: statusFilter || undefined,
-  });
-
-  const createMutation = useCreateEvent();
+  const { data, isLoading, error } = useAmpymeForms();
 
   const handleSearch = useCallback((q: string) => {
     setSearchQuery(q);
-    setPage(1);
-  }, [setSearchQuery, setPage]);
+  }, []);
 
-  const { register, handleSubmit, reset, formState: { errors: formErrors } } = useForm({
-    defaultValues: { name: '', description: '', eventType: '', startDate: '', endDate: '', location: '', province: '', maxCapacity: '' },
-  });
+  const filteredForms = useMemo(() => {
+    const forms = data?.forms ?? [];
+    const byStatus = filterAmpymeFormsByStatus(forms, statusFilter);
+    return byStatus.filter((form) => matchesSearch(form, searchQuery));
+  }, [data?.forms, statusFilter, searchQuery]);
 
-  const openCreate = () => { reset(); setIsModalOpen(true); };
-  const closeModal = () => {
-    setIsModalOpen(false);
-    if (searchParams.get('action')) router.replace('/dashboard/events');
-  };
+  const totalForms = data?.forms?.length ?? 0;
+  const hasFilteredOut = totalForms > 0 && filteredForms.length === 0;
 
-  const onSubmit = async (formData: Record<string, string>) => {
-    try {
-      await createMutation.mutateAsync({
-        name: formData.name,
-        description: formData.description || undefined,
-        eventType: formData.eventType || undefined,
-        startDate: formData.startDate || undefined,
-        endDate: formData.endDate || undefined,
-        location: formData.location || undefined,
-        province: formData.province || undefined,
-        maxCapacity: formData.maxCapacity ? parseInt(formData.maxCapacity) : undefined,
-      });
-      closeModal();
-    } catch { /* toast */ }
-  };
-
-  const events = data?.data ?? [];
-  const meta = data?.meta;
+  const sourceLabel = 'Formularios desde MySQL (AMPYME Forms)';
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Eventos"
-        description="Gestión de eventos y capacitaciones"
-        actions={<Button icon={<Plus className="h-4 w-4" />} onClick={openCreate}>Nuevo evento</Button>}
+        description="Formularios de eventos y capacitaciones desde AMPYME Forms"
+        actions={
+          <Button
+            variant="outline"
+            icon={<ExternalLink className="h-4 w-4" />}
+            onClick={() => window.open(formsService.getAdminLoginUrl(), '_blank', 'noopener,noreferrer')}
+          >
+            Administrar en AMPYME Forms
+          </Button>
+        }
       />
 
       <Card>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
           <div className="flex-1">
-            <SearchBar placeholder="Buscar evento..." onSearch={handleSearch} initialQuery={searchQuery} />
+            <SearchBar
+              placeholder="Buscar formulario, conferencista, ubicación..."
+              onSearch={handleSearch}
+              initialQuery={searchQuery}
+            />
           </div>
-          <div className="w-full sm:w-48">
+          <div className="w-full sm:w-56">
             <Select
               options={statusOptions}
               value={statusFilter}
-              onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+              onChange={(e) => setStatusFilter(e.target.value)}
             />
           </div>
         </div>
+        {data && (
+          <p className="mt-3 text-xs text-gray-500">
+            {sourceLabel}
+            {filteredForms.length !== (data.forms?.length ?? 0) && data.forms?.length
+              ? ` · ${filteredForms.length} de ${data.forms.length} formulario${data.forms.length === 1 ? '' : 's'}`
+              : data.forms?.length
+                ? ` · ${data.forms.length} formulario${data.forms.length === 1 ? '' : 's'}`
+                : ''}
+          </p>
+        )}
       </Card>
 
       <Card className="p-0">
         {isLoading ? (
-          <div className="flex items-center justify-center py-16"><LoadingSpinner size="lg" text="Cargando eventos..." /></div>
+          <div className="flex items-center justify-center py-16">
+            <LoadingSpinner size="lg" text="Cargando formularios..." />
+          </div>
         ) : error ? (
-          <div className="py-16 text-center text-sm text-red-500">Error al cargar los eventos.</div>
-        ) : events.length === 0 ? (
+          <div className="py-16 text-center text-sm text-red-500">
+            Error al cargar los formularios: {getApiErrorMessage(error)}
+          </div>
+        ) : filteredForms.length === 0 ? (
           <EmptyState
             icon={Calendar}
-            title="No hay eventos"
-            description={searchQuery ? 'No se encontraron resultados.' : 'Comienza creando un nuevo evento.'}
-            action={!searchQuery && <Button icon={<Plus className="h-4 w-4" />} onClick={openCreate}>Nuevo evento</Button>}
+            title={hasFilteredOut ? 'Sin resultados para el filtro' : 'No hay formularios'}
+            description={
+              hasFilteredOut
+                ? `Hay ${totalForms} formulario${totalForms === 1 ? '' : 's'} en la base de datos, pero ninguno coincide con el filtro seleccionado.`
+                : searchQuery
+                  ? 'No se encontraron resultados para tu búsqueda.'
+                  : 'No hay formularios registrados en AMPYME Forms.'
+            }
+            action={
+              hasFilteredOut ? (
+                <Button variant="outline" onClick={() => { setStatusFilter('all'); setSearchQuery(''); }}>
+                  Ver todos
+                </Button>
+              ) : undefined
+            }
           />
         ) : (
-          <>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableHeaderCell>Evento</TableHeaderCell>
-                  <TableHeaderCell>Tipo</TableHeaderCell>
-                  <TableHeaderCell>Fecha</TableHeaderCell>
-                  <TableHeaderCell>Ubicación</TableHeaderCell>
-                  <TableHeaderCell>Inscritos</TableHeaderCell>
-                  <TableHeaderCell>Estado</TableHeaderCell>
-                  <TableHeaderCell align="right">Acciones</TableHeaderCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {events.map((event) => (
-                  <TableRow key={event.id}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableHeaderCell>Formulario</TableHeaderCell>
+                <TableHeaderCell>Evento</TableHeaderCell>
+                <TableHeaderCell>Inscritos</TableHeaderCell>
+                <TableHeaderCell>Ubicación</TableHeaderCell>
+                <TableHeaderCell>Estado</TableHeaderCell>
+                <TableHeaderCell align="right">Acciones</TableHeaderCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredForms.map((form) => {
+                const status = computeAmpymeFormStatus(form);
+                return (
+                  <TableRow key={form.id}>
                     <TableCell>
-                      <p className="font-medium text-gray-900">{event.name}</p>
-                      {event.description && <p className="text-xs text-gray-400 truncate max-w-[250px]">{event.description}</p>}
-                    </TableCell>
-                    <TableCell>{event.eventType || '—'}</TableCell>
-                    <TableCell>
-                      {event.startDate ? (
-                        <div className="text-sm">
-                          <p>{formatDate(event.startDate)}</p>
-                          {event.endDate && <p className="text-xs text-gray-400">al {formatDate(event.endDate)}</p>}
-                        </div>
-                      ) : '—'}
+                      <p className="font-medium text-gray-900">{form.form_name}</p>
+                      {form.description && (
+                        <p className="text-xs text-gray-400 truncate max-w-[280px]">{form.description}</p>
+                      )}
+                      {form.conferencista && (
+                        <p className="text-xs text-gray-500 mt-0.5">Conferencista: {form.conferencista}</p>
+                      )}
                     </TableCell>
                     <TableCell>
-                      <div>
-                        <p className="text-sm">{event.location || '—'}</p>
-                        {event.province && (
-                          <p className="text-xs text-gray-400">{provinciaNombre(event.province)}</p>
-                        )}
-                      </div>
+                      {form.event_date ? formatDate(form.event_date) : '—'}
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
-                        <UsersIcon className="h-4 w-4 text-gray-400" />
-                        <span>{event._count?.registrations ?? 0}</span>
-                        {event.maxCapacity && <span className="text-gray-400">/ {event.maxCapacity}</span>}
-                      </div>
+                      <span className="font-medium tabular-nums">
+                        {form.submission_count ?? 0}
+                      </span>
+                      {form.inscription_limit != null && (
+                        <span className="text-xs text-gray-400"> / {form.inscription_limit}</span>
+                      )}
                     </TableCell>
+                    <TableCell>{form.ubicacion || '—'}</TableCell>
                     <TableCell>
-                      <Badge variant={statusBadgeVariant[event.status] || 'default'}>
-                        {statusLabels[event.status] || event.status}
+                      <Badge variant={ampymeFormStatusBadge[status]}>
+                        {ampymeFormStatusLabels[status]}
                       </Badge>
                     </TableCell>
                     <TableCell align="right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => router.push(`/dashboard/events/${event.id}`)}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        title="Ver detalle"
+                        onClick={() => router.push(`/dashboard/events/${form.id}`)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            {meta && meta.totalPages > 1 && (
-              <div className="border-t p-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-gray-500">
-                    Mostrando {(meta.page - 1) * meta.limit + 1} - {Math.min(meta.page * meta.limit, meta.total)} de {meta.total}
-                  </p>
-                  <Pagination currentPage={meta.page} totalPages={meta.totalPages} onPageChange={setPage} />
-                </div>
-              </div>
-            )}
-          </>
+                );
+              })}
+            </TableBody>
+          </Table>
         )}
       </Card>
-
-      {/* Create Event Modal */}
-      <Modal
-        isOpen={isModalOpen} onClose={closeModal}
-        title="Nuevo evento" description="Crear un nuevo evento o capacitación" size="lg"
-        footer={
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={closeModal}>Cancelar</Button>
-            <Button onClick={handleSubmit(onSubmit)} isLoading={createMutation.isPending}>Crear evento</Button>
-          </div>
-        }
-      >
-        <form className="grid grid-cols-1 gap-4 sm:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
-          <div className="sm:col-span-2">
-            <Input label="Nombre del evento *" error={formErrors.name?.message} {...register('name', { required: 'Requerido' })} />
-          </div>
-          <div className="sm:col-span-2">
-            <Input label="Descripción" {...register('description')} />
-          </div>
-          <Select label="Tipo de evento" options={eventTypeOptions} {...register('eventType')} />
-          <Input label="Capacidad máxima" type="number" {...register('maxCapacity')} />
-          <Input label="Fecha inicio" type="date" {...register('startDate')} />
-          <Input label="Fecha fin" type="date" {...register('endDate')} />
-          <Input label="Ubicación" {...register('location')} />
-          <Select label="Provincia" options={provinciaFormOptions} {...register('province')} />
-        </form>
-      </Modal>
     </div>
   );
 }
