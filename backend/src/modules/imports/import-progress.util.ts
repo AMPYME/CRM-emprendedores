@@ -114,22 +114,24 @@ export async function markImportFailed(batchId: string, error: unknown): Promise
   if (!batch) return message;
 
   const log = readErrorLog(batch.errorLog);
+  const nextLog: ImportErrorLogShape = {
+    ...log,
+    message,
+    timestamp: new Date().toISOString(),
+    progress: {
+      processed: log.progress?.processed ?? 0,
+      total: log.progress?.total || batch.totalRows || 0,
+      percent: 0,
+      message,
+      phase: 'failed',
+      updatedAt: new Date().toISOString(),
+    },
+  };
+
   await importRepository.updateBatch(batchId, {
     status: 'FAILED',
     completedAt: new Date(),
-    errorLog: {
-      ...log,
-      message,
-      timestamp: new Date().toISOString(),
-      progress: {
-        processed: log.progress?.processed ?? 0,
-        total: log.progress?.total || batch.totalRows || 0,
-        percent: 0,
-        message,
-        phase: 'failed',
-        updatedAt: new Date().toISOString(),
-      },
-    } as Prisma.InputJsonValue,
+    errorLog: nextLog as unknown as Prisma.InputJsonValue,
   });
   return message;
 }
@@ -173,7 +175,7 @@ export async function persistProgress(
   };
 
   const data: Prisma.ImportBatchUpdateInput = {
-    errorLog: nextLog as Prisma.InputJsonValue,
+    errorLog: nextLog as unknown as Prisma.InputJsonValue,
   };
   if (input.totalRows != null) data.totalRows = input.totalRows;
   if (input.status) data.status = input.status;
