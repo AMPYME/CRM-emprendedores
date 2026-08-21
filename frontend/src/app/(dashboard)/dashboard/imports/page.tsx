@@ -101,7 +101,7 @@ export default function ImportsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Importaciones"
-        description="Carga masiva desde CSV (recomendado) o Excel"
+        description="Carga masiva desde archivos CSV UTF-8"
         actions={
           <Button icon={<Upload className="h-4 w-4" />} onClick={() => setIsUploadOpen(true)}>
             Subir archivo
@@ -132,7 +132,7 @@ export default function ImportsPage() {
           <EmptyState
             icon={FileSpreadsheet}
             title="No hay importaciones"
-            description="Sube un archivo Excel para comenzar una importación masiva."
+            description="Sube un archivo CSV UTF-8 para comenzar una importación masiva."
             action={<Button icon={<Upload className="h-4 w-4" />} onClick={() => setIsUploadOpen(true)}>Subir archivo</Button>}
           />
         ) : (
@@ -212,8 +212,8 @@ export default function ImportsPage() {
       <Modal
         isOpen={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}
-        title="Subir archivo de importación"
-        description="Preferible CSV UTF-8 para archivos grandes (100k+ filas). También .xlsx / .xls."
+        title="Subir archivo CSV"
+        description="Solo CSV UTF-8. Separador coma (,) o punto y coma (;)."
         footer={
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setIsUploadOpen(false)}>Cancelar</Button>
@@ -229,18 +229,19 @@ export default function ImportsPage() {
             onChange={(e) => setSourceType(e.target.value)}
           />
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Archivo</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Archivo CSV</label>
             <input
               ref={fileInputRef}
               type="file"
-              accept=".csv,.xlsx,.xls,text/csv"
+              accept=".csv,text/csv"
               className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 cursor-pointer"
             />
           </div>
           <div className="rounded-lg bg-blue-50 p-3">
             <p className="text-xs text-blue-700">
-              <strong>Recomendado:</strong> CSV UTF-8 (menos RAM). También .xlsx / .xls.<br />
-              El procesamiento corre en el servidor por lotes de 500 filas; puedes cerrar la pestaña y volver después.
+              <strong>Formato:</strong> CSV UTF-8 (separador <code>,</code> o <code>;</code>).
+              <br />
+              El procesamiento corre en el servidor por lotes; puedes cerrar la pestaña y volver después.
             </p>
           </div>
         </div>

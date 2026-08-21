@@ -45,7 +45,7 @@ export const importController = {
   async upload(req: Request, res: Response): Promise<void> {
     if (!req.file) {
       throw new BadRequestError(
-        'Debe enviar un archivo Excel (.xlsx, .xls) o CSV (.csv) en el campo "file"'
+        'Debe enviar un archivo CSV UTF-8 (.csv) en el campo "file"'
       );
     }
 

@@ -12,18 +12,12 @@ import path from 'path';
 import { ImportStatus, StagingRowStatus, EntityType, Prisma, Gender } from '@prisma/client';
 import { prisma } from '../../config/database';
 import { importRepository, BatchWithRelations, StagingRowWithRelations } from './import.repository';
-import { getExcelHeaders, getExcelPreview } from './parser.service';
 import { buildMapping, applyMapping, getAvailableSystemFields, inferEntityType } from './mapper.service';
 import { deduplicateRow } from './dedup.service';
 import { StagingToEntityData, ColumnMapping, ExtractedFields, ValidationResult, ImportBatchProgress, ImportExecuteBatchProgress } from './import.types';
 import { auditService } from '../audit/audit.service';
 import { getImportBatchSettings, sleep } from './import-batch.util';
-import { iterateCsvRows } from './csv-stream.service';
-import {
-  convertExcelFileToCsv,
-  isCsvFile,
-  isExcelFile,
-} from './excel-to-csv.service';
+import { iterateCsvRows, peekCsvHeadersAndSample, getCsvHeaders } from './csv-stream.service';
 import {
   buildProgressFields,
   persistProgress,
@@ -163,10 +157,9 @@ async function assertNotCancelled(batchId: string): Promise<void> {
 }
 
 /**
- * Asegura un CSV UTF-8 en disco. Si el lote es Excel, convierte por stream y
- * actualiza fileName del batch al .csv generado.
+ * Resuelve la ruta absoluta del CSV del lote (solo .csv).
  */
-async function ensureBatchCsvPath(batchId: string, fileName: string): Promise<string> {
+function resolveBatchCsvPath(fileName: string): string {
   const uploadDir = path.resolve(config.uploadDir);
   const sourcePath = path.resolve(uploadDir, fileName);
 
@@ -174,26 +167,11 @@ async function ensureBatchCsvPath(batchId: string, fileName: string): Promise<st
     throw new BadRequestError('El archivo de importación ya no existe en el servidor');
   }
 
-  if (isCsvFile(fileName)) {
-    return sourcePath;
+  if (path.extname(fileName).toLowerCase() !== '.csv') {
+    throw new BadRequestError('Solo se aceptan archivos CSV UTF-8 (.csv)');
   }
 
-  if (!isExcelFile(fileName)) {
-    throw new BadRequestError('Formato de archivo no soportado. Use CSV UTF-8 o Excel (.xlsx)');
-  }
-
-  const csvName = `${path.parse(fileName).name}.csv`;
-  const csvPath = path.resolve(uploadDir, csvName);
-
-  if (!fs.existsSync(csvPath)) {
-    await convertExcelFileToCsv(sourcePath, csvPath);
-  }
-
-  if (fileName !== csvName) {
-    await importRepository.updateBatch(batchId, { fileName: csvName });
-  }
-
-  return csvPath;
+  return sourcePath;
 }
 
 // ── Service ──────────────────────────────────────────────────────
@@ -253,10 +231,10 @@ export const importService = {
 
     // Leer headers para sugerir mapeo
     const filePath = path.resolve(input.file.path);
-    const headers = getExcelHeaders(filePath);
+    const headers = await getCsvHeaders(filePath);
 
     if (headers.length === 0) {
-      throw new BadRequestError('El archivo Excel no contiene columnas válidas');
+      throw new BadRequestError('El archivo CSV no contiene columnas válidas');
     }
 
     // Construir mapeo sugerido (template + auto-detect)
@@ -280,6 +258,7 @@ export const importService = {
     return {
       ...batch,
       excelHeaders: headers,
+      csvHeaders: headers,
       suggestedMapping,
       availableSystemFields: getAvailableSystemFields(),
     };
@@ -292,8 +271,8 @@ export const importService = {
     const batch = await importRepository.findBatchById(batchId);
     if (!batch) throw new NotFoundError('Lote de importación', batchId);
 
-    const filePath = path.resolve(config.uploadDir, batch.fileName);
-    const previewData = getExcelPreview(filePath, maxRows);
+    const filePath = resolveBatchCsvPath(batch.fileName);
+    const previewData = await peekCsvHeadersAndSample(filePath, maxRows);
 
     const currentMapping = (batch.columnMapping as ColumnMapping) || {};
 
@@ -303,7 +282,7 @@ export const importService = {
       sourceType: batch.sourceType,
       headers: previewData.headers,
       sampleRows: previewData.rows,
-      totalPreviewRows: previewData.totalRows,
+      totalPreviewRows: previewData.totalSampled,
       columnMapping: currentMapping,
       availableSystemFields: getAvailableSystemFields(),
     };
@@ -332,8 +311,8 @@ export const importService = {
     }
 
     // Resolver valores al header real del archivo (case-insensitive)
-    const filePath = path.resolve(config.uploadDir, batch.fileName);
-    const headers = getExcelHeaders(filePath);
+    const filePath = resolveBatchCsvPath(batch.fileName);
+    const headers = await getCsvHeaders(filePath);
     const normalized = buildMapping(batch.sourceType, headers, columnMapping);
 
     if (Object.keys(normalized).length === 0) {
@@ -398,7 +377,7 @@ export const importService = {
       let totalRows = batch.totalRows;
 
       if (existingCount === 0) {
-        const csvPath = await ensureBatchCsvPath(batchId, batch.fileName);
+        const csvPath = resolveBatchCsvPath(batch.fileName);
         logger.info('Iniciando staging por stream CSV', { batchId, csvPath });
 
         let rowNumber = 0;

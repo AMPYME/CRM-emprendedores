@@ -137,7 +137,7 @@ const steps: { id: WizardStep; label: string }[] = [
 function progressFromStatus(status: ImportStatus, totalRows: number): { percent: number; label: string } {
   switch (status) {
     case 'PROCESSING':
-      return { percent: 15, label: 'Leyendo archivo Excel…' };
+      return { percent: 15, label: 'Leyendo archivo CSV…' };
     case 'VALIDATING':
       return {
         percent: 45,

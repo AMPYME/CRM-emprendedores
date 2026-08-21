@@ -1,6 +1,5 @@
 /**
- * Middleware de upload de archivos con Multer.
- * Configura almacenamiento en disco para archivos Excel.
+ * Middleware de upload de archivos CSV con Multer.
  */
 import multer from 'multer';
 import path from 'path';
@@ -9,37 +8,28 @@ import fs from 'fs';
 import { config } from '../../config/environment';
 import { BadRequestError } from '../../shared/errors/app-error';
 
-// ── Asegurar que el directorio de uploads existe ─────────────────
-
 const uploadDir = path.resolve(config.uploadDir);
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// ── Extensiones permitidas ───────────────────────────────────────
-
-const ALLOWED_EXTENSIONS = ['.xlsx', '.xls', '.csv'];
+const ALLOWED_EXTENSIONS = ['.csv'];
 const ALLOWED_MIMETYPES = [
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-  'application/vnd.ms-excel', // .xls
-  'text/csv', // .csv
+  'text/csv',
   'application/csv',
+  'text/plain',
+  'application/vnd.ms-excel', // algunos navegadores envían CSV como este MIME
 ];
-
-// ── Configuración de almacenamiento ──────────────────────────────
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {
     cb(null, uploadDir);
   },
   filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const uniqueName = `${uuidv4()}${ext}`;
-    cb(null, uniqueName);
+    const ext = path.extname(file.originalname).toLowerCase() || '.csv';
+    cb(null, `${uuidv4()}${ext === '.csv' ? '.csv' : '.csv'}`);
   },
 });
-
-// ── Filtro de archivos ───────────────────────────────────────────
 
 const fileFilter: multer.Options['fileFilter'] = (_req, file, cb) => {
   const ext = path.extname(file.originalname).toLowerCase();
@@ -47,37 +37,30 @@ const fileFilter: multer.Options['fileFilter'] = (_req, file, cb) => {
   if (!ALLOWED_EXTENSIONS.includes(ext)) {
     return cb(
       new BadRequestError(
-        `Tipo de archivo no permitido: ${ext}. Use: ${ALLOWED_EXTENSIONS.join(', ')}`
+        `Tipo de archivo no permitido: ${ext}. Solo se acepta CSV UTF-8 (.csv)`
       )
     );
   }
 
-  // Verificar MIME type (fallback: solo extensión)
   if (file.mimetype && !ALLOWED_MIMETYPES.includes(file.mimetype)) {
-    // Algunos sistemas envían mime types genéricos; aceptar si la extensión es válida
-    if (!ALLOWED_EXTENSIONS.includes(ext)) {
-      return cb(
-        new BadRequestError('Tipo MIME no permitido para archivos de importación')
-      );
+    // Algunos SO envían MIME genérico; aceptar si la extensión es .csv
+    if (ext !== '.csv') {
+      return cb(new BadRequestError('Tipo MIME no permitido. Use un archivo .csv'));
     }
   }
 
   cb(null, true);
 };
 
-// ── Instancia de Multer ──────────────────────────────────────────
-
 const upload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: config.maxFileSizeMb * 1024 * 1024, // MB → bytes
-    files: 1, // Solo un archivo por request
+    fileSize: config.maxFileSizeMb * 1024 * 1024,
+    files: 1,
   },
 });
 
-/**
- * Middleware para upload de un solo archivo Excel.
- * El archivo se espera en el campo 'file' del form-data.
- */
+/** Upload de un solo archivo CSV en el campo `file`. */
 export const uploadExcel = upload.single('file');
+export const uploadCsv = uploadExcel;

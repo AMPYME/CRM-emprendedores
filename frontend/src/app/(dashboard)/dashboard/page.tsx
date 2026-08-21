@@ -277,7 +277,7 @@ export default function DashboardPage() {
               {showImports && (
                 <QuickAction
                   title="Importar datos"
-                  description="Carga masiva desde Excel"
+                  description="Carga masiva desde CSV"
                   href="/dashboard/imports"
                   icon={Upload}
                   color="bg-indigo-500"
