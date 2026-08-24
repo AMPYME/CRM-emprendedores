@@ -170,7 +170,7 @@ export const intakeService = {
       const created = await prisma.$transaction(async (tx) => {
         const entities: IntakeMigrateResult['entities'] = [];
 
-        if (primary === 'PERSON' && hasPerson(snapshot.person)) {
+        if (hasPerson(snapshot.person)) {
           const input = snapshotToCreatePerson(snapshot);
           let existing = input.cedula
             ? await tx.entity.findFirst({
@@ -258,7 +258,9 @@ export const intakeService = {
             });
             entities.push({ id: entity.id, entityType: 'PERSON', displayName: entity.displayName });
           }
-        } else if (primary === 'COMPANY' && hasCompany(snapshot.company)) {
+        }
+
+        if (hasCompany(snapshot.company)) {
           const input = snapshotToCreateCompany(snapshot);
           let existing = input.ruc
             ? await tx.entity.findFirst({
@@ -269,7 +271,14 @@ export const intakeService = {
                 },
                 select: { id: true, displayName: true },
               })
-            : null;
+            : await tx.entity.findFirst({
+                where: {
+                  entityType: 'COMPANY',
+                  status: { not: 'MERGED' },
+                  company: { legalName: { equals: input.legalName, mode: 'insensitive' } },
+                },
+                select: { id: true, displayName: true },
+              });
 
           if (existing && onDuplicate === 'reject') {
             throw new ConflictError(DUPLICATE_MSG, {
@@ -342,7 +351,32 @@ export const intakeService = {
             });
             entities.push({ id: entity.id, entityType: 'COMPANY', displayName: entity.displayName });
           }
-        } else {
+        }
+
+        const personCreated = entities.find((e) => e.entityType === 'PERSON');
+        const companyCreated = entities.find((e) => e.entityType === 'COMPANY');
+        if (personCreated && companyCreated) {
+          const existingRel = await tx.entityRelationship.findFirst({
+            where: {
+              OR: [
+                { fromEntityId: personCreated.id, toEntityId: companyCreated.id },
+                { fromEntityId: companyCreated.id, toEntityId: personCreated.id },
+              ],
+            },
+          });
+          if (!existingRel) {
+            await tx.entityRelationship.create({
+              data: {
+                fromEntityId: personCreated.id,
+                toEntityId: companyCreated.id,
+                relationshipType: 'OWNER',
+                isActive: true,
+              },
+            });
+          }
+        }
+
+        if (entities.length === 0) {
           throw new BadRequestError('No hay datos para migrar según el tipo de sesión.');
         }
 

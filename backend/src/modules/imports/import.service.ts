@@ -1209,7 +1209,8 @@ export const importService = {
     mapping: ColumnMapping,
     sourceOrigin: string,
     importBatchId: string,
-    createdById?: string
+    createdById?: string,
+    options?: { skipPerson?: boolean; skipCompany?: boolean }
   ): Promise<{
     personId?: string;
     companyId?: string;
@@ -1258,7 +1259,7 @@ export const importService = {
       let personEntity: { id: string; displayName: string } | null = null;
       let companyEntity: { id: string; displayName: string } | null = null;
 
-      if (kind === 'PERSON' || kind === 'BOTH') {
+      if (!options?.skipPerson && (kind === 'PERSON' || kind === 'BOTH')) {
         const existing = fields.extractedCedula
           ? await tx.entity.findFirst({
               where: {
@@ -1297,7 +1298,7 @@ export const importService = {
             });
       }
 
-      if (kind === 'COMPANY' || kind === 'BOTH') {
+      if (!options?.skipCompany && (kind === 'COMPANY' || kind === 'BOTH')) {
         const existing = fields.extractedRuc
           ? await tx.entity.findFirst({
               where: {
@@ -1307,7 +1308,16 @@ export const importService = {
               },
               select: { id: true, displayName: true },
             })
-          : null;
+          : companyLegalName
+            ? await tx.entity.findFirst({
+                where: {
+                  entityType: 'COMPANY',
+                  status: { not: 'MERGED' },
+                  company: { legalName: { equals: companyLegalName, mode: 'insensitive' } },
+                },
+                select: { id: true, displayName: true },
+              })
+            : null;
 
         companyEntity = existing
           ? existing

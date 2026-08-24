@@ -336,13 +336,16 @@ export const verificationService = {
     if (payload.importMeta && isUnifiedCsvSource(payload.importMeta.sourceType)) {
       const meta = payload.importMeta;
       const sourceOrigin = `IMPORT_${meta.sourceType}_${meta.importBatchId.substring(0, 8)}`;
+      const hasPerson = entities.some((e) => e.entityType === 'PERSON');
+      const hasCompany = entities.some((e) => e.entityType === 'COMPANY');
       const result = await importService.importUnificadaRow(
         meta.fields,
         meta.rawData,
         meta.mapping,
         sourceOrigin,
         meta.importBatchId,
-        userId
+        userId,
+        { skipPerson: hasPerson, skipCompany: hasCompany }
       );
       const byId = new Map(entities.map((e) => [e.id, e]));
       if (result.personId) {

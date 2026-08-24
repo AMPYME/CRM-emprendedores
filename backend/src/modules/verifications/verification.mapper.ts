@@ -4,7 +4,7 @@
 import { randomUUID } from 'crypto';
 import { EntityType, Prisma } from '@prisma/client';
 import type { ColumnMapping, ExtractedFields } from '../imports/import.types';
-import { classifyImportRow } from '../imports/mapper.service';
+import { classifyImportRow, queueEntityType } from '../imports/mapper.service';
 import { locationInputToCodes } from '../../shared/utils/division-politica';
 import type { VerificationDataPayload } from './verification.types';
 
@@ -138,7 +138,7 @@ export function stagingRowToVerificationCreateInput(params: {
   });
 
   const kind = classifyImportRow(fields);
-  const entityType: EntityType = kind === 'COMPANY' ? 'COMPANY' : 'PERSON';
+  const entityType: EntityType = queueEntityType(kind);
 
   const personName = [fields.extractedFirstName, fields.extractedLastName].filter(Boolean).join(' ');
   const companyName =

@@ -190,6 +190,17 @@ export function buildMapping(
     }
   }
 
+  // CSV unificado: no perder la columna Empresa aunque el mapeo manual no la traiga.
+  if (isUnifiedCsvSource(sourceType)) {
+    const empresaHeader = headerByLower.get('empresa');
+    if (empresaHeader) {
+      if (!validMapping.legalName) validMapping.legalName = empresaHeader;
+      if (!validMapping.businessName) validMapping.businessName = empresaHeader;
+    }
+    const rucHeader = headerByLower.get('ruc');
+    if (rucHeader && !validMapping.ruc) validMapping.ruc = rucHeader;
+  }
+
   logger.debug('Mapeo de columnas construido', {
     sourceType,
     autoDetected: Object.keys(autoMapping).length,
@@ -264,11 +275,33 @@ export function applyMapping(
     getValue('phone') || getValue('phone2') || getValue('phone3') || getValue('mobile') || getValue('whatsapp');
   if (phone) fields.extractedPhone = normalizePhone(phone);
 
-  // Nombre de negocio / empresa
-  const businessName = getValue('businessName') || getValue('legalName') || getValue('tradeName');
+  // Nombre de negocio / empresa (mapeo + fallback a columnas típicas del CSV AMPYME)
+  const businessName =
+    getValue('businessName') ||
+    getValue('legalName') ||
+    getValue('tradeName') ||
+    rawCell(rawData, 'empresa', 'razon_social', 'nombre_comercial', 'nombre_empresa', 'nombre_negocio');
   if (businessName) fields.extractedBusinessName = titleCase(businessName);
 
+  if (!fields.extractedRuc) {
+    const rucFallback = rawCell(rawData, 'ruc');
+    if (rucFallback) fields.extractedRuc = normalizeRuc(rucFallback);
+  }
+
   return fields;
+}
+
+function rawCell(rawData: Record<string, unknown>, ...keys: string[]): string | undefined {
+  const byLower = new Map(Object.keys(rawData).map((k) => [k.toLowerCase(), k]));
+  for (const key of keys) {
+    const actual = byLower.get(key.toLowerCase());
+    if (!actual) continue;
+    const val = rawData[actual];
+    if (val === null || val === undefined) continue;
+    const s = String(val).trim();
+    if (s) return s;
+  }
+  return undefined;
 }
 
 /**
@@ -345,6 +378,11 @@ export function classifyImportRow(fields: ExtractedFields): ImportRowKind {
   if (person && company) return 'BOTH';
   if (company) return 'COMPANY';
   return 'PERSON';
+}
+
+/** Tipo visible en cola (el enum Prisma no tiene BOTH). */
+export function queueEntityType(kind: ImportRowKind): 'PERSON' | 'COMPANY' {
+  return kind === 'COMPANY' ? 'COMPANY' : 'PERSON';
 }
 
 export function isUnifiedCsvSource(sourceType: string): boolean {

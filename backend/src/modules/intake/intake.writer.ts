@@ -94,58 +94,92 @@ export async function replaceIntakeSnapshot(
       })
       .filter((c): c is NonNullable<typeof c> => c !== null);
 
-    if (entityType === 'PERSON') {
+    const hasPersonData = !!(
+      clean(person.firstName) ||
+      clean(person.firstName) ||
+      clean(person.lastName) ||
+      clean(person.lastName) ||
+      clean(person.cedula)
+    );
+    const hasCompanyData = !!(
+      clean(company.legalName) ||
+      clean(company.legalName) ||
+      clean(company.tradeName) ||
+      clean(company.tradeName) ||
+      clean(company.ruc)
+    );
+    const createPerson = hasPersonData || (entityType === 'PERSON' && !hasCompanyData);
+    const createCompany = hasCompanyData || (entityType === 'COMPANY' && !hasPersonData);
+
+    if (createPerson) {
+      const firstName = clean(person.firstName) ?? clean(person.firstName);
+      const lastName = clean(person.lastName) ?? clean(person.lastName);
       const displayName =
-        [clean(person.firstName), clean(person.lastName)].filter(Boolean).join(' ') || 'Sin nombre';
-      const genderRaw = clean(person.gender)?.toUpperCase();
+        [firstName, lastName].filter(Boolean).join(' ') || 'Sin nombre';
+      const genderRaw = (clean(person.gender) ?? '').toUpperCase();
       const gender: Gender | null =
         genderRaw === 'MALE' || genderRaw === 'FEMALE' || genderRaw === 'OTHER'
           ? genderRaw
           : null;
-      const hasArtisanCard = parseBoolean(person.hasArtisanCard);
+      const hasArtisanCard = parseBoolean(person.hasArtisanCard ?? person.hasArtisanCard);
 
       await tx.intakeEntity.create({
         data: {
           ...entityData,
+          entityType: 'PERSON',
           displayName,
           person: {
             create: {
               cedula: clean(person.cedula),
-              firstName: clean(person.firstName),
-              lastName: clean(person.lastName),
-              secondLastName: clean(person.secondLastName),
+              firstName,
+              lastName,
+              secondLastName: clean(person.secondLastName) ?? clean(person.secondLastName),
               gender,
-              birthDate: parseDate(person.birthDate),
+              birthDate: parseDate(person.birthDate ?? person.birthDate),
               nationalityCode: resolveNationalityCode(
-                clean(person.nationalityCode) ?? DEFAULT_NATIONALITY_CODE
+                clean(person.nationalityCode) ??
+                  clean(person.nationalityCode) ??
+                  DEFAULT_NATIONALITY_CODE
               ),
-              educationLevel: clean(person.educationLevel),
+              educationLevel: clean(person.educationLevel) ?? clean(person.educationLevel),
               hasArtisanCard: hasArtisanCard ?? null,
             },
           },
           contacts: contactCreates.length ? { create: contactCreates } : undefined,
         },
       });
-    } else if (entityType === 'COMPANY') {
-      const displayName =
-        clean(company.tradeName) ?? clean(company.legalName) ?? 'Empresa sin nombre';
+    }
+
+    if (createCompany) {
+      const legalName =
+        clean(company.legalName) ??
+        clean(company.legalName) ??
+        clean(company.tradeName) ??
+        clean(company.tradeName) ??
+        'Empresa sin nombre';
+      const tradeName = clean(company.tradeName) ?? clean(company.tradeName);
+      const displayName = tradeName ?? legalName;
 
       await tx.intakeEntity.create({
         data: {
           ...entityData,
+          entityType: 'COMPANY',
           displayName,
           company: {
             create: {
               ruc: clean(company.ruc),
               dv: clean(company.dv),
-              legalName: clean(company.legalName),
-              tradeName: clean(company.tradeName),
-              companyType: clean(company.companyType),
-              companySizeClass: toSizeClass(company.companySizeClass),
-              foundedDate: parseDate(company.foundedDate),
+              legalName,
+              tradeName,
+              companyType: clean(company.companyType) ?? clean(company.companyType),
+              companySizeClass: toSizeClass(company.companySizeClass ?? company.companySizeClass),
+              foundedDate: parseDate(company.foundedDate ?? company.foundedDate),
             },
           },
-          contacts: contactCreates.length ? { create: contactCreates } : undefined,
+          contacts:
+            contactCreates.length && !hasPersonData
+              ? { create: contactCreates }
+              : undefined,
         },
       });
     }

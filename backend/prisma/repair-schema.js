@@ -16,6 +16,15 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
+/** Identificadores PostgreSQL citados (p. ej. provincias."codProv"). */
+const SQL_IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+function assertSqlIdent(name, kind) {
+  if (!SQL_IDENT_RE.test(name)) {
+    throw new Error(`Nombre de ${kind} inválido: ${name}`);
+  }
+}
+
 /** Carpeta prisma/ tanto si el script vive en prisma/ o en scripts/ */
 function resolvePrismaRoot() {
   const candidates = [
@@ -33,7 +42,7 @@ function resolvePrismaRoot() {
 const PRISMA_ROOT = resolvePrismaRoot();
 
 async function tableExists(name) {
-  if (!/^[a-z0-9_]+$/.test(name)) throw new Error(`Nombre de tabla inválido: ${name}`);
+  assertSqlIdent(name, 'tabla');
   const rows = await prisma.$queryRawUnsafe(
     `SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '${name}' LIMIT 1`
   );
@@ -41,9 +50,8 @@ async function tableExists(name) {
 }
 
 async function columnExists(table, column) {
-  if (!/^[a-z0-9_]+$/.test(table) || !/^[a-z0-9_]+$/.test(column)) {
-    throw new Error(`Nombre de tabla/columna inválido: ${table}.${column}`);
-  }
+  assertSqlIdent(table, 'tabla');
+  assertSqlIdent(column, 'columna');
   const rows = await prisma.$queryRawUnsafe(
     `SELECT 1 FROM information_schema.columns
      WHERE table_schema = 'public' AND table_name = '${table}' AND column_name = '${column}'
@@ -55,7 +63,7 @@ async function columnExists(table, column) {
 /** Extrae columnas de cada CREATE TABLE del baseline (CREATE se omite si la tabla ya existe). */
 function parseCreateTableColumns(sql) {
   const result = [];
-  const tableRe = /CREATE TABLE\s+"([a-z0-9_]+)"\s*\(([\s\S]*?)\);/gi;
+  const tableRe = /CREATE TABLE\s+"([A-Za-z0-9_]+)"\s*\(([\s\S]*?)\);/gi;
   let match;
   while ((match = tableRe.exec(sql))) {
     const table = match[1];
@@ -63,7 +71,7 @@ function parseCreateTableColumns(sql) {
     for (const rawLine of match[2].split('\n')) {
       const line = rawLine.trim().replace(/,\s*$/, '');
       if (!line || /^(CONSTRAINT|PRIMARY KEY|UNIQUE|FOREIGN KEY|CHECK)\b/i.test(line)) continue;
-      const col = line.match(/^"([a-z0-9_]+)"\s+(.+)$/i);
+      const col = line.match(/^"([A-Za-z0-9_]+)"\s+(.+)$/);
       if (!col) continue;
       columns.push({ name: col[1], ddl: col[2].trim() });
     }

@@ -74,24 +74,19 @@ function snapshotToForm(s: IntakeSnapshot): FormValues {
     email,
     phone,
   };
-  if (s.entityType === 'PERSON') {
-    const p = s.person;
-    return {
-      ...base,
-      firstName: p?.first_name ?? '',
-      lastName: p?.last_name ?? '',
-      secondLastName: p?.second_last_name ?? '',
-      cedula: p?.cedula ?? '',
-      gender: p?.gender ?? '',
-      birthDate: p?.birth_date?.split('T')[0] ?? p?.birth_date ?? '',
-      nationalityCode: p?.nationality_code ?? DEFAULT_NATIONALITY_CODE,
-      hasArtisanCard:
-        p?.has_artisan_card === true ? 'true' : p?.has_artisan_card === false ? 'false' : '',
-    };
-  }
+  const p = s.person;
   const c = s.company;
   return {
     ...base,
+    firstName: p?.first_name ?? '',
+    lastName: p?.last_name ?? '',
+    secondLastName: p?.second_last_name ?? '',
+    cedula: p?.cedula ?? '',
+    gender: p?.gender ?? '',
+    birthDate: p?.birth_date?.split('T')[0] ?? p?.birth_date ?? '',
+    nationalityCode: p?.nationality_code ?? DEFAULT_NATIONALITY_CODE,
+    hasArtisanCard:
+      p?.has_artisan_card === true ? 'true' : p?.has_artisan_card === false ? 'false' : '',
     legalName: c?.legal_name ?? '',
     tradeName: c?.trade_name ?? '',
     ruc: c?.ruc ?? '',
@@ -102,7 +97,7 @@ function snapshotToForm(s: IntakeSnapshot): FormValues {
   };
 }
 
-function formToPayload(entityType: IntakeEntityType, v: FormValues): IntakeUpdateInput {
+function formToPayload(snapshot: IntakeSnapshot, v: FormValues): IntakeUpdateInput {
   const contacts: IntakeUpdateInput['contacts'] = [];
   if (v.email?.trim()) {
     contacts.push({ contactType: 'EMAIL', contactValue: v.email.trim(), isPrimary: true });
@@ -121,27 +116,25 @@ function formToPayload(entityType: IntakeEntityType, v: FormValues): IntakeUpdat
     address: v.address || undefined,
   };
   const notes = v.notes || undefined;
+  const showPerson = !!snapshot.person || snapshot.entityType === 'PERSON';
+  const showCompany = !!snapshot.company || snapshot.entityType === 'COMPANY';
 
-  if (entityType === 'PERSON') {
-    return {
-      person: {
-        firstName: v.firstName,
-        lastName: v.lastName,
-        secondLastName: v.secondLastName,
-        cedula: v.cedula,
-        gender: v.gender,
-        birthDate: v.birthDate,
-        nationalityCode: v.nationalityCode,
-        hasArtisanCard:
-          v.hasArtisanCard === 'true' ? true : v.hasArtisanCard === 'false' ? false : undefined,
-      },
-      location,
-      contacts,
-      notes,
+  const payload: IntakeUpdateInput = { location, contacts, notes };
+  if (showPerson) {
+    payload.person = {
+      firstName: v.firstName,
+      lastName: v.lastName,
+      secondLastName: v.secondLastName,
+      cedula: v.cedula,
+      gender: v.gender,
+      birthDate: v.birthDate,
+      nationalityCode: v.nationalityCode,
+      hasArtisanCard:
+        v.hasArtisanCard === 'true' ? true : v.hasArtisanCard === 'false' ? false : undefined,
     };
   }
-  return {
-    company: {
+  if (showCompany || v.legalName?.trim()) {
+    payload.company = {
       legalName: v.legalName,
       tradeName: v.tradeName,
       ruc: v.ruc,
@@ -149,11 +142,9 @@ function formToPayload(entityType: IntakeEntityType, v: FormValues): IntakeUpdat
       companyType: v.companyType,
       companySizeClass: v.companySizeClass || undefined,
       foundedDate: v.foundedDate,
-    },
-    location,
-    contacts,
-    notes,
-  };
+    };
+  }
+  return payload;
 }
 
 export function IntakeEditModal({ isOpen, onClose, sessionId, snapshot, accessCode, onSaved }: Props) {
