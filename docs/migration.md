@@ -93,44 +93,31 @@ En el CSV de carga, **RUC casi siempre viene vacío**. La empresa se detecta **s
 
 ---
 
-## 4. Dónde se “pierden” las empresas (bug actual)
+## 4. Comportamiento corregido (persona, empresa y BOTH)
 
 Hay **tres pasos** y no todos respetan `BOTH` ni `COMPANY`.
 
-### 4.1 Cola de verificación (lo que ves en pantalla)
+### 4.1 Cola de verificación (etiqueta)
 
-`verification.mapper.ts`:
+`queueEntityType(kind)`:
 
-```ts
-entityType = kind === 'COMPANY' ? 'COMPANY' : 'PERSON'
-```
-
-| `classifyImportRow` | Lo que guarda `verification_items.entityType` |
-|---------------------|-----------------------------------------------|
-| COMPANY | COMPANY |
+| `classifyImportRow` | `verification_items.entityType` |
+|---------------------|----------------------------------|
+| COMPANY | **COMPANY** (aunque no tenga RUC) |
 | PERSON | PERSON |
-| **BOTH** | **PERSON** |
+| BOTH | PERSON (la cola no tiene enum BOTH; el snapshot sí trae persona y empresa) |
 
-El enum de Prisma solo tiene `PERSON | COMPANY` (no existe `BOTH`).  
-La fila con persona **y** empresa se etiqueta **Persona**. El snapshot JSON sí puede traer `company`, pero el listado y el filtro muestran Persona.
+Las filas **solo Empresa** ya no se etiquetan como persona.
 
-Eso explica filas como `xiomara / atencio / CAFETERIA YAMI`: hay empresa en el CSV y en el CRM aparece como persona.
+### 4.2 Alta definitiva (persona y/o empresa)
 
-### 4.2 Tipo primario (`inferEntityType`)
-
-Misma idea: `BOTH` se trata como `PERSON` (validación, colas no unificadas).
-
-### 4.3 Alta definitiva (`importUnificadaRow`)
-
-Aquí sí se respeta la tripleta:
+Al validar o ejecutar el lote unificado:
 
 - PERSON → crea persona
-- COMPANY → crea empresa
-- BOTH → crea persona + empresa y las vincula (`OWNER`)
+- COMPANY → crea empresa **sin exigir RUC** (basta el nombre en `Empresa`)
+- BOTH → crea persona + empresa (sin RUC si no viene) y las vincula (`OWNER`)
 
-**Condición:** el lote debe ser fuente UNIFICADA/GENERAL/CENSUS **y** la fila debe llegar a este método con `extractedBusinessName` o `extractedRuc`.
-
-Si el lote se ejecutó como EVENTO, o el mapeo no incluye `empresa`, nunca entra a crear empresa.
+El intake ahora guarda las dos entidades en la sesión cuando la fila es BOTH. Si al validar ya existen, no se duplican.
 
 ---
 
@@ -168,12 +155,13 @@ CSV
         ├─ staging_rows (guarda extracted_*)
         │
         ├─ verification_items.entityType
-        │     COMPANY → COMPANY
-        │     PERSON o BOTH → PERSON     ← aquí se ocultan empresas mixtas
+        │     COMPANY → COMPANY   (filas solo-Empresa, sin RUC)
+        │     PERSON  → PERSON
+        │     BOTH    → PERSON en la cola + snapshot con persona y empresa
         │
-        └─ importUnificadaRow (solo fuente unificada, al ejecutar)
+        └─ validar / ejecutar
               PERSON  → persona
-              COMPANY → empresa
+              COMPANY → empresa (sin exigir RUC)
               BOTH    → persona + empresa + relación OWNER
 ```
 

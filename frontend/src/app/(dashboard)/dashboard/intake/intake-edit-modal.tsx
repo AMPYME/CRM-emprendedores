@@ -8,7 +8,7 @@ import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { LocationCascadeFields } from '@/components/forms/location-cascade-fields';
 import { useUpdateIntakeSession } from '@/hooks/use-intake';
-import type { IntakeSnapshot, IntakeEntityType } from '@/types/intake.types';
+import type { IntakeSnapshot } from '@/types/intake.types';
 import type { IntakeUpdateInput } from '@/services/intake.service';
 import {
   DEFAULT_NATIONALITY_CODE,
@@ -159,7 +159,7 @@ export function IntakeEditModal({ isOpen, onClose, sessionId, snapshot, accessCo
     try {
       await updateMutation.mutateAsync({
         id: sessionId,
-        data: formToPayload(snapshot.entityType, values),
+        data: formToPayload(snapshot, values),
         accessCode,
       });
       onSaved?.();
@@ -170,6 +170,8 @@ export function IntakeEditModal({ isOpen, onClose, sessionId, snapshot, accessCo
   };
 
   const type = snapshot.entityType;
+  const showPerson = !!snapshot.person || type === 'PERSON';
+  const showCompany = !!snapshot.company || type === 'COMPANY';
 
   return (
     <Modal
@@ -190,10 +192,10 @@ export function IntakeEditModal({ isOpen, onClose, sessionId, snapshot, accessCo
       }
     >
       <form className="grid grid-cols-1 gap-4 sm:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
-        {type === 'PERSON' && (
+        {showPerson && (
           <>
-            <Input label="Nombre *" {...register('firstName', { required: true })} />
-            <Input label="Primer apellido *" {...register('lastName', { required: true })} />
+            <Input label="Nombre *" {...register('firstName', { required: showPerson && !showCompany })} />
+            <Input label="Primer apellido" {...register('lastName')} />
             <Input label="Segundo apellido" {...register('secondLastName')} />
             <Input label="Cédula" placeholder="X-XXXX-XXXXX" {...register('cedula')} />
             <Select label="Género" options={genderOptions} {...register('gender')} />
@@ -206,9 +208,12 @@ export function IntakeEditModal({ isOpen, onClose, sessionId, snapshot, accessCo
             <Select label="Carnet de artesano" options={yesNoOptions} {...register('hasArtisanCard')} />
           </>
         )}
-        {type === 'COMPANY' && (
+        {showCompany && (
           <>
-            <Input label="Razón Social *" {...register('legalName', { required: true })} />
+            <Input
+              label={showPerson ? 'Empresa / Razón Social' : 'Razón Social *'}
+              {...register('legalName', { required: showCompany && !showPerson })}
+            />
             <Input label="Nombre comercial" {...register('tradeName')} />
             <Input label="RUC" {...register('ruc')} />
             <Input label="DV" {...register('dv')} />

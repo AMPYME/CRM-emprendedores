@@ -56,25 +56,19 @@ function snapshotToForm(s: IntakeSnapshot): FormValues {
     phone,
   };
 
-  if (s.entityType === 'PERSON') {
-    const p = s.person;
-    return {
-      ...base,
-      firstName: p?.first_name ?? '',
-      lastName: p?.last_name ?? '',
-      secondLastName: p?.second_last_name ?? '',
-      cedula: p?.cedula ?? '',
-      gender: p?.gender ?? '',
-      birthDate: p?.birth_date?.split('T')[0] ?? p?.birth_date ?? '',
-      nationalityCode: p?.nationality_code ?? '',
-      hasArtisanCard:
-        p?.has_artisan_card === true ? 'true' : p?.has_artisan_card === false ? 'false' : '',
-    };
-  }
-
+  const p = s.person;
   const c = s.company;
   return {
     ...base,
+    firstName: p?.first_name ?? '',
+    lastName: p?.last_name ?? '',
+    secondLastName: p?.second_last_name ?? '',
+    cedula: p?.cedula ?? '',
+    gender: p?.gender ?? '',
+    birthDate: p?.birth_date?.split('T')[0] ?? p?.birth_date ?? '',
+    nationalityCode: p?.nationality_code ?? '',
+    hasArtisanCard:
+      p?.has_artisan_card === true ? 'true' : p?.has_artisan_card === false ? 'false' : '',
     legalName: c?.legal_name ?? '',
     tradeName: c?.trade_name ?? '',
     ruc: c?.ruc ?? '',
@@ -167,7 +161,15 @@ const titles: Record<IntakeSnapshot['entityType'], { title: string; description:
 
 export function IntakeSnapshotView({ snapshot }: { snapshot: IntakeSnapshot }) {
   const values = snapshotToForm(snapshot);
-  const meta = titles[snapshot.entityType];
+  const hasPerson = !!snapshot.person;
+  const hasCompany = !!snapshot.company;
+  const meta =
+    hasPerson && hasCompany
+      ? {
+          title: 'Registro de persona y empresa',
+          description: 'La fila incluye datos de persona y de empresa (el RUC es opcional).',
+        }
+      : titles[snapshot.entityType];
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -177,8 +179,8 @@ export function IntakeSnapshotView({ snapshot }: { snapshot: IntakeSnapshot }) {
       </div>
       <div className="px-6 py-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {snapshot.entityType === 'PERSON' && <PersonFields v={values} />}
-          {snapshot.entityType === 'COMPANY' && <CompanyFields v={values} />}
+          {(hasPerson || snapshot.entityType === 'PERSON') && <PersonFields v={values} />}
+          {(hasCompany || snapshot.entityType === 'COMPANY') && <CompanyFields v={values} />}
         </div>
       </div>
     </div>

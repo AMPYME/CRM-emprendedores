@@ -134,19 +134,20 @@ export function snapshotToCreateCompany(s: IntakeSnapshot) {
 
 export function validateSnapshot(s: IntakeSnapshot): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
-  const personOk = hasPerson(s.person);
-  const companyOk = hasCompany(s.company);
 
-  if (!personOk && !companyOk) {
+  if (!hasPerson(s.person) && !hasCompany(s.company)) {
     errors.push('No hay datos de persona ni empresa.');
   }
-  if (personOk) {
-    if (!clean(s.person.first_name)) errors.push('Falta el nombre.');
+  if (hasPerson(s.person) && !clean(s.person.first_name)) {
+    errors.push('Falta el nombre.');
   }
-  if (companyOk) {
-    if (!clean(s.company.legal_name) && !clean(s.company.trade_name) && !clean(s.company.ruc)) {
-      errors.push('Falta la razón social o el nombre de la empresa.');
-    }
+  if (
+    hasCompany(s.company) &&
+    !clean(s.company.legal_name) &&
+    !clean(s.company.trade_name) &&
+    !clean(s.company.ruc)
+  ) {
+    errors.push('Falta la razón social o el nombre de la empresa.');
   }
   return { valid: errors.length === 0, errors };
 }

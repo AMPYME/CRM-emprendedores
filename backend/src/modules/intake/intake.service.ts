@@ -163,7 +163,6 @@ export const intakeService = {
       throw new BadRequestError(`Datos incompletos: ${errors.join(' ')}`, { errors });
     }
 
-    const primary = snapshot.entityType;
     const onDuplicate = options?.onDuplicate ?? 'reject';
 
     try {
@@ -407,7 +406,7 @@ export const intakeService = {
       if (err instanceof ConflictError) {
         throw new ConflictError(DUPLICATE_MSG, {
           ...(err.details ?? {}),
-          entityType: primary,
+          entityType: snapshot.entityType,
         });
       }
       throw err;
