@@ -44,14 +44,9 @@ import { config } from '../../config/environment';
 import { logger } from '../../shared/logger/logger';
 import { locationInputToCodes } from '../../shared/utils/division-politica';
 import { resolveNationalityCode } from '../../shared/utils/nationality';
-import { PaginationMeta } from '../../shared/types/api-response.types';
+import { buildPaginationMeta } from '../../shared/utils/pagination.utils';
 
 // ── Helpers ──────────────────────────────────────────────────────
-
-function buildPaginationMeta(total: number, page: number, limit: number): PaginationMeta {
-  const totalPages = Math.ceil(total / limit);
-  return { page, limit, total, totalPages, hasNextPage: page < totalPages, hasPrevPage: page > 1 };
-}
 
 function normalizeGender(raw: unknown): Gender | null | undefined {
   if (raw === undefined || raw === null) return undefined;
