@@ -245,6 +245,52 @@ export const intakeRepository = {
     });
   },
 
+  async listOpenFieldSessions(): Promise<
+    Array<{
+      sessionId: string;
+      entityType: IntakeEntityType;
+      displayName: string;
+      expiresAt: string;
+    }>
+  > {
+    const sessions = await prisma.intakeSession.findMany({
+      where: {
+        status: 'DRAFT',
+        expiresAt: { gte: new Date() },
+        verificationItem: { source: 'FIELD' },
+      },
+      include: SNAPSHOT_INCLUDE,
+      orderBy: { lastActivityAt: 'desc' },
+      take: 100,
+    });
+
+    return sessions.map((session) => {
+      const snapshot = mapSnapshot(session);
+      const name = snapshot.displayName;
+      return {
+        sessionId: session.id,
+        entityType: snapshot.entityType,
+        displayName:
+          !name || name === 'Sin datos' ? typeFallback(snapshot.entityType) : name,
+        expiresAt: iso(session.expiresAt),
+      };
+    });
+  },
+
+  async findOpenFieldSessionIdByAccessCode(accessCode: string): Promise<string | null> {
+    const session = await prisma.intakeSession.findFirst({
+      where: {
+        accessCodeHash: hashAccessCode(accessCode),
+        status: 'DRAFT',
+        expiresAt: { gte: new Date() },
+        verificationItem: { source: 'FIELD' },
+      },
+      select: { id: true },
+      orderBy: { lastActivityAt: 'desc' },
+    });
+    return session?.id ?? null;
+  },
+
   async getSnapshot(sessionId: string): Promise<IntakeSnapshot | null> {
     const session = await prisma.intakeSession.findUnique({
       where: { id: sessionId },

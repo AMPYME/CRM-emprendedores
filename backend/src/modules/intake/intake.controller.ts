@@ -58,6 +58,18 @@ export const intakeController = {
     sendSuccess(res, snapshot);
   },
 
+  /** GET /intake/public/field-sessions — sesiones de captura en campo abiertas. */
+  async listPublicFieldSessions(_req: Request, res: Response): Promise<void> {
+    const sessions = await intakeService.listPublicFieldSessions();
+    sendSuccess(res, { sessions });
+  },
+
+  /** POST /intake/public/field-sessions/unlock — abre la sesión con el código de 6 dígitos. */
+  async unlockPublicFieldSession(req: Request, res: Response): Promise<void> {
+    const result = await intakeService.unlockPublicFieldSession(req.body.accessCode as string);
+    sendSuccess(res, result);
+  },
+
   /** GET /intake/public/sessions/:id — snapshot + metadatos para el formulario público. */
   async getPublic(req: Request, res: Response): Promise<void> {
     const result = await intakeService.getPublicSession(

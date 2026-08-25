@@ -52,7 +52,25 @@ export interface PublicIntakeSessionResult {
   snapshot: IntakeSnapshot;
 }
 
+export interface PublicFieldSessionSummary {
+  sessionId: string;
+  entityType: IntakeSnapshot['entityType'];
+  displayName: string;
+  expiresAt: string;
+}
+
 export const publicIntakeService = {
+  listFieldSessions(): Promise<{ sessions: PublicFieldSessionSummary[] }> {
+    return publicRequest('/intake/public/field-sessions');
+  },
+
+  unlockFieldSession(accessCode: string): Promise<PublicIntakeSessionResult> {
+    return publicRequest('/intake/public/field-sessions/unlock', {
+      method: 'POST',
+      body: JSON.stringify({ accessCode }),
+    });
+  },
+
   getSession(id: string, accessCode: string): Promise<PublicIntakeSessionResult> {
     const qs = new URLSearchParams({ accessCode });
     return publicRequest(`/intake/public/sessions/${encodeURIComponent(id)}?${qs.toString()}`);

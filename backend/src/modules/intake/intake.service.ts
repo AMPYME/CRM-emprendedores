@@ -21,6 +21,7 @@ import {
   IntakeStatus,
   IntakeEntityType,
   IntakePublicSessionResult,
+  PublicFieldSessionSummary,
 } from './intake.types';
 import {
   validateSnapshot,
@@ -115,6 +116,16 @@ export const intakeService = {
       },
       snapshot,
     };
+  },
+
+  async listPublicFieldSessions(): Promise<PublicFieldSessionSummary[]> {
+    return intakeRepository.listOpenFieldSessions();
+  },
+
+  async unlockPublicFieldSession(accessCode: string): Promise<IntakePublicSessionResult> {
+    const sessionId = await intakeRepository.findOpenFieldSessionIdByAccessCode(accessCode);
+    if (!sessionId) throw new UnauthorizedError('Código de acceso incorrecto');
+    return this.getPublicSession(sessionId, accessCode);
   },
 
   async updateSnapshot(

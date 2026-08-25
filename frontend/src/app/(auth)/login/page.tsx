@@ -70,7 +70,7 @@ export default function LoginPage() {
 
       <div className="flex min-h-screen w-full flex-col bg-white lg:h-screen lg:w-1/3">
         <div className="flex flex-1 items-center justify-center overflow-y-auto px-8 py-10">
-          <div className="w-full max-w-[24rem] rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
+          <div className="w-full max-w-[28rem] rounded-2xl border border-gray-200 bg-white p-10 shadow-sm">
           <form
             method="post"
             action="/login"
@@ -83,6 +83,9 @@ export default function LoginPage() {
           >
             <div className="mb-8 text-center">
               <p className="text-2xl font-semibold tracking-tight text-[#073B6F]">Emprendedores</p>
+              <p className="mt-2 text-sm text-gray-500">
+                Sistema de gestión de Emprendedores — AMPYME
+              </p>
             </div>
 
             <label htmlFor="username" className="mb-2 text-sm font-semibold text-gray-800">

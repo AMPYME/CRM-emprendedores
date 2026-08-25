@@ -11,7 +11,9 @@
  *   PATCH /api/v1/intake/sessions/:id
  *   DELETE /api/v1/intake/sessions/:id
  *
- * Público (sin JWT; sid + accessCode):
+ * Público (sin JWT; código de acceso):
+ *   GET  /api/v1/intake/public/field-sessions
+ *   POST /api/v1/intake/public/field-sessions/unlock
  *   GET  /api/v1/intake/public/sessions/:id
  *   POST /api/v1/intake/public/sessions/:id/verify-access
  *   PATCH /api/v1/intake/public/sessions/:id
@@ -37,6 +39,17 @@ export const intakeRoutes = Router();
 const updateWithAccess = updateSessionSchema.merge(accessCodeBodySchema);
 
 // ── Público (sin JWT) ───────────────────────────────────────────
+intakeRoutes.get(
+  '/public/field-sessions',
+  asyncHandler(intakeController.listPublicFieldSessions)
+);
+
+intakeRoutes.post(
+  '/public/field-sessions/unlock',
+  validate(accessCodeBodySchema, 'body'),
+  asyncHandler(intakeController.unlockPublicFieldSession)
+);
+
 intakeRoutes.get(
   '/public/sessions/:id',
   validate(sessionIdParamSchema, 'params'),

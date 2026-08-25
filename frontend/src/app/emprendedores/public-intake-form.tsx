@@ -20,6 +20,7 @@ import { intakeAccessCodeKey } from '@/services/intake.service';
 import {
   PublicIntakeError,
   publicIntakeService,
+  type PublicFieldSessionSummary,
 } from '@/services/public-intake.service';
 import type { IntakeUpdateInput } from '@/services/intake.service';
 import { useIntakeStream } from '@/hooks/use-intake-stream';
@@ -201,13 +202,15 @@ function isValidEmail(value: string): boolean {
 
 export function PublicIntakeForm() {
   const searchParams = useSearchParams();
-  const sid = searchParams.get('sid')?.trim() || '';
+  const urlSid = searchParams.get('sid')?.trim() || '';
 
-  const [view, setView] = useState<View>(sid ? 'loading' : 'gate');
+  const [view, setView] = useState<View>('loading');
   const [gateTitle, setGateTitle] = useState('Enlace no válido');
   const [gateMsg, setGateMsg] = useState(
     'Falta el identificador de sesión. Solicita un enlace de registro.'
   );
+  const [sessionId, setSessionId] = useState(urlSid);
+  const [fieldSessions, setFieldSessions] = useState<PublicFieldSessionSummary[]>([]);
   const [code, setCode] = useState('');
   const [codeError, setCodeError] = useState('');
   const [accessCode, setAccessCode] = useState('');
@@ -223,6 +226,7 @@ export function PublicIntakeForm() {
   const formRef = useRef(form);
   const entityTypeRef = useRef(entityType);
   const accessCodeRef = useRef(accessCode);
+  const sessionIdRef = useRef(sessionId);
   const inFlight = useRef(false);
   const pendingSave = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -230,9 +234,10 @@ export function PublicIntakeForm() {
   formRef.current = form;
   entityTypeRef.current = entityType;
   accessCodeRef.current = accessCode;
+  sessionIdRef.current = sessionId;
 
   const stream = useIntakeStream(
-    view === 'form' ? sid : undefined,
+    view === 'form' ? sessionId : undefined,
     view === 'form' ? accessCode : undefined,
     'public'
   );
@@ -264,16 +269,17 @@ export function PublicIntakeForm() {
   );
 
   const loadSession = useCallback(
-    async (nextCode: string) => {
+    async (id: string, nextCode: string) => {
       setSaveState('saving');
-      setSaveText('Validando enlace…');
+      setSaveText('Validando…');
       try {
-        const data = await publicIntakeService.getSession(sid, nextCode);
+        const data = await publicIntakeService.getSession(id, nextCode);
+        setSessionId(id);
         setAccessCode(nextCode);
-        sessionStorage.setItem(intakeAccessCodeKey(sid), nextCode);
+        sessionStorage.setItem(intakeAccessCodeKey(id), nextCode);
         applySession(data.session, data.snapshot);
       } catch (err) {
-        sessionStorage.removeItem(intakeAccessCodeKey(sid));
+        sessionStorage.removeItem(intakeAccessCodeKey(id));
         setAccessCode('');
         if (err instanceof PublicIntakeError && err.status === 401) {
           setView('code');
@@ -293,22 +299,71 @@ export function PublicIntakeForm() {
         setCodeError('No se pudo validar el código. Intenta de nuevo.');
       }
     },
-    [applySession, showGate, sid]
+    [applySession, showGate]
+  );
+
+  const unlockByCode = useCallback(
+    async (nextCode: string) => {
+      setSaveState('saving');
+      setSaveText('Validando código…');
+      try {
+        const data = await publicIntakeService.unlockFieldSession(nextCode);
+        const id = data.session.sessionId;
+        setSessionId(id);
+        setAccessCode(nextCode);
+        sessionStorage.setItem(intakeAccessCodeKey(id), nextCode);
+        applySession(data.session, data.snapshot);
+      } catch (err) {
+        setAccessCode('');
+        if (err instanceof PublicIntakeError && err.status === 401) {
+          setView('code');
+          setCodeError('El código temporal no es válido. Verifica e intenta de nuevo.');
+          setSaveText('Ingresa el código');
+          return;
+        }
+        if (err instanceof PublicIntakeError && err.status === 410) {
+          showGate('Sesión expirada', 'El código caducó. Pide uno nuevo al operador.');
+          return;
+        }
+        setView('code');
+        setCodeError('No se pudo validar el código. Intenta de nuevo.');
+      }
+    },
+    [applySession, showGate]
   );
 
   useEffect(() => {
-    if (!sid) {
-      showGate('Enlace no válido', 'Falta el identificador de sesión. Solicita un enlace de registro.');
+    if (urlSid) {
+      const stored = sessionStorage.getItem(intakeAccessCodeKey(urlSid)) || '';
+      if (stored) {
+        void loadSession(urlSid, stored);
+      } else {
+        setView('code');
+        setSaveText('Ingresa el código');
+      }
       return;
     }
-    const stored = sessionStorage.getItem(intakeAccessCodeKey(sid)) || '';
-    if (stored) {
-      void loadSession(stored);
-    } else {
-      setView('code');
-      setSaveText('Ingresa el código');
-    }
-  }, [loadSession, showGate, sid]);
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const data = await publicIntakeService.listFieldSessions();
+        if (cancelled) return;
+        setFieldSessions(data.sessions);
+        setView('code');
+        setSaveText('Ingresa el código');
+      } catch {
+        if (cancelled) return;
+        showGate(
+          'No disponible',
+          'No se pudieron cargar las sesiones abiertas. Intenta de nuevo en unos minutos.'
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [loadSession, showGate, urlSid]);
 
   useEffect(() => {
     if (view !== 'form') return;
@@ -322,8 +377,9 @@ export function PublicIntakeForm() {
   }, [showGate, stream.status, view]);
 
   const save = useCallback(async () => {
+    const currentId = sessionIdRef.current;
     const currentCode = accessCodeRef.current;
-    if (!sid || !currentCode || inFlight.current) {
+    if (!currentId || !currentCode || inFlight.current) {
       if (inFlight.current) pendingSave.current = true;
       return;
     }
@@ -332,7 +388,7 @@ export function PublicIntakeForm() {
     setSaveText('Guardando…');
     try {
       await publicIntakeService.save(
-        sid,
+        currentId,
         currentCode,
         collectPayload(entityTypeRef.current, formRef.current)
       );
@@ -340,7 +396,7 @@ export function PublicIntakeForm() {
       setSaveText('Guardado automáticamente');
     } catch (err) {
       if (err instanceof PublicIntakeError && err.status === 401) {
-        sessionStorage.removeItem(intakeAccessCodeKey(sid));
+        sessionStorage.removeItem(intakeAccessCodeKey(currentId));
         setAccessCode('');
         setView('code');
         setCodeError('El código temporal no es válido. Solicita uno nuevo al operador.');
@@ -362,7 +418,7 @@ export function PublicIntakeForm() {
         void save();
       }
     }
-  }, [showGate, sid]);
+  }, [showGate]);
 
   const queueSave = useCallback(
     (delay = 500) => {
@@ -412,7 +468,11 @@ export function PublicIntakeForm() {
       return;
     }
     setCodeError('');
-    await loadSession(next);
+    if (urlSid) {
+      await loadSession(urlSid, next);
+    } else {
+      await unlockByCode(next);
+    }
   }
 
   async function onSubmit(e: FormEvent) {
@@ -441,7 +501,7 @@ export function PublicIntakeForm() {
         await new Promise((r) => setTimeout(r, 50));
       }
       await save();
-      await publicIntakeService.submit(sid, accessCodeRef.current);
+      await publicIntakeService.submit(sessionIdRef.current, accessCodeRef.current);
       setView('done');
       setSaveState('saved');
       setSaveText('Enviado');
@@ -493,12 +553,41 @@ export function PublicIntakeForm() {
         {view === 'code' && (
           <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
             <h1 className="text-2xl font-semibold text-gray-900">Código de acceso</h1>
-            <p className="mt-2 max-w-xl text-gray-500">
-              Ingresa el código temporal de 6 dígitos que te proporcionó el operador de AMPYME.
-            </p>
+            {!urlSid && (
+              <>
+                <p className="mt-2 max-w-xl text-gray-500">
+                  Estas son las sesiones abiertas en campo. Ingresa el código de 6 dígitos que te
+                  dio el operador.
+                </p>
+                <ul className="mt-5 divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200">
+                  {fieldSessions.length === 0 ? (
+                    <li className="px-4 py-3 text-sm text-gray-500">
+                      No hay sesiones abiertas en este momento.
+                    </li>
+                  ) : (
+                    fieldSessions.map((session) => (
+                      <li
+                        key={session.sessionId}
+                        className="flex items-center justify-between gap-3 px-4 py-3"
+                      >
+                        <span className="font-medium text-gray-900">{session.displayName}</span>
+                        <span className="shrink-0 text-xs text-gray-500">
+                          {session.entityType === 'COMPANY' ? 'Empresa' : 'Persona'}
+                        </span>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </>
+            )}
+            {urlSid && (
+              <p className="mt-2 max-w-xl text-gray-500">
+                Ingresa el código temporal de 6 dígitos que te proporcionó el operador de AMPYME.
+              </p>
+            )}
             <form className="mt-6 max-w-xs space-y-4" onSubmit={onCodeSubmit} autoComplete="off">
               <Input
-                label="Código temporal"
+                label="Código de acceso"
                 inputMode="numeric"
                 maxLength={6}
                 placeholder="000000"

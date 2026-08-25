@@ -98,6 +98,14 @@ export interface IntakeSessionSummary {
   lastActivityAt: string;
 }
 
+/** Sesión de captura en campo visible en el formulario público (sin código). */
+export interface PublicFieldSessionSummary {
+  sessionId: string;
+  entityType: IntakeEntityType;
+  displayName: string;
+  expiresAt: string;
+}
+
 export interface IntakeMigrateResult {
   sessionId: string;
   entities: Array<{ id: string; entityType: IntakeEntityType; displayName: string }>;
