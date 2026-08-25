@@ -21,6 +21,7 @@ RUN npm install
 
 COPY frontend/tsconfig.json frontend/next.config.js frontend/next-env.d.ts ./
 COPY frontend/postcss.config.js frontend/tailwind.config.ts ./
+COPY frontend/public ./public
 COPY frontend/src ./src
 
 ARG NEXT_PUBLIC_API_URL=http://api-emprendedores.ampyme.local/api/v1
@@ -46,6 +47,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nextjs
 
+COPY --from=build --chown=nextjs:nodejs /app/public ./public
 COPY --from=build --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=build --chown=nextjs:nodejs /app/.next/static ./.next/static
 

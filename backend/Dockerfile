@@ -48,13 +48,15 @@ RUN mkdir -p ./scripts
 COPY backend/scripts/prod-entrypoint.sh ./scripts/prod-entrypoint.sh
 COPY backend/scripts/prod-fix-migrations.sh ./scripts/prod-fix-migrations.sh
 COPY backend/scripts/repair-schema.js ./scripts/repair-schema.js
+COPY backend/scripts/wait-for-db.js ./scripts/wait-for-db.js
 RUN chmod +x ./scripts/prod-entrypoint.sh ./scripts/prod-fix-migrations.sh \
   && test -f ./prisma/repair-schema.js \
-  && test -f ./scripts/repair-schema.js
+  && test -f ./scripts/repair-schema.js \
+  && test -f ./scripts/wait-for-db.js
 
 EXPOSE 4000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=180s --retries=5 \
   CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||4000)+'/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 CMD ["./scripts/prod-entrypoint.sh"]

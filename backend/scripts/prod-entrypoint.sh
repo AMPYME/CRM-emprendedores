@@ -1,9 +1,12 @@
 #!/bin/sh
 # Arranque producción:
-# 1) migrate deploy (+ recuperación P3009 si aplica)
+# 0) esperar PostgreSQL (evita P1001 en Dokploy)
+# 1) migrate deploy (+ recuperación P3009 si aplica; NUNCA si es P1001)
 # 2) repair-schema.js SIEMPRE (idempotente: crea tablas faltantes, ignora "already exists")
 # 3) levanta API
 set -e
+
+URL_FILE="${DB_URL_FILE:-/tmp/emprendedores-database-url}"
 
 table_exists() {
   CHECK_TABLE="$1" node <<'NODE'
@@ -16,8 +19,13 @@ const prisma = new PrismaClient();
       `SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '${name}' LIMIT 1`
     );
     process.stdout.write(Array.isArray(rows) && rows.length ? '1' : '0');
-  } catch {
-    process.stdout.write('0');
+  } catch (err) {
+    const msg = err && err.message ? String(err.message) : '';
+    if (msg.includes("Can't reach database") || msg.includes('P1001')) {
+      process.stdout.write('err');
+    } else {
+      process.stdout.write('0');
+    }
   } finally {
     try { await prisma.$disconnect(); } catch (_) {}
   }
@@ -40,17 +48,44 @@ run_repair() {
   fi
 }
 
+if [ -z "$DATABASE_URL" ]; then
+  echo "❌ DATABASE_URL no está definida en el entorno del contenedor."
+  exit 1
+fi
+
+echo "⏳ Comprobando PostgreSQL..."
+node ./scripts/wait-for-db.js "$URL_FILE"
+export DATABASE_URL="$(cat "$URL_FILE")"
+
 echo "🗄️  Aplicando migraciones..."
 
-if npx prisma migrate deploy; then
+set +e
+MIGRATE_OUT="$(npx prisma migrate deploy 2>&1)"
+MIGRATE_RC=$?
+set -e
+printf '%s\n' "$MIGRATE_OUT"
+
+if [ "$MIGRATE_RC" -eq 0 ]; then
   echo "✅ Migraciones aplicadas"
 else
+  case "$MIGRATE_OUT" in
+    *P1001*)
+      echo "❌ migrate deploy no alcanzó PostgreSQL (P1001) tras esperar."
+      echo "   Revisa DATABASE_URL y que el backend esté enlazado a la BD en Dokploy."
+      exit 1
+      ;;
+  esac
+
   echo "⚠️  migrate deploy falló (posible baseline fallido P3009 en BD existente)."
   echo "   Recuperando registro de migración fallida..."
 
   npx prisma migrate resolve --rolled-back "20260820140000_baseline" || true
 
-  if [ "$(table_exists users)" = "1" ]; then
+  USERS_STATE="$(table_exists users)"
+  if [ "$USERS_STATE" = "err" ]; then
+    echo "❌ No hay conexión a PostgreSQL; no se marcará el baseline."
+    exit 1
+  elif [ "$USERS_STATE" = "1" ]; then
     echo "📦 BD existente detectada: marcando baseline como aplicada..."
     npx prisma migrate resolve --applied "20260820140000_baseline" || true
   else
