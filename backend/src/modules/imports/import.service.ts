@@ -44,6 +44,7 @@ import { config } from '../../config/environment';
 import { logger } from '../../shared/logger/logger';
 import { locationInputToCodes } from '../../shared/utils/division-politica';
 import { resolveNationalityCode } from '../../shared/utils/nationality';
+import { PaginationMeta } from '../../shared/types/api-response.types';
 
 // ── Helpers ──────────────────────────────────────────────────────
 
