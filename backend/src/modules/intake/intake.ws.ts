@@ -22,6 +22,7 @@ import { verifyAccessCode } from './intake-access';
 interface IntakeClient extends WebSocket {
   isAlive?: boolean;
   sessionId?: string;
+  queueWatch?: boolean;
   role?: 'operator' | 'public';
 }
 
@@ -70,8 +71,11 @@ class IntakeWsServer {
       }
       if (msg.action === 'subscribe' && msg.sessionId) {
         void this.subscribe(ws, msg.sessionId, msg.accessCode);
+      } else if (msg.action === 'subscribe_queue') {
+        this.subscribeQueue(ws);
       } else if (msg.action === 'unsubscribe') {
         ws.sessionId = undefined;
+        ws.queueWatch = false;
       }
     };
 
@@ -142,6 +146,15 @@ class IntakeWsServer {
     }
   }
 
+  private subscribeQueue(ws: IntakeClient): void {
+    if (ws.role !== 'operator') {
+      this.send(ws, { type: 'error', message: 'Solo operadores pueden suscribirse a la cola' });
+      return;
+    }
+    ws.queueWatch = true;
+    this.send(ws, { type: 'queue_subscribed' });
+  }
+
   private send(ws: WebSocket, event: IntakeWsEvent): void {
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(event));
@@ -172,6 +185,16 @@ class IntakeWsServer {
   notifyValidated(sessionId: string): void {
     this.forSession(sessionId, (c) => {
       this.send(c, { type: 'validated', sessionId });
+    });
+  }
+
+  /** Avisa a operadores en /dashboard/intake para refrescar la cola de verificación. */
+  notifyQueueChanged(reason?: string): void {
+    this.wss?.clients.forEach((client) => {
+      const c = client as IntakeClient;
+      if (c.queueWatch && c.readyState === WebSocket.OPEN) {
+        this.send(c, { type: 'queue_changed', reason });
+      }
     });
   }
 }

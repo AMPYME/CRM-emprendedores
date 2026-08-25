@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { verificationService } from './verification.service';
 import type { VerificationQueryInput } from './verification.validator';
 import { rejectVerificationSchema } from './verification.validator';
+import { canAccessImports } from '../auth/ad-auth.mapper';
 
 export const verificationController = {
   async list(req: Request, res: Response) {
@@ -33,8 +34,14 @@ export const verificationController = {
     const result = await verificationService.release(
       id,
       req.user!.id,
-      req.user!.email
+      req.user!.email,
+      { force: canAccessImports(req.user!.role) }
     );
+    res.json({ data: result });
+  },
+
+  async releaseAll(req: Request, res: Response) {
+    const result = await verificationService.releaseAll(req.user!.id, req.user!.email);
     res.json({ data: result });
   },
 

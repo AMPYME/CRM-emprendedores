@@ -45,14 +45,19 @@ function isExpired(session: { status: string; expires_at: string }): boolean {
 export const intakeService = {
   async createSession(
     createdBy: string | null,
-    entityType: IntakeEntityType = 'PERSON'
+    entityType: IntakeEntityType = 'PERSON',
+    ttlMinutes?: number
   ): Promise<{
     sessionId: string;
     expiresAt: string;
     entityType: IntakeEntityType;
     accessCode: string;
   }> {
-    const { session, accessCode } = await intakeRepository.createSession(createdBy, entityType);
+    const { session, accessCode } = await intakeRepository.createSession(
+      createdBy,
+      entityType,
+      ttlMinutes
+    );
     return {
       sessionId: session.session_id,
       expiresAt: session.expires_at,
@@ -106,7 +111,7 @@ export const intakeService = {
         entityType: snapshot.entityType,
         status: snapshot.status,
         expiresAt: snapshot.expiresAt,
-        ttlMinutes: config.intakeSessionTtlMin,
+        ttlMinutes: config.intakeSessionTtlMin, // FIELD / QR. IMPORT usa 30 min (intake-ttl.ts)
       },
       snapshot,
     };

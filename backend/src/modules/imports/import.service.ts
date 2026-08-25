@@ -22,6 +22,7 @@ import {
   buildProgressFields,
   persistProgress,
   markImportFailed,
+  readErrorLog,
 } from './import-progress.util';
 import {
   enqueueImportProcess,
@@ -37,7 +38,8 @@ import {
   BadRequestError,
   ConflictError,
 } from '../../shared/errors/app-error';
-import { PaginationMeta } from '../../shared/types/api-response.types';
+import { verificationRepository } from '../verifications/verification.repository';
+import { intakeWs } from '../intake/intake.ws';
 import { config } from '../../config/environment';
 import { logger } from '../../shared/logger/logger';
 import { locationInputToCodes } from '../../shared/utils/division-politica';
@@ -233,6 +235,7 @@ export const importService = {
       progressPercent: progress.progressPercent,
       progressMessage: progress.progressMessage,
       phase: progress.phase,
+      verificationLogs: readErrorLog(batch.errorLog).verificationLogs ?? [],
     };
   },
 
@@ -1086,6 +1089,8 @@ export const importService = {
 
   /**
    * Cancela un lote de importacion.
+   * Si ya se enviaron filas a la cola de verificación / intake, se eliminan
+   * (salvo las ya validadas en el CRM) para no dejar duplicados.
    */
   async cancelBatch(batchId: string) {
     const batch = await importRepository.findBatchById(batchId);
@@ -1093,6 +1098,20 @@ export const importService = {
 
     if (batch.status === 'COMPLETED' || batch.status === 'CANCELLED') {
       throw new BadRequestError(`No se puede cancelar un lote en estado ${batch.status}`);
+    }
+
+    const { deleted, sessionIds } =
+      await verificationRepository.deleteUnvalidatedByImportBatch(batchId);
+    if (sessionIds.length > 0) {
+      await prisma.intakeSession.deleteMany({ where: { id: { in: sessionIds } } });
+    }
+    if (deleted > 0) {
+      intakeWs.notifyQueueChanged('import_cancelled');
+      logger.info('Cancelación: se quitaron registros de verificación/intake', {
+        batchId,
+        deleted,
+        sessions: sessionIds.length,
+      });
     }
 
     return importRepository.updateBatch(batchId, {

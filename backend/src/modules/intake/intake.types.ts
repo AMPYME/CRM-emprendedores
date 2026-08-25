@@ -108,5 +108,7 @@ export type IntakeWsEvent =
   | { type: 'expired'; sessionId: string }
   | { type: 'validated'; sessionId: string }
   | { type: 'subscribed'; sessionId: string }
+  | { type: 'queue_subscribed' }
+  | { type: 'queue_changed'; reason?: string }
   | { type: 'access_denied'; sessionId: string; message: string }
   | { type: 'error'; message: string };

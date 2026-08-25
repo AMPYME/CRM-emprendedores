@@ -39,6 +39,9 @@ export interface VerificationListItem {
   stagingRowId: string | null;
   assignedToId: string | null;
   assignedToName: string | null;
+  assignedAt: string | null;
+  /** Fin del plazo de inactividad (IMPORT: 30 min sin cambios). */
+  assignmentExpiresAt: string | null;
   intakeSessionId: string | null;
   validatedEntityId: string | null;
   validatedAt: string | null;

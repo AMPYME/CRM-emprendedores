@@ -21,6 +21,8 @@ export interface VerificationListItem {
   stagingRowId: string | null;
   assignedToId: string | null;
   assignedToName: string | null;
+  assignedAt: string | null;
+  assignmentExpiresAt: string | null;
   intakeSessionId: string | null;
   validatedEntityId: string | null;
   validatedAt: string | null;
@@ -72,6 +74,16 @@ export const verificationService = {
 
   async reject(id: string, reason: string) {
     const res = await apiClient.post<ApiResponse<{ rejected: boolean }>>(`/verifications/${id}/reject`, { reason });
+    return res.data.data;
+  },
+
+  async release(id: string) {
+    const res = await apiClient.post<ApiResponse<{ released: boolean }>>(`/verifications/${id}/release`);
+    return res.data.data;
+  },
+
+  async releaseAll() {
+    const res = await apiClient.post<ApiResponse<{ released: number }>>('/verifications/release-all');
     return res.data.data;
   },
 };

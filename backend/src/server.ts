@@ -40,6 +40,7 @@ async function bootstrap(): Promise<void> {
     intakeWs.init(server);
     intakeService.startExpirySweep((ids) => {
       ids.forEach((id) => intakeWs.notifyExpired(id));
+      if (ids.length > 0) intakeWs.notifyQueueChanged('expired');
     });
 
     server.listen(config.port, () => {

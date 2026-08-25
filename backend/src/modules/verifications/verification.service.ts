@@ -21,6 +21,12 @@ import {
 import { logger } from '../../shared/logger/logger';
 import { locationInputToCodes } from '../../shared/utils/division-politica';
 import { getImportBatchSettings, sleep } from '../imports/import-batch.util';
+import { persistProgress, readErrorLog } from '../imports/import-progress.util';
+import { intakeWs } from '../intake/intake.ws';
+import {
+  IMPORT_VERIFICATION_INACTIVITY_TTL_MIN,
+  ttlMinutesForVerificationSource,
+} from '../intake/intake-ttl';
 
 function buildPaginationMeta(total: number, page: number, limit: number): PaginationMeta {
   const totalPages = Math.ceil(total / limit);
@@ -47,6 +53,16 @@ function mapListItem(row: Awaited<ReturnType<typeof verificationRepository.findB
     assignedToName: row.assignedTo
       ? `${row.assignedTo.firstName} ${row.assignedTo.lastName}`
       : null,
+    assignedAt: row.assignedAt?.toISOString() ?? null,
+    assignmentExpiresAt:
+      row.source === 'IMPORT'
+        ? (row.intakeSession?.expiresAt?.toISOString()
+          ?? (row.assignedAt
+            ? new Date(
+                row.assignedAt.getTime() + IMPORT_VERIFICATION_INACTIVITY_TTL_MIN * 60 * 1000
+              ).toISOString()
+            : null))
+        : row.intakeSession?.expiresAt?.toISOString() ?? null,
     intakeSessionId: row.intakeSessionId,
     validatedEntityId: row.validatedEntityId,
     validatedAt: row.validatedAt?.toISOString() ?? null,
@@ -101,7 +117,13 @@ export const verificationService = {
       if (validCount === 0) {
         throw new BadRequestError('No hay filas válidas para enviar a verificación');
       }
-      await importRepository.updateBatch(batchId, { status: 'IMPORTING' });
+      await persistProgress(batchId, {
+        processed: 0,
+        total: validCount,
+        message: `Enviando ${validCount.toLocaleString('es-PA')} registros a verificación…`,
+        phase: 'verification',
+        status: 'IMPORTING',
+      });
     }
 
     const validRows = await importRepository.findValidStagingRows(batchId);
@@ -109,10 +131,17 @@ export const verificationService = {
 
     if (chunk.length === 0) {
       await importRepository.refreshBatchStats(batchId);
-      await importRepository.updateBatch(batchId, {
+      await persistProgress(batchId, {
+        processed: readErrorLog(batch.errorLog).progress?.total || 0,
+        total: readErrorLog(batch.errorLog).progress?.total || 0,
+        message: 'Enviado a cola de verificación',
+        phase: 'done',
         status: 'VERIFICATION_QUEUED',
+      });
+      await importRepository.updateBatch(batchId, {
         completedAt: new Date(),
       });
+      intakeWs.notifyQueueChanged('verification_queued');
 
       return {
         batchId,
@@ -120,6 +149,7 @@ export const verificationService = {
         processedInBatch: 0,
         remaining: 0,
         done: true,
+        logs: [],
       };
     }
 
@@ -138,14 +168,42 @@ export const verificationService = {
       data: { status: 'QUEUED_FOR_VERIFICATION', processedAt: new Date() },
     });
 
+    const logs = chunk.map((row, i) => {
+      const item = items[i];
+      const payload = item.data as unknown as VerificationDataPayload;
+      const both = !!(payload.snapshot?.person && payload.snapshot?.company);
+      return {
+        at: new Date().toISOString(),
+        rowNumber: row.rowNumber,
+        name: item.displayName || 'Sin nombre',
+        entityType: both ? 'BOTH' : String(item.entityType),
+        cedula: item.searchCedula ?? null,
+        ruc: item.searchRuc ?? null,
+        message: both
+          ? 'Enviado a intake (persona + empresa)'
+          : `Enviado a intake (${item.entityType === 'COMPANY' ? 'empresa' : 'persona'})`,
+      };
+    });
+
     await sleep(rowBatchDelayMs);
 
     const remaining = (await importRepository.findValidStagingRows(batchId)).length;
+    const alreadyQueued = await prisma.verificationItem.count({
+      where: { importBatchId: batchId, source: 'IMPORT' },
+    });
+    const total = alreadyQueued + remaining;
 
     if (remaining === 0) {
       await importRepository.refreshBatchStats(batchId);
-      await importRepository.updateBatch(batchId, {
+      await persistProgress(batchId, {
+        processed: alreadyQueued,
+        total,
+        message: 'Enviado a cola de verificación',
+        phase: 'done',
         status: 'VERIFICATION_QUEUED',
+        appendVerificationLogs: logs,
+      });
+      await importRepository.updateBatch(batchId, {
         completedAt: new Date(),
       });
 
@@ -159,6 +217,17 @@ export const verificationService = {
       });
 
       logger.info('Importación enviada a cola de verificación', { batchId, queued: result.count });
+      intakeWs.notifyQueueChanged('verification_queued');
+    } else {
+      await persistProgress(batchId, {
+        processed: alreadyQueued,
+        total,
+        message: `Enviando a verificación (${remaining.toLocaleString('es-PA')} pendientes)…`,
+        phase: 'verification',
+        status: 'IMPORTING',
+        appendVerificationLogs: logs,
+      });
+      intakeWs.notifyQueueChanged('verification_batch');
     }
 
     return {
@@ -167,6 +236,7 @@ export const verificationService = {
       processedInBatch: chunk.length,
       remaining,
       done: remaining === 0,
+      logs,
     };
   },
 
@@ -245,15 +315,20 @@ export const verificationService = {
     }
 
     const payload = item.data as unknown as VerificationDataPayload;
-    const { session, accessCode } = await intakeRepository.createSession(userId, payload.entityType);
+    const ttlMinutes = ttlMinutesForVerificationSource(item.source);
+    const { session, accessCode } = await intakeRepository.createSession(
+      userId,
+      payload.entityType,
+      ttlMinutes
+    );
+
+    await verificationRepository.linkIntakeSession(id, session.session_id, userId);
 
     await seedIntakeFromVerificationPayload(
       session.session_id,
       payload.entityType,
       payload.snapshot as Parameters<typeof seedIntakeFromVerificationPayload>[2]
     );
-
-    await verificationRepository.linkIntakeSession(id, session.session_id, userId);
 
     await auditService.log({
       action: 'VERIFICATION_CLAIM',
@@ -265,6 +340,8 @@ export const verificationService = {
       metadata: { intakeSessionId: session.session_id, source: item.source },
     });
 
+    intakeWs.notifyQueueChanged('claimed');
+
     return {
       verificationId: id,
       intakeSessionId: session.session_id,
@@ -273,15 +350,17 @@ export const verificationService = {
     };
   },
 
-  async release(id: string, userId: string, userEmail?: string) {
+  async release(id: string, userId: string, userEmail?: string, options?: { force?: boolean }) {
     const item = await verificationRepository.findById(id);
     if (!item) throw new NotFoundError('Registro de verificación', id);
 
-    if (item.assignedToId !== userId) {
+    if (!options?.force && item.assignedToId !== userId) {
       throw new ForbiddenError('Solo el funcionario asignado puede liberar este registro');
     }
 
-    const result = await verificationRepository.release(id, userId);
+    const result = options?.force
+      ? await verificationRepository.releaseAny(id)
+      : await verificationRepository.release(id, userId);
     if (result.count === 0) {
       throw new BadRequestError('No se pudo liberar el registro');
     }
@@ -297,10 +376,39 @@ export const verificationService = {
       entityLabel: item.displayName ?? undefined,
       userId,
       userEmail,
-      metadata: { action: 'release' },
+      metadata: { action: 'release', force: !!options?.force },
     });
 
+    intakeWs.notifyQueueChanged('released');
+
     return { released: true };
+  },
+
+  async releaseAll(userId: string, userEmail?: string) {
+    const items = await verificationRepository.findAssignedForRelease();
+    const sessionIds = items
+      .map((i) => i.intakeSessionId)
+      .filter((id): id is string => !!id);
+
+    if (sessionIds.length > 0) {
+      await prisma.intakeSession.deleteMany({ where: { id: { in: sessionIds } } });
+    }
+
+    const result = await verificationRepository.releaseAllAssigned();
+
+    await auditService.log({
+      action: 'VERIFICATION_UPDATE',
+      entityType: 'VERIFICATION',
+      entityId: userId,
+      entityLabel: 'Liberar todas las asignaciones',
+      userId,
+      userEmail,
+      metadata: { action: 'release_all', count: result.count },
+    });
+
+    intakeWs.notifyQueueChanged('released_all');
+
+    return { released: result.count };
   },
 
   async validate(id: string, userId: string, userEmail?: string): Promise<VerificationValidateResult> {
@@ -392,6 +500,8 @@ export const verificationService = {
       },
     });
 
+    intakeWs.notifyQueueChanged('validated');
+
     return { verificationId: id, entities };
   },
 
@@ -421,6 +531,8 @@ export const verificationService = {
       userEmail,
       metadata: { reason: input.reason, importBatchId: item.importBatchId },
     });
+
+    intakeWs.notifyQueueChanged('rejected');
 
     return { rejected: true };
   },

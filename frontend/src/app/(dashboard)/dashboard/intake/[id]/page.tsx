@@ -21,7 +21,7 @@ import {
   useVerifyIntakeAccess,
   useRegenerateIntakeAccessCode,
 } from '@/hooks/use-intake';
-import { useValidateVerification } from '@/hooks/use-verifications';
+import { useValidateVerification, useReleaseVerification } from '@/hooks/use-verifications';
 import { IntakeEditModal } from '../intake-edit-modal';
 import { IntakeSnapshotView } from '../intake-snapshot-view';
 
@@ -76,6 +76,7 @@ export default function IntakeDetailPage() {
   const { snapshot, status, connected, errorMessage } = useIntakeStream(id, accessCode || undefined);
   const validateMutation = useValidateIntakeSession();
   const validateVerificationMutation = useValidateVerification();
+  const releaseMutation = useReleaseVerification();
   const deleteMutation = useDeleteIntakeSession();
   const verifyMutation = useVerifyIntakeAccess();
   const regenerateMutation = useRegenerateIntakeAccessCode();
@@ -158,6 +159,12 @@ export default function IntakeDetailPage() {
               <LiveIndicator status={status} connected={connected} />
             </div>
             <p className="mt-1 truncate text-sm text-gray-500">ID: {id}</p>
+            {verificationId && snapshot?.expiresAt && (
+              <p className="mt-1 text-xs text-amber-800">
+                Asignación de importación: 30 minutos sin cambios de datos (el WebSocket en vivo no renueva el plazo).
+                Expira {new Date(snapshot.expiresAt).toLocaleTimeString('es-PA')}.
+              </p>
+            )}
           </div>
         </div>
 
@@ -175,6 +182,24 @@ export default function IntakeDetailPage() {
                 <span className="hidden h-5 w-px bg-gray-200 sm:block" aria-hidden />
                 <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} icon={<Pencil className="h-4 w-4" />}>
                   Editar
+                </Button>
+              </>
+            )}
+            {verificationId && (
+              <>
+                <span className="hidden h-5 w-px bg-gray-200 sm:block" aria-hidden />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    if (!window.confirm('¿Liberar esta asignación para que otro funcionario pueda tomarla?')) return;
+                    await releaseMutation.mutateAsync(verificationId);
+                    router.push('/dashboard/intake');
+                  }}
+                  isLoading={releaseMutation.isPending}
+                  className="text-amber-700"
+                >
+                  Liberar asignación
                 </Button>
               </>
             )}
@@ -205,12 +230,16 @@ export default function IntakeDetailPage() {
         </div>
       </div>
 
-      {status === 'expired' ? (
+          {status === 'expired' ? (
         <Card>
           <EmptyState
             icon={Clock}
             title="La sesión expiró"
-            description="El emprendedor no completó el registro a tiempo. Crea una nueva sesión."
+            description={
+              verificationId
+                ? 'Pasaron 30 minutos sin cambios. El registro volvió a la cola de verificación para que otro funcionario lo tome.'
+                : 'El emprendedor no completó el registro a tiempo. Crea una nueva sesión.'
+            }
             action={<Button onClick={() => router.push('/dashboard/intake')}>Volver al listado</Button>}
           />
         </Card>

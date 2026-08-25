@@ -5,6 +5,7 @@ import type { VerificationQueryInput } from './verification.validator';
 const LIST_INCLUDE = {
   assignedTo: { select: { id: true, firstName: true, lastName: true, email: true } },
   importBatch: { select: { id: true, originalFileName: true } },
+  intakeSession: { select: { id: true, expiresAt: true, lastActivityAt: true } },
 } satisfies Prisma.VerificationItemInclude;
 
 function buildWhere(
@@ -143,5 +144,57 @@ export const verificationRepository = {
         status: 'PENDING',
       },
     });
+  },
+
+  async releaseAny(id: string) {
+    return prisma.verificationItem.updateMany({
+      where: {
+        id,
+        status: { in: ['ASSIGNED', 'IN_REVIEW'] },
+      },
+      data: {
+        assignedToId: null,
+        assignedAt: null,
+        intakeSessionId: null,
+        status: 'PENDING',
+      },
+    });
+  },
+
+  async findAssignedForRelease() {
+    return prisma.verificationItem.findMany({
+      where: { status: { in: ['ASSIGNED', 'IN_REVIEW'] } },
+      select: { id: true, intakeSessionId: true, displayName: true },
+    });
+  },
+
+  async releaseAllAssigned() {
+    return prisma.verificationItem.updateMany({
+      where: { status: { in: ['ASSIGNED', 'IN_REVIEW'] } },
+      data: {
+        assignedToId: null,
+        assignedAt: null,
+        intakeSessionId: null,
+        status: 'PENDING',
+      },
+    });
+  },
+
+  /** Borra ítems no validados de un lote (cancelar importación en curso). */
+  async deleteUnvalidatedByImportBatch(importBatchId: string) {
+    const items = await prisma.verificationItem.findMany({
+      where: { importBatchId, status: { not: 'VALIDATED' } },
+      select: { id: true, intakeSessionId: true },
+    });
+    const sessionIds = items
+      .map((i) => i.intakeSessionId)
+      .filter((id): id is string => !!id);
+    if (items.length === 0) {
+      return { deleted: 0, sessionIds };
+    }
+    const result = await prisma.verificationItem.deleteMany({
+      where: { id: { in: items.map((i) => i.id) } },
+    });
+    return { deleted: result.count, sessionIds };
   },
 };

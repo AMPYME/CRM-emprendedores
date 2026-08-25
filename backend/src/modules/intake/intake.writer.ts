@@ -5,7 +5,7 @@ import { ContactType, Gender, Prisma, CompanySizeClass } from '@prisma/client';
 import { prisma } from '../../config/database';
 import { IntakeEntityType } from './intake.types';
 import { DEFAULT_NATIONALITY_CODE, resolveNationalityCode } from '../../shared/utils/nationality';
-import { ttlExpiresAt } from './intake-ttl';
+import { ttlExpiresAtForSession } from './intake-ttl';
 import { parseBoolean } from './intake.mapper';
 
 export interface IntakeUpdateBody {
@@ -184,29 +184,34 @@ export async function replaceIntakeSnapshot(
       });
     }
 
+    const expiresAt = await ttlExpiresAtForSession(sessionId);
     await tx.intakeSession.update({
       where: { id: sessionId },
       data: {
         status: currentStatus === 'SUBMITTED' ? 'SUBMITTED' : 'DRAFT',
         lastActivityAt: new Date(),
-        expiresAt: ttlExpiresAt(),
+        expiresAt,
       },
     });
   });
 }
 
 export async function markIntakeSubmitted(sessionId: string): Promise<void> {
+  const expiresAt = await ttlExpiresAtForSession(sessionId);
   await prisma.intakeSession.update({
     where: { id: sessionId },
     data: {
       status: 'SUBMITTED',
       lastActivityAt: new Date(),
-      expiresAt: ttlExpiresAt(),
+      expiresAt,
     },
   });
 }
 
-/** Precarga una sesión intake desde datos de cola de verificación (sin WebSocket previo). */
+/**
+ * Precarga una sesión intake desde datos de cola de verificación.
+ * El operador ve el borrador en vivo por WebSocket al abrir /dashboard/intake/:id.
+ */
 export async function seedIntakeFromVerificationPayload(
   sessionId: string,
   entityType: IntakeEntityType,

@@ -2,8 +2,14 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ClipboardCheck, Search } from 'lucide-react';
-import { useVerifications, useClaimVerification } from '@/hooks/use-verifications';
+import { ClipboardCheck, Unlock } from 'lucide-react';
+import {
+  useVerifications,
+  useClaimVerification,
+  useReleaseVerification,
+  useReleaseAllVerifications,
+} from '@/hooks/use-verifications';
+import { useVerificationQueueStream } from '@/hooks/use-verification-queue-stream';
 import { usePagination } from '@/hooks/use-pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,6 +19,7 @@ import { SearchBar } from '@/components/ui/search-bar';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Pagination } from '@/components/ui/pagination';
+import { ConfirmDialog } from '@/components/ui/modal';
 import {
   Table, TableHead, TableBody, TableRow, TableHeaderCell, TableCell,
 } from '@/components/ui/table';
@@ -26,6 +33,8 @@ import {
 } from '@/lib/division-politica';
 import { intakeAccessCodeKey } from '@/services/intake.service';
 import type { VerificationListItem } from '@/services/verification.service';
+import { useAuthStore } from '@/stores/auth.store';
+import { isFullAccessRole } from '@/lib/roles';
 
 const sourceOptions = [
   { value: '', label: 'Todos los orígenes' },
@@ -83,8 +92,19 @@ function formatDate(d: string) {
   }).format(new Date(d));
 }
 
+function remainingLabel(expiresAt: string | null): string | null {
+  if (!expiresAt) return null;
+  const ms = new Date(expiresAt).getTime() - Date.now();
+  if (ms <= 0) return 'Expirada';
+  const min = Math.floor(ms / 60000);
+  const sec = Math.floor((ms % 60000) / 1000);
+  return `${min}m ${sec.toString().padStart(2, '0')}s`;
+}
+
 export function VerificationQueuePanel() {
   const router = useRouter();
+  const user = useAuthStore((s) => s.user);
+  const isAdmin = isFullAccessRole(user?.role);
   const { page, limit, setPage, searchQuery, setSearchQuery } = usePagination({ initialLimit: 30 });
   const [source, setSource] = useState('');
   const [assignment, setAssignment] = useState('all');
@@ -93,8 +113,13 @@ export function VerificationQueuePanel() {
   const [provinceId, setProvinceId] = useState('');
   const [districtId, setDistrictId] = useState('');
   const [corregimientoId, setCorregimientoId] = useState('');
+  const [releaseAllOpen, setReleaseAllOpen] = useState(false);
 
   const claimMutation = useClaimVerification();
+  const releaseMutation = useReleaseVerification();
+  const releaseAllMutation = useReleaseAllVerifications();
+
+  useVerificationQueueStream(true);
 
   const { data, isLoading, error, refetch } = useVerifications({
     page,
@@ -132,6 +157,11 @@ export function VerificationQueuePanel() {
     }
   };
 
+  const handleRelease = async (item: VerificationListItem) => {
+    if (!window.confirm('¿Liberar esta asignación para que otro funcionario pueda tomarla?')) return;
+    await releaseMutation.mutateAsync(item.id);
+  };
+
   const provinciaOpts = [{ value: '', label: 'Todas las provincias' }, ...getProvinciaOptions().filter((o) => o.value)];
   const distritoOpts = [
     { value: '', label: 'Todos los distritos' },
@@ -144,6 +174,24 @@ export function VerificationQueuePanel() {
 
   return (
     <div className="space-y-4">
+      <p className="text-xs text-gray-500">
+        Los registros importados asignados expiran a los <strong>30 minutos sin cambios</strong>
+        {' '}(el WebSocket en vivo no cuenta como actividad). La captura en campo usa el TTL del enlace QR.
+        Esta cola se actualiza en tiempo real por WebSocket.
+      </p>
+      {isAdmin && (
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            variant="outline"
+            icon={<Unlock className="h-4 w-4" />}
+            onClick={() => setReleaseAllOpen(true)}
+            isLoading={releaseAllMutation.isPending}
+          >
+            Liberar todas las asignaciones
+          </Button>
+        </div>
+      )}
       <Card>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <SearchBar
@@ -229,18 +277,40 @@ export function VerificationQueuePanel() {
                       <TableCell><span className="text-xs">{item.importFileName || '—'}</span></TableCell>
                       <TableCell><Badge variant={statusBadge[item.status] || 'default'}>{statusLabel[item.status] || item.status}</Badge></TableCell>
                       <TableCell><span className="text-sm">{item.assignedToName || '—'}</span></TableCell>
-                      <TableCell><span className="text-xs text-gray-500">{formatDate(item.createdAt)}</span></TableCell>
                       <TableCell>
-                        {['PENDING', 'ASSIGNED', 'IN_REVIEW'].includes(item.status) && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            isLoading={claimMutation.isPending}
-                            onClick={() => handleClaim(item)}
-                          >
-                            Verificar
-                          </Button>
+                        <span className="text-xs text-gray-500">{formatDate(item.createdAt)}</span>
+                        {item.source === 'IMPORT' && item.assignedToId && item.assignmentExpiresAt && (
+                          <p className="text-[11px] text-amber-700">
+                            Libera en {remainingLabel(item.assignmentExpiresAt)}
+                          </p>
                         )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {['PENDING', 'ASSIGNED', 'IN_REVIEW'].includes(item.status) && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              isLoading={claimMutation.isPending}
+                              onClick={() => handleClaim(item)}
+                            >
+                              Verificar
+                            </Button>
+                          )}
+                          {['ASSIGNED', 'IN_REVIEW'].includes(item.status) && item.assignedToId && (
+                            (item.assignedToId === user?.id || isAdmin) && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-amber-700"
+                                isLoading={releaseMutation.isPending}
+                                onClick={() => handleRelease(item)}
+                              >
+                                Liberar asignación
+                              </Button>
+                            )
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -255,6 +325,19 @@ export function VerificationQueuePanel() {
           </>
         )}
       </Card>
+
+      <ConfirmDialog
+        isOpen={releaseAllOpen}
+        onClose={() => setReleaseAllOpen(false)}
+        onConfirm={() => {
+          setReleaseAllOpen(false);
+          releaseAllMutation.mutate();
+        }}
+        title="Liberar todas las asignaciones"
+        message="Todos los registros en verificación volverán a la cola sin asignar. Las sesiones de intake abiertas se cerrarán."
+        confirmLabel="Liberar todas"
+        variant="danger"
+      />
     </div>
   );
 }

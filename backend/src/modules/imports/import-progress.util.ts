@@ -27,15 +27,27 @@ export interface ImportRowError {
   reason: string;
 }
 
+export interface ImportVerificationLogEntry {
+  at: string;
+  rowNumber: number;
+  name: string;
+  entityType: string;
+  cedula?: string | null;
+  ruc?: string | null;
+  message: string;
+}
+
 export interface ImportErrorLogShape {
   progress?: ImportProgressSnapshot;
   rowErrors?: ImportRowError[];
+  verificationLogs?: ImportVerificationLogEntry[];
   message?: string;
   timestamp?: string;
   [key: string]: unknown;
 }
 
 const MAX_ROW_ERRORS = 500;
+const MAX_VERIFICATION_LOGS = 2000;
 
 export function readErrorLog(raw: unknown): ImportErrorLogShape {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
@@ -146,6 +158,7 @@ export async function persistProgress(
     totalRows?: number;
     status?: ImportStatus;
     appendRowError?: ImportRowError;
+    appendVerificationLogs?: ImportVerificationLogEntry[];
   }
 ): Promise<void> {
   const batch = await importRepository.findBatchById(batchId);
@@ -161,6 +174,14 @@ export async function persistProgress(
     rowErrors.push(input.appendRowError);
   }
 
+  const verificationLogs = [...(log.verificationLogs || [])];
+  if (input.appendVerificationLogs?.length) {
+    const room = Math.max(0, MAX_VERIFICATION_LOGS - verificationLogs.length);
+    if (room > 0) {
+      verificationLogs.push(...input.appendVerificationLogs.slice(0, room));
+    }
+  }
+
   const nextLog: ImportErrorLogShape = {
     ...log,
     progress: {
@@ -172,6 +193,7 @@ export async function persistProgress(
       updatedAt: new Date().toISOString(),
     },
     rowErrors,
+    verificationLogs,
   };
 
   const data: Prisma.ImportBatchUpdateInput = {
@@ -179,6 +201,7 @@ export async function persistProgress(
   };
   if (input.totalRows != null) data.totalRows = input.totalRows;
   if (input.status) data.status = input.status;
+  if (input.status === 'VERIFICATION_QUEUED') data.completedAt = new Date();
 
   await importRepository.updateBatch(batchId, data);
 }

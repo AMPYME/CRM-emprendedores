@@ -184,9 +184,10 @@ Ambos comparten cola y claim; se distinguen en UI (`IMPORTADO` / `CAPTURA EN CAM
 
 ## 7. WebSocket y TTL (por qué no saturan el servidor)
 
-- **Cola pendiente:** solo filas en PostgreSQL. Sin WS, sin timers por registro.
-- **WS:** únicamente sesión Intake abierta.
-- **TTL de Intake:** aplica a la sesión interactiva (`INTAKE_SESSION_TTL_MIN`), no a `verification_items` en `PENDING`. Si la sesión expira, el ítem de verificación se conserva para reclamar de nuevo.
+- **Cola pendiente:** filas en PostgreSQL. Los operadores en `/dashboard/intake` se suscriben al WebSocket (`subscribe_queue`) para ver altas/bajas en vivo, sin polling agresivo.
+- **WS de sesión:** únicamente la sesión Intake abierta (`subscribe` + snapshot al guardar).
+- **TTL captura en campo / QR:** `INTAKE_SESSION_TTL_MIN` (por defecto 20 min). Si expira, el ítem FIELD sigue asignado al funcionario.
+- **TTL verificación de importación (no campo):** 30 minutos **sin cambios de datos**. El ping del WebSocket no renueva el plazo. Al expirar, la sesión se borra y el ítem vuelve a `PENDING` para que otro funcionario lo tome. Detalle en `backend/src/modules/intake/intake-ttl.ts`.
 
 Diseño orientado a decenas de miles de pendientes sin N conexiones.
 

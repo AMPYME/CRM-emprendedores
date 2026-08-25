@@ -26,6 +26,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { getApiErrorMessage } from '@/services/api-client';
 import { ImportProgressBar } from '@/components/imports/import-progress-bar';
+import { ImportVerificationLogs } from '@/components/imports/import-verification-logs';
 import {
   runImportProcessBatched,
   runImportVerificationBatched,
@@ -33,7 +34,7 @@ import {
   progressLabelFromBatch,
   verificationProgressPercent,
 } from '@/lib/import-batch-runner';
-import type { ImportBatchProgress, ImportVerificationBatchProgress } from '@/types/imports.types';
+import type { ImportBatchProgress, ImportVerificationBatchProgress, ImportVerificationLogEntry } from '@/types/imports.types';
 import type { ImportStatus, StagingRowStatus } from '@/types/entities.types';
 
 /* ──────────────────────────────────────────────── */
@@ -173,12 +174,18 @@ export default function ImportDetailPage() {
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchProgress, setBatchProgress] = useState<ImportBatchProgress | null>(null);
   const [verificationProgress, setVerificationProgress] = useState<ImportVerificationBatchProgress | null>(null);
+  const [verificationLogs, setVerificationLogs] = useState<ImportVerificationLogEntry[]>([]);
 
   const clientBusy = batchRunning;
 
   const { data: batch, isLoading, error } = useImport(id, { poll: clientBusy });
   const preview = useImportPreview(id);
   const systemFields = useSystemFields();
+
+  React.useEffect(() => {
+    if (batch?.status !== 'IMPORTING') return;
+    qc.invalidateQueries({ queryKey: ['import-rows', id] });
+  }, [batch?.processed, batch?.progressPercent, batch?.status, id, qc]);
 
   // Wizard step
   const currentStep = batch ? stepForStatus(batch.status) : 'preview';
@@ -267,13 +274,18 @@ export default function ImportDetailPage() {
     if (!window.confirm('¿Enviar filas válidas a la cola de verificación? No se crearán Personas/Empresas hasta que un funcionario las valide.')) return;
     setBatchRunning(true);
     setVerificationProgress(null);
+    setVerificationLogs([]);
     try {
       const result = await runImportVerificationBatched(id, (progress) => {
         setVerificationProgress(progress);
+        if (progress.logs?.length) {
+          setVerificationLogs((prev) => [...prev, ...progress.logs!]);
+        }
         qc.invalidateQueries({ queryKey: ['imports', id] });
       });
       qc.invalidateQueries({ queryKey: ['imports', id] });
       qc.invalidateQueries({ queryKey: ['import-rows', id] });
+      qc.invalidateQueries({ queryKey: ['verifications'] });
       toast.success(`${result.totalQueued} registros enviados a verificación`);
     } catch {
       toast.error('Error al enviar a verificación');
@@ -284,10 +296,14 @@ export default function ImportDetailPage() {
 
   const handleCancel = async () => {
     if (!id) return;
-    if (!window.confirm('¿Cancelar esta importación?')) return;
+    if (!window.confirm(
+      '¿Cancelar esta importación? Los registros ya enviados a verificación e intake se eliminarán para evitar duplicados (salvo los ya validados en el CRM).'
+    )) return;
     try {
       await importsService.cancel(id);
       qc.invalidateQueries({ queryKey: ['imports', id] });
+      qc.invalidateQueries({ queryKey: ['verifications'] });
+      qc.invalidateQueries({ queryKey: ['intake-sessions'] });
       toast.success('Importación cancelada');
     } catch {
       toast.error('Error al cancelar');
@@ -333,6 +349,19 @@ export default function ImportDetailPage() {
         }
       : progressFromStatus(batch.status, batch.totalRows);
   const showProgress = isProcessing || clientBusy;
+  const sendingToVerification = batch.status === 'IMPORTING' || !!verificationProgress;
+  const displayedLogs: ImportVerificationLogEntry[] =
+    (batch.verificationLogs?.length ?? 0) >= verificationLogs.length
+      ? (batch.verificationLogs ?? verificationLogs)
+      : verificationLogs;
+  const verificationBarPercent = verificationProgress
+    ? verificationProgressPercent(verificationProgress)
+    : progress.percent;
+  const verificationBarLabel = verificationProgress
+    ? verificationProgress.done
+      ? 'Enviado a verificación'
+      : `Enviando a verificación (${verificationProgress.remaining.toLocaleString('es-PA')} pendientes)…`
+    : progress.label;
 
   const handleRetry = async () => {
     if (!id) return;
@@ -628,30 +657,26 @@ export default function ImportDetailPage() {
                   Enviar a verificación
                 </Button>
               </div>
-              {(batchRunning || verificationProgress) && (
-                <div className="mt-4 border-t border-blue-200 pt-4">
-                  <ImportProgressBar
-                    percent={
-                      verificationProgress
-                        ? verificationProgressPercent(verificationProgress)
-                        : progress.percent
-                    }
-                    label={
-                      verificationProgress
-                        ? verificationProgress.done
-                          ? 'Enviado a verificación'
-                          : `Enviando a verificación (${verificationProgress.remaining.toLocaleString('es-PA')} pendientes)…`
-                        : progress.label
-                    }
-                  />
-                </div>
-              )}
             </Card>
           )}
 
-          {batch.status === 'IMPORTING' && !batchRunning && (
+          {sendingToVerification && (
             <Card className="border-primary-200 bg-primary-50">
-              <ImportProgressBar percent={progress.percent} label={progress.label} />
+              <p className="mb-3 font-medium text-primary-900">Enviando a cola de verificación</p>
+              <ImportProgressBar
+                percent={verificationBarPercent}
+                label={verificationBarLabel}
+                className="mx-0 max-w-none"
+              />
+              <div className="mt-4">
+                <ImportVerificationLogs logs={displayedLogs} />
+              </div>
+            </Card>
+          )}
+
+          {batch.status === 'VERIFICATION_QUEUED' && displayedLogs.length > 0 && !sendingToVerification && (
+            <Card title="Registros enviados a intake">
+              <ImportVerificationLogs logs={displayedLogs} />
             </Card>
           )}
 

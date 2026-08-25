@@ -55,6 +55,40 @@ export function useRejectVerification() {
   });
 }
 
+export function useReleaseVerification() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => verificationService.release(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['verifications'] });
+      qc.invalidateQueries({ queryKey: ['intake-sessions'] });
+      toast.success('Asignación liberada');
+    },
+    onError: (err) => {
+      toast.error(getApiErrorMessage(err));
+    },
+  });
+}
+
+export function useReleaseAllVerifications() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => verificationService.releaseAll(),
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ['verifications'] });
+      qc.invalidateQueries({ queryKey: ['intake-sessions'] });
+      toast.success(
+        result.released > 0
+          ? `Se liberaron ${result.released} asignación(es)`
+          : 'No había asignaciones para liberar'
+      );
+    },
+    onError: (err) => {
+      toast.error(getApiErrorMessage(err));
+    },
+  });
+}
+
 export function useSendImportToVerification() {
   const qc = useQueryClient();
   return useMutation({

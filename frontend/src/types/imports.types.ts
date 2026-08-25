@@ -10,12 +10,23 @@ export interface ImportBatchProgress {
   done: boolean;
 }
 
+export interface ImportVerificationLogEntry {
+  at: string;
+  rowNumber: number;
+  name: string;
+  entityType: string;
+  cedula?: string | null;
+  ruc?: string | null;
+  message: string;
+}
+
 export interface ImportVerificationBatchProgress {
   batchId: string;
   queued: number;
   processedInBatch: number;
   remaining: number;
   done: boolean;
+  logs?: ImportVerificationLogEntry[];
 }
 
 export interface ImportExecuteBatchProgress {

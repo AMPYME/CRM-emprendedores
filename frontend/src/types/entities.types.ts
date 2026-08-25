@@ -205,6 +205,15 @@ export interface ImportBatch {
   progressPercent?: number;
   progressMessage?: string;
   phase?: string;
+  verificationLogs?: Array<{
+    at: string;
+    rowNumber: number;
+    name: string;
+    entityType: string;
+    cedula?: string | null;
+    ruc?: string | null;
+    message: string;
+  }>;
 }
 
 export interface StagingRow {

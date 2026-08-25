@@ -167,7 +167,8 @@ function mapSnapshot(session: SessionWithEntities): IntakeSnapshot {
 export const intakeRepository = {
   async createSession(
     createdBy: string | null,
-    entityType: IntakeEntityType = 'PERSON'
+    entityType: IntakeEntityType = 'PERSON',
+    ttlMinutes?: number
   ): Promise<{ session: IntakeSessionRow; accessCode: string }> {
     const accessCode = generateAccessCode();
     const session = await prisma.intakeSession.create({
@@ -176,7 +177,7 @@ export const intakeRepository = {
         status: 'DRAFT',
         createdBy,
         accessCodeHash: hashAccessCode(accessCode),
-        expiresAt: ttlExpiresAt(),
+        expiresAt: ttlExpiresAt(new Date(), ttlMinutes),
       },
     });
     return { session: toSessionRow(session), accessCode };
@@ -270,18 +271,43 @@ export const intakeRepository = {
       select: { id: true },
     });
     const ids = expired.map((r) => r.id);
-    if (ids.length > 0) {
+    if (ids.length === 0) return ids;
+
+    const linked = await prisma.verificationItem.findMany({
+      where: { intakeSessionId: { in: ids } },
+      select: { id: true, source: true },
+    });
+
+    const importIds = linked.filter((i) => i.source === 'IMPORT').map((i) => i.id);
+    const fieldIds = linked.filter((i) => i.source !== 'IMPORT').map((i) => i.id);
+
+    // IMPORT: 30 min sin cambios → se libera para que otro funcionario lo tome.
+    if (importIds.length > 0) {
       await prisma.verificationItem.updateMany({
-        where: { intakeSessionId: { in: ids }, status: 'IN_REVIEW' },
+        where: { id: { in: importIds } },
+        data: {
+          intakeSessionId: null,
+          assignedToId: null,
+          assignedAt: null,
+          status: 'PENDING',
+        },
+      });
+    }
+
+    // FIELD: se conserva la asignación; solo se pierde la sesión interactiva.
+    if (fieldIds.length > 0) {
+      await prisma.verificationItem.updateMany({
+        where: { id: { in: fieldIds }, status: 'IN_REVIEW' },
         data: {
           intakeSessionId: null,
           status: 'ASSIGNED',
         },
       });
-      await prisma.intakeSession.deleteMany({
-        where: { id: { in: ids } },
-      });
     }
+
+    await prisma.intakeSession.deleteMany({
+      where: { id: { in: ids } },
+    });
     return ids;
   },
 };
