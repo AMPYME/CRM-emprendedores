@@ -26,6 +26,7 @@ import {
 } from '@/lib/ampyme-form-status';
 import { isReadOnlyRole } from '@/lib/roles';
 import { useAuthStore } from '@/stores/auth.store';
+import type { AmpymeForm } from '@/types/forms.types';
 
 const statusOptions = [
   { value: 'all', label: 'Todos los estados' },
