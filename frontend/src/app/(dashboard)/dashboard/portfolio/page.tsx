@@ -331,7 +331,7 @@ export default function PortfolioPage() {
                     >
                       <p className="font-medium text-gray-900">{ent.displayName}</p>
                       <p className="text-xs text-gray-400">
-                        {ent.entityType} · {provinciaNombre(ent.province) || 'Sin provincia'}
+                        {ent.entityType === 'COMPANY' ? 'Empresa' : 'Persona'} · {provinciaNombre(ent.province) || 'Sin provincia'}
                       </p>
                     </button>
                   ))

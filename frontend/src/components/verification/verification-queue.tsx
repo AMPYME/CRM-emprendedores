@@ -175,9 +175,9 @@ export function VerificationQueuePanel() {
   return (
     <div className="space-y-4">
       <p className="text-xs text-gray-500">
-        Los registros importados asignados expiran a los <strong>30 minutos sin cambios</strong>
-        {' '}(el WebSocket en vivo no cuenta como actividad). La captura en campo usa el TTL del enlace QR.
-        Esta cola se actualiza en tiempo real por WebSocket.
+        Los registros importados asignados expiran a los <strong>30 minutos sin guardar cambios</strong>.
+        Ver la cola en vivo no cuenta como actividad. En captura en campo el plazo es el del enlace o código.
+        Esta cola se actualiza sola.
       </p>
       {isAdmin && (
         <div className="flex justify-end">

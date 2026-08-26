@@ -158,10 +158,9 @@ export default function IntakeDetailPage() {
               <h1 className="text-2xl font-bold text-gray-900">{snapshot?.displayName || 'Sesión de verificación'}</h1>
               <LiveIndicator status={status} connected={connected} />
             </div>
-            <p className="mt-1 truncate text-sm text-gray-500">ID: {id}</p>
             {verificationId && snapshot?.expiresAt && (
               <p className="mt-1 text-xs text-amber-800">
-                Asignación de importación: 30 minutos sin cambios de datos (el WebSocket en vivo no renueva el plazo).
+                Asignación de importación: 30 minutos sin guardar cambios. Ver la sesión en vivo no renueva el plazo.
                 Expira {new Date(snapshot.expiresAt).toLocaleTimeString('es-PA')}.
               </p>
             )}
@@ -248,7 +247,7 @@ export default function IntakeDetailPage() {
           <EmptyState
             icon={CheckCircle2}
             title="Datos validados"
-            description="La información fue migrada a la base de datos permanente."
+            description="La información ya quedó guardada en el padrón."
             action={<Button onClick={() => router.push('/dashboard/intake')}>Volver al listado</Button>}
           />
         </Card>
@@ -324,7 +323,7 @@ export default function IntakeDetailPage() {
         onClose={() => setDeleteOpen(false)}
         onConfirm={handleDelete}
         title="Eliminar sesión"
-        message="Se borrará esta sesión de la base temporal. No afecta PostgreSQL. ¿Continuar?"
+        message="Se eliminará esta sesión. Los datos ya guardados en el padrón no se tocan. ¿Continuar?"
         confirmLabel="Eliminar"
         variant="danger"
         isLoading={deleteMutation.isPending}

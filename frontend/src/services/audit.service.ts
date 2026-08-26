@@ -4,7 +4,15 @@
 import { apiClient } from './api-client';
 import type { ApiResponse, PaginationParams, PaginationMeta } from '@/types/api.types';
 
-export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN';
+export type AuditAction =
+  | 'CREATE'
+  | 'UPDATE'
+  | 'DELETE'
+  | 'LOGIN'
+  | 'VERIFICATION_CLAIM'
+  | 'VERIFICATION_UPDATE'
+  | 'VERIFICATION_VALIDATE'
+  | 'VERIFICATION_REJECT';
 
 export interface AuditLog {
   id: string;

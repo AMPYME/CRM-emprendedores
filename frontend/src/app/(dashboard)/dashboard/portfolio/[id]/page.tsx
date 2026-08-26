@@ -227,7 +227,7 @@ export default function PortfolioDetailPage() {
               {record.entity ? (
                 <div className="space-y-2">
                   <p className="font-medium text-gray-900">{record.entity.displayName}</p>
-                  <p className="text-xs text-gray-400">{record.entity.entityType}</p>
+                  <p className="text-xs text-gray-400">{record.entity.entityType === 'COMPANY' ? 'Empresa' : 'Persona'}</p>
                   {record.entity.province && (
                     <p className="text-xs text-gray-500">{provinciaNombre(record.entity.province)}</p>
                   )}

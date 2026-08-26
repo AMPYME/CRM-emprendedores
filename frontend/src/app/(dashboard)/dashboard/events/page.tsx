@@ -74,13 +74,11 @@ export default function EventsPage() {
   const totalForms = data?.forms?.length ?? 0;
   const hasFilteredOut = totalForms > 0 && filteredForms.length === 0;
 
-  const sourceLabel = 'Formularios desde MySQL (AMPYME Forms)';
-
   return (
     <div className="space-y-6">
       <PageHeader
         title="Eventos"
-        description="Formularios de eventos y capacitaciones desde AMPYME Forms"
+        description="Eventos y capacitaciones de AMPYME"
         actions={
           readOnly ? undefined : (
             <Button
@@ -88,7 +86,7 @@ export default function EventsPage() {
               icon={<ExternalLink className="h-4 w-4" />}
               onClick={() => window.open(formsService.getAdminLoginUrl(), '_blank', 'noopener,noreferrer')}
             >
-              Administrar en AMPYME Forms
+              Administrar inscripciones
             </Button>
           )
         }
@@ -98,7 +96,7 @@ export default function EventsPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
           <div className="flex-1">
             <SearchBar
-              placeholder="Buscar formulario, conferencista, ubicación..."
+              placeholder="Buscar evento, conferencista, ubicación..."
               onSearch={handleSearch}
               initialQuery={searchQuery}
             />
@@ -113,11 +111,10 @@ export default function EventsPage() {
         </div>
         {data && (
           <p className="mt-3 text-xs text-gray-500">
-            {sourceLabel}
             {filteredForms.length !== (data.forms?.length ?? 0) && data.forms?.length
-              ? ` · ${filteredForms.length} de ${data.forms.length} formulario${data.forms.length === 1 ? '' : 's'}`
+              ? `${filteredForms.length} de ${data.forms.length} evento${data.forms.length === 1 ? '' : 's'}`
               : data.forms?.length
-                ? ` · ${data.forms.length} formulario${data.forms.length === 1 ? '' : 's'}`
+                ? `${data.forms.length} evento${data.forms.length === 1 ? '' : 's'}`
                 : ''}
           </p>
         )}
@@ -126,22 +123,22 @@ export default function EventsPage() {
       <Card className="p-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-16">
-            <LoadingSpinner size="lg" text="Cargando formularios..." />
+            <LoadingSpinner size="lg" text="Cargando eventos..." />
           </div>
         ) : error ? (
           <div className="py-16 text-center text-sm text-red-500">
-            Error al cargar los formularios: {getApiErrorMessage(error)}
+            Error al cargar los eventos: {getApiErrorMessage(error)}
           </div>
         ) : filteredForms.length === 0 ? (
           <EmptyState
             icon={Calendar}
-            title={hasFilteredOut ? 'Sin resultados para el filtro' : 'No hay formularios'}
+            title={hasFilteredOut ? 'Sin resultados para el filtro' : 'No hay eventos'}
             description={
               hasFilteredOut
-                ? `Hay ${totalForms} formulario${totalForms === 1 ? '' : 's'} en la base de datos, pero ninguno coincide con el filtro seleccionado.`
+                ? `Hay ${totalForms} evento${totalForms === 1 ? '' : 's'}, pero ninguno coincide con el filtro seleccionado.`
                 : searchQuery
                   ? 'No se encontraron resultados para tu búsqueda.'
-                  : 'No hay formularios registrados en AMPYME Forms.'
+                  : 'No hay eventos o formularios registrados.'
             }
             action={
               hasFilteredOut ? (
@@ -155,7 +152,7 @@ export default function EventsPage() {
           <Table>
             <TableHead>
               <TableRow>
-                <TableHeaderCell>Formulario</TableHeaderCell>
+                <TableHeaderCell>Nombre</TableHeaderCell>
                 <TableHeaderCell>Evento</TableHeaderCell>
                 <TableHeaderCell>Inscritos</TableHeaderCell>
                 <TableHeaderCell>Ubicación</TableHeaderCell>

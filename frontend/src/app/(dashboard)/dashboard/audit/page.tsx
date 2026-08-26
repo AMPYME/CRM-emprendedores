@@ -25,21 +25,56 @@ const actionOptions = [
   { value: 'UPDATE', label: 'Actualización' },
   { value: 'DELETE', label: 'Eliminación' },
   { value: 'LOGIN', label: 'Inicio de sesión' },
+  { value: 'VERIFICATION_CLAIM', label: 'Toma de verificación' },
+  { value: 'VERIFICATION_UPDATE', label: 'Actualización de verificación' },
+  { value: 'VERIFICATION_VALIDATE', label: 'Validación' },
+  { value: 'VERIFICATION_REJECT', label: 'Rechazo' },
 ];
 
-const actionLabel: Record<AuditAction, string> = {
+const actionLabel: Record<string, string> = {
   CREATE: 'Creación',
   UPDATE: 'Actualización',
   DELETE: 'Eliminación',
   LOGIN: 'Inicio de sesión',
+  VERIFICATION_CLAIM: 'Toma de verificación',
+  VERIFICATION_UPDATE: 'Actualización de verificación',
+  VERIFICATION_VALIDATE: 'Validación',
+  VERIFICATION_REJECT: 'Rechazo',
 };
 
-const actionBadge: Record<AuditAction, 'success' | 'primary' | 'danger' | 'info'> = {
+const actionBadge: Record<string, 'success' | 'primary' | 'danger' | 'info' | 'default'> = {
   CREATE: 'success',
   UPDATE: 'primary',
   DELETE: 'danger',
   LOGIN: 'info',
+  VERIFICATION_CLAIM: 'info',
+  VERIFICATION_UPDATE: 'primary',
+  VERIFICATION_VALIDATE: 'success',
+  VERIFICATION_REJECT: 'danger',
 };
+
+const entityTypeLabel: Record<string, string> = {
+  PERSON: 'Persona',
+  COMPANY: 'Empresa',
+  USER: 'Usuario',
+  PORTFOLIO: 'Cartera',
+  VERIFICATION: 'Verificación',
+  IMPORT_BATCH: 'Importación',
+};
+
+function formatAuditAction(action: string): string {
+  if (actionLabel[action]) return actionLabel[action];
+  return action
+    .toLowerCase()
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+function formatEntityType(entityType: string | null): string {
+  if (!entityType) return 'Sistema';
+  return entityTypeLabel[entityType] || entityType;
+}
 
 function formatDateTime(date: string): string {
   return new Intl.DateTimeFormat('es-PA', {
@@ -141,14 +176,13 @@ export default function AuditPage() {
                     </TableCell>
                     <TableCell>
                       <Badge variant={actionBadge[log.action] || 'default'}>
-                        {actionLabel[log.action] || log.action}
+                        {formatAuditAction(log.action)}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <p className="font-medium text-gray-900">{log.entityLabel || '—'}</p>
                       <p className="text-xs text-gray-400">
-                        {log.entityType || 'Sistema'}
-                        {log.entityId ? ` · ${log.entityId.slice(0, 8)}` : ''}
+                        {formatEntityType(log.entityType)}
                       </p>
                     </TableCell>
                     <TableCell>

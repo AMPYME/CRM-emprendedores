@@ -285,7 +285,7 @@ export default function IntakeListPage() {
     <div className="space-y-6">
       <PageHeader
         title="Verificación"
-        description="Cola de registros importados y captura en campo con revisión antes de crear Personas/Empresas."
+        description="Cola de registros importados y captura en campo, con revisión antes de crear personas o empresas."
         actions={
           activeTab === 'field' ? (
             <Button onClick={openCreate} icon={<Plus className="h-4 w-4" />}>
@@ -488,7 +488,7 @@ export default function IntakeListPage() {
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
         title="Eliminar sesión"
-        message="Se borrará esta sesión de la base temporal. No afecta PostgreSQL. ¿Continuar?"
+        message="Se eliminará esta sesión. Los datos ya guardados en el padrón no se tocan. ¿Continuar?"
         confirmLabel="Eliminar"
         variant="danger"
         isLoading={deleteMutation.isPending}

@@ -144,7 +144,7 @@ function progressFromStatus(status: ImportStatus, totalRows: number): { percent:
         percent: 45,
         label: totalRows > 0
           ? `Validando filas (${totalRows.toLocaleString('es-PA')} en el archivo)…`
-          : 'Validando y creando staging…',
+          : 'Validando y preparando las filas…',
       };
     case 'DEDUPLICATING':
       return { percent: 80, label: 'Buscando duplicados…' };
@@ -365,7 +365,7 @@ export default function ImportDetailPage() {
 
   const handleRetry = async () => {
     if (!id) return;
-    if (!window.confirm('¿Reintentar procesamiento? Se borrarán las filas procesadas (staging) y se volverá a procesar el mismo archivo.')) return;
+    if (!window.confirm('¿Reintentar el procesamiento? Se borrarán las filas ya procesadas y se volverá a procesar el mismo archivo.')) return;
     const columnMapping = buildBackendMapping();
     try {
       if (Object.keys(columnMapping).length > 0) {
@@ -425,7 +425,7 @@ export default function ImportDetailPage() {
             <div className="min-w-0">
               <p className="font-medium text-amber-900">¿Necesitas reintentar?</p>
               <p className="text-sm text-amber-800">
-                Reprocesa el mismo archivo sin volver a subirlo (se reinician las filas de staging).
+                Reprocesa el mismo archivo sin volver a subirlo (se reinician las filas temporales).
               </p>
               {batch.status === 'FAILED' && batch.progressMessage && (
                 <p className="mt-2 text-sm text-red-700">{batch.progressMessage}</p>

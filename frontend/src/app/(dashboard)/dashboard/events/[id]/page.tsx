@@ -33,7 +33,7 @@ export default function EventDetailPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <LoadingSpinner size="lg" text="Cargando formulario..." />
+        <LoadingSpinner size="lg" text="Cargando evento..." />
       </div>
     );
   }
@@ -41,7 +41,7 @@ export default function EventDetailPage() {
   if (error || !form) {
     return (
       <div className="space-y-4 py-12 text-center">
-        <p className="text-red-500">No se pudo cargar el formulario del evento.</p>
+        <p className="text-red-500">No se pudo cargar el evento.</p>
         <Button variant="outline" onClick={() => router.push('/dashboard/events')}>
           Volver
         </Button>
@@ -69,7 +69,6 @@ export default function EventDetailPage() {
                 <Badge variant={ampymeFormStatusBadge[status]}>
                   {ampymeFormStatusLabels[status]}
                 </Badge>
-                <span className="text-xs text-gray-400">ID {form.id}</span>
               </div>
             </div>
           </div>
@@ -96,7 +95,7 @@ export default function EventDetailPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <Card title="Detalles del formulario">
+          <Card title="Detalles del evento">
             {form.description && (
               <p className="mb-4 text-sm text-gray-600">{form.description}</p>
             )}
