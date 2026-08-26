@@ -24,7 +24,8 @@ import {
   computeAmpymeFormStatus,
   filterAmpymeFormsByStatus,
 } from '@/lib/ampyme-form-status';
-import type { AmpymeForm } from '@/types/forms.types';
+import { isReadOnlyRole } from '@/lib/roles';
+import { useAuthStore } from '@/stores/auth.store';
 
 const statusOptions = [
   { value: 'all', label: 'Todos los estados' },
@@ -54,6 +55,8 @@ export default function EventsPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const user = useAuthStore((s) => s.user);
+  const readOnly = isReadOnlyRole(user?.role);
 
   const { data, isLoading, error } = useAmpymeForms();
 
@@ -78,13 +81,15 @@ export default function EventsPage() {
         title="Eventos"
         description="Formularios de eventos y capacitaciones desde AMPYME Forms"
         actions={
-          <Button
-            variant="outline"
-            icon={<ExternalLink className="h-4 w-4" />}
-            onClick={() => window.open(formsService.getAdminLoginUrl(), '_blank', 'noopener,noreferrer')}
-          >
-            Administrar en AMPYME Forms
-          </Button>
+          readOnly ? undefined : (
+            <Button
+              variant="outline"
+              icon={<ExternalLink className="h-4 w-4" />}
+              onClick={() => window.open(formsService.getAdminLoginUrl(), '_blank', 'noopener,noreferrer')}
+            >
+              Administrar en AMPYME Forms
+            </Button>
+          )
         }
       />
 

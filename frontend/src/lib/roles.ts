@@ -1,7 +1,7 @@
 import type { UserRole } from '@/types/auth.types';
 
 const FULL_ACCESS: UserRole[] = ['SUPER_ADMIN', 'ADMIN', 'EMPREND_ADMIN'];
-const VIEWER_NAV = new Set(['home', 'persons', 'companies']);
+const VIEWER_NAV = new Set(['home', 'persons', 'companies', 'events']);
 const OPERADOR_BLOCKED_NAV = new Set(['imports', 'audit']);
 
 export function isFullAccessRole(role: UserRole | undefined | null): boolean {
@@ -17,7 +17,7 @@ export function canAccessImports(role: UserRole | undefined | null): boolean {
   return isFullAccessRole(role);
 }
 
-/** Roles de solo lectura en dashboard/personas/empresas. */
+/** Roles de solo lectura (Dashboard, Personas, Empresas, Eventos). */
 export function isReadOnlyRole(role: UserRole | undefined | null): boolean {
   return role === 'EMPREND_VIEWER';
 }
@@ -30,7 +30,7 @@ export function isOperadorRole(role: UserRole | undefined | null): boolean {
  * Navegación lateral por rol:
  * - ADMIN / SUPER_ADMIN / EMPREND_ADMIN → todo
  * - EMPREND_OPERADOR → todo excepto Importaciones y Auditoría
- * - EMPREND_VIEWER → solo Dashboard, Personas, Empresas
+ * - EMPREND_VIEWER → Dashboard, Personas, Empresas, Eventos (solo lectura)
  */
 export function canAccessNav(
   role: UserRole | undefined | null,
@@ -59,6 +59,7 @@ export function canAccessPath(
     if (path === '/dashboard') return true;
     if (path.startsWith('/dashboard/persons')) return true;
     if (path.startsWith('/dashboard/companies')) return true;
+    if (path.startsWith('/dashboard/events')) return true;
     if (path === '/settings') return true;
     return false;
   }

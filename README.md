@@ -1,289 +1,273 @@
-# CRM Emprendedores — Importaciones `.xlsx` y cola de verificación
+# Sistema de gestión de Emprendedores — AMPYME
 
-Documento técnico del flujo de carga masiva desde Excel, dónde se persisten los datos en cada etapa, qué infraestructura de datos se usa y recomendaciones de arquitectura.
-
----
-
-## 1. Resumen ejecutivo
-
-Las importaciones **no crean Personas ni Empresas de inmediato**. El Excel pasa por un pipeline de staging → validación → cola de verificación → revisión humana → alta definitiva en el CRM.
-
-**Base de datos de aplicación:** una sola instancia **PostgreSQL** (`emprendedores_db`).  
-**Archivos Excel:** disco del servidor (`UPLOAD_DIR`), no una segunda base de datos.  
-**Sesiones Intake / WebSocket:** tablas temporales en el **mismo PostgreSQL**; el WebSocket solo existe cuando un funcionario abre un registro.
-
-No hay Redis, MongoDB ni un segundo motor SQL para este flujo.
+Esta guía explica **qué hace el sistema y cómo usarlo**, pensada para personal de AMPYME. No hace falta saber de informática: basta con saber entrar a una página web y completar formularios.
 
 ---
 
-## 2. Infraestructura de persistencia
+## ¿Para qué sirve?
 
-| Recurso | Tecnología | Rol |
-|--------|------------|-----|
-| Datos de negocio + staging + verificación + intake | **PostgreSQL 16** | Única BD transaccional |
-| Archivo `.xlsx` / `.xls` / `.csv` | **Filesystem** (`UPLOAD_DIR`) | Binario original para re-parseo |
-| Tiempo real (borrador abierto) | **WebSocket** en el backend Node | Solo sesión activa; no almacena la cola |
+Es la herramienta interna de la **Autoridad de la Micro, Pequeña y Mediana Empresa (AMPYME)** para llevar el padrón de **personas** (emprendedores) y **empresas**, darles **seguimiento**, consultar **eventos y capacitaciones**, y cargar datos de ferias, censos o archivos Excel **después de que un funcionario los revise**.
 
-### Esquema lógico (mismo `DATABASE_URL`)
-
-```text
-PostgreSQL (emprendedores_db)
-├── import_batches          ← metadatos del lote
-├── staging_rows            ← filas parseadas / validadas (pre-verificación)
-├── verification_items      ← cola de verificación (IMPORT | FIELD)
-├── intake_sessions + …     ← borrador interactivo (bajo demanda)
-├── entities / persons / companies / …  ← CRM definitivo
-└── audit_logs              ← trazabilidad
-```
-
-**Conclusión:** no se usan “muchas bases de datos”. Hay **un PostgreSQL** y **almacenamiento de archivos en disco**.
+En pocas palabras: aquí se guarda quién es cada emprendedor, qué empresa tiene, qué gestiones se le están haciendo y de dónde vino la información.
 
 ---
 
-## 3. Flujo completo de importación `.xlsx`
+## Cómo entrar
 
-```text
-┌─────────────┐
-│ 1. Subir    │  Multipart → disco (UPLOAD_DIR) + fila en import_batches
-└──────┬──────┘
-       ▼
-┌─────────────┐
-│ 2. Preview  │  Lee archivo del disco; no escribe filas de negocio
-└──────┬──────┘
-       ▼
-┌─────────────┐
-│ 3. Mapear   │  Guarda column_mapping (JSON) en import_batches
-└──────┬──────┘
-       ▼
-┌─────────────┐
-│ 4. Procesar │  Parsea Excel → inserta staging_rows (VALID / INVALID / DUPLICATE…)
-└──────┬──────┘
-       ▼
-┌─────────────┐
-│ 5. Revisar  │  UI sobre staging_rows (estado REVIEW_REQUIRED)
-└──────┬──────┘
-       ▼
-┌──────────────────────────┐
-│ 6. Enviar a verificación │  Bulk insert → verification_items (source=IMPORT)
-└────────────┬─────────────┘
-             ▼
-┌──────────────────────────┐
-│ 7. Claim + Intake        │  Solo al pulsar "Verificar": IntakeSession + WS
-└────────────┬─────────────┘
-             ▼
-┌──────────────────────────┐
-│ 8. Validar               │  Crea Person/Company + audit; status=VALIDATED
-└──────────────────────────┘
-```
+1. Abra la dirección web del sistema (se la entrega el área de informática).
+2. En **Inicio de sesión** verá el título **Emprendedores** y el subtítulo *Sistema de gestión de Emprendedores — AMPYME*.
+3. Escriba su **usuario** y **contraseña de AMPYME** (los mismos de la institución).
+4. Pulse **Acceder**.
 
-### Endpoints principales
+Si no tiene cuenta o no puede entrar, escriba a **it@ampyme.gob.pa**. El sistema no crea contraseñas propias: usa las de AMPYME y solo deja pasar a quien tenga permiso para este programa.
 
-| Paso | Método | Ruta |
-|------|--------|------|
-| Subir | `POST` | `/api/v1/imports/upload` |
-| Preview | `GET` | `/api/v1/imports/:id/preview` |
-| Mapeo | `PUT` | `/api/v1/imports/:id/mapping` |
-| Procesar | `POST` | `/api/v1/imports/:id/process` |
-| Reintentar | `POST` | `/api/v1/imports/:id/retry` |
-| Enviar a cola | `POST` | `/api/v1/imports/:id/send-to-verification` |
-| Listar cola | `GET` | `/api/v1/verifications` |
-| Reclamar | `POST` | `/api/v1/verifications/:id/claim` |
-| Validar | `POST` | `/api/v1/verifications/:id/validate` |
+Al entrar llega al **Dashboard** (la pantalla de inicio).
 
 ---
 
-## 4. ¿Dónde se guarda lo importado **antes** de verificación?
+## Qué verá en el menú
 
-### 4.1 En el momento de subir el archivo
+A la izquierda aparece el menú **AMPYME CRM**. Según su cargo, verá más o menos opciones:
 
-1. **Disco:** Multer guarda el binario en `UPLOAD_DIR` con nombre UUID (`{uuid}.xlsx`).
-2. **PostgreSQL — `import_batches`:**
-   - nombre original y nombre en disco
-   - `source_type` (p. ej. `UNIFICADA`, `general`)
-   - `status = PENDING`
-   - `column_mapping` sugerido (si auto-detección / template encuentra columnas)
-   - **aún no hay filas de datos de negocio**
+| Menú | Para qué sirve |
+|------|----------------|
+| **Dashboard** | Resumen del día: cuántas personas, empresas, eventos y casos de seguimiento hay. |
+| **Buscar** | Lleva al mismo inicio (el Dashboard). |
+| **Personas** | Lista y ficha de emprendedores. |
+| **Empresas** | Lista y ficha de empresas. |
+| **Eventos** | Capacitaciones y formularios de AMPYME Forms (consulta e inscritos). |
+| **Cartera** | Casos de seguimiento (llamadas, visitas, trámites). |
+| **Importaciones** | Cargar un archivo Excel o CSV con muchos registros a la vez. |
+| **Verificación** | Revisar datos importados o capturados en ferias **antes** de que queden oficiales. |
+| **Auditoría** | Historial de quién creó, cambió o borró información, y quién inició sesión. |
 
-En este punto **no** existen Personas, Empresas ni ítems de verificación.
-
-### 4.2 Tras “Procesar” (staging)
-
-El backend lee el archivo del disco, aplica el mapeo y hace **insert masivo** en:
-
-**PostgreSQL — `staging_rows`**
-
-| Campo relevante | Contenido |
-|-----------------|-----------|
-| `raw_data` (JSON) | Toda la fila del Excel (headers normalizados) |
-| `extracted_*` | Cédula, RUC, nombre, email, teléfono, etc. |
-| `status` | `VALID`, `INVALID`, `DUPLICATE_EXACT`, `DUPLICATE_POSSIBLE`, … |
-| `validation_errors` | Errores de reglas de negocio |
-| `import_batch_id` | FK al lote |
-
-El lote pasa a `REVIEW_REQUIRED` (o equivalente operativo de revisión).
-
-**Importante:** staging es la “zona intermedia” **antes** de la cola de verificación. Los datos viven en **el mismo PostgreSQL**, tablas distintas a `entities`.
-
-### 4.3 Tras “Enviar a verificación”
-
-Solo filas `VALID` (en bulk, lotes de ~500):
-
-**PostgreSQL — `verification_items`**
-
-| Campo | Contenido |
-|-------|-----------|
-| `source` | `IMPORT` |
-| `status` | `PENDING` |
-| `data` (JSON) | Snapshot precargado (formato intake) + metadatos de importación |
-| `import_batch_id` / `staging_row_id` | Trazabilidad al lote y fila |
-| `province` / `district` / `corregimiento` | Códigos normalizados del catálogo |
-
-Las filas staging pasan a `QUEUED_FOR_VERIFICATION`.  
-El lote a `VERIFICATION_QUEUED`.
-
-**Todavía no** se crea `IntakeSession` ni conexión WebSocket por cada fila.
-
-### 4.4 Solo cuando un funcionario pulsa “Verificar”
-
-1. Claim atómico (`assigned_to_id`, `status = ASSIGNED` → `IN_REVIEW`).
-2. Se crea **`intake_sessions`** (+ tablas `intake_entities` / `intake_persons` / …) en el **mismo PostgreSQL**.
-3. Se precarga el borrador desde `verification_items.data`.
-4. El frontend abre WebSocket **solo** para esa sesión (`/dashboard/intake/[sessionId]`).
-
-### 4.5 Al validar
-
-Se materializan registros en el modelo CRM (`entities` + `persons` / `companies` + contactos), se escribe auditoría y el ítem queda `VALIDATED` con `validated_entity_id`.
+Arriba verá su nombre. Para salir, use **Salir**.
 
 ---
 
-## 5. Estados del lote (`import_batches.status`)
+## Tipos de usuario (qué puede hacer cada uno)
 
-| Estado (API) | Significado operativo |
-|--------------|----------------------|
-| `PENDING` | Archivo subido; pendiente de mapeo/proceso |
-| `PROCESSING` / `VALIDATING` / `DEDUPLICATING` | Pipeline en curso |
-| `REVIEW_REQUIRED` | Staging listo; revisar y enviar a verificación |
-| `IMPORTING` | Transición hacia cola (envío masivo) |
-| `VERIFICATION_QUEUED` | Filas válidas ya en `verification_items` |
-| `COMPLETED` / `FAILED` / `CANCELLED` | Terminales / error / cancelación |
+No todas las personas ven lo mismo. Eso es a propósito: cada quien trabaja con lo que le corresponde.
 
-Estados de fila staging (resumen): `PENDING`, `VALID`, `INVALID`, `DUPLICATE_*`, `QUEUED_FOR_VERIFICATION`, `IMPORTED`, `SKIPPED`, `ERROR`.
+| Cómo aparece en pantalla | Qué puede hacer |
+|--------------------------|-----------------|
+| **Super Admin** / **Administrador** / **Admin Emprendedores** | Todo: consultar, crear y editar, importar archivos, verificar y ver la auditoría. |
+| **Operador Emprendedores** | Trabajo diario: personas, empresas, eventos, cartera, verificación y captura en campo. **No** ve Importaciones ni Auditoría. |
+| **Consulta Emprendedores** | Solo **leer** Dashboard, Personas, Empresas y Eventos. No puede crear, editar ni borrar. No ve Cartera, Importaciones, Verificación ni Auditoría. |
 
----
-
-## 6. Captura en campo vs importación
-
-| Origen | `verification_items.source` | Cómo entra a la cola |
-|--------|----------------------------|----------------------|
-| Excel | `IMPORT` | `send-to-verification` desde staging |
-| Formulario / QR | `FIELD` | Al crear sesión Intake de captura |
-
-Ambos comparten cola y claim; se distinguen en UI (`IMPORTADO` / `CAPTURA EN CAMPO`).
+Si un botón no aparece, casi siempre es porque su perfil no lo incluye. Pida el cambio de permisos al administrador, no intente “saltar” la pantalla.
 
 ---
 
-## 7. WebSocket y TTL (por qué no saturan el servidor)
+## Dashboard (inicio)
 
-- **Cola pendiente:** filas en PostgreSQL. Los operadores en `/dashboard/intake` se suscriben al WebSocket (`subscribe_queue`) para ver altas/bajas en vivo, sin polling agresivo.
-- **WS de sesión:** únicamente la sesión Intake abierta (`subscribe` + snapshot al guardar).
-- **TTL captura en campo / QR:** `INTAKE_SESSION_TTL_MIN` (por defecto 20 min). Si expira, el ítem FIELD sigue asignado al funcionario.
-- **TTL verificación de importación (no campo):** 30 minutos **sin cambios de datos**. El ping del WebSocket no renueva el plazo. Al expirar, la sesión se borra y el ítem vuelve a `PENDING` para que otro funcionario lo tome. Detalle en `backend/src/modules/intake/intake-ttl.ts`.
+Le da la bienvenida (*¡Hola, [su nombre]!*) y un vistazo rápido:
 
-Diseño orientado a decenas de miles de pendientes sin N conexiones.
+- Cuántas **personas** y **empresas** hay registradas.
+- Cuántos **eventos** hay (si su perfil lo permite).
+- Un recuadro de **Cartera de Seguimiento**: total de casos, vencidos, próximos, sin gestión y un desglose por estado, con enlace a *Ver cartera completa*.
+- **Acciones rápidas** para ir a personas, empresas, crear un evento o importar datos (según su perfil).
 
----
-
-## 8. Diagrama de almacenamiento por etapa
-
-```text
-                    ┌──────────────────┐
-   Archivo .xlsx ──►│ UPLOAD_DIR       │  (filesystem)
-                    └────────┬─────────┘
-                             │ metadatos
-                             ▼
-                    ┌──────────────────┐
-                    │ import_batches   │  PostgreSQL
-                    └────────┬─────────┘
-                             │ process()
-                             ▼
-                    ┌──────────────────┐
-                    │ staging_rows     │  ← AQUÍ están los datos
-                    └────────┬─────────┘    ANTES de verificación
-                             │ send-to-verification
-                             ▼
-                    ┌──────────────────┐
-                    │ verification_    │  cola (PENDING…)
-                    │ items            │
-                    └────────┬─────────┘
-                             │ claim()
-                             ▼
-                    ┌──────────────────┐
-                    │ intake_*         │  borrador bajo demanda
-                    └────────┬─────────┘
-                             │ validate()
-                             ▼
-                    ┌──────────────────┐
-                    │ entities /       │  CRM definitivo
-                    │ persons/companies│
-                    └──────────────────┘
-```
+Es una pantalla de orientación, no un informe para imprimir.
 
 ---
 
-## 9. Recomendaciones (evitar muchas BD y complejidad innecesaria)
+## Personas (emprendedores)
 
-### Mantener (recomendado)
+Aquí vive el padrón de **personas naturales**.
 
-1. **Una sola PostgreSQL** para CRM, staging, verificación, intake temporal y auditoría.
-2. **Archivos en disco** (o object storage tipo S3/MinIO más adelante) — no meter blobs grandes en filas SQL salvo política explícita.
-3. **Cola en tabla** (`verification_items`) en lugar de un broker (Rabbit/Kafka) mientras el volumen y el equipo sean manejables en un solo servicio.
-4. **Bulk inserts** y filtros/paginación en SQL (ya diseñado así).
+### Lista
 
-### Evitar
+- Busque por nombre, cédula o correo.
+- Filtre por provincia y, si hace falta, por distrito, corregimiento o si tiene **carnet de artesano**.
+- Quien pueda editar verá el botón **Nueva persona**.
 
-| Anti-patrón | Por qué |
-|-------------|---------|
-| Redis “porque es cola” | Duplica estado; la cola ya es PostgreSQL |
-| Mongo/Elastic solo para staging | Segunda fuente de verdad y sync frágil |
-| SQLite paralelo para intake | Dos motores, backups y transacciones cruzadas |
-| Un WS por fila pendiente | Escala mal; contradice el diseño actual |
-| Crear `entities` en el `process` | Salta la verificación humana |
+En la tabla aparecen nombre, cédula, provincia, contacto, estado y las acciones (ver, editar o eliminar, según su perfil).
 
-### Mejoras opcionales (sin nueva BD)
+### Datos que se registran
 
-- **Object storage** para `UPLOAD_DIR` en producción (mismo contrato: path/key en `import_batches`).
-- **Particionado / archivado** de `staging_rows` antiguas tras `VERIFICATION_QUEUED` + retención.
-- **Job asíncrono** (cola en proceso o `pg_boss` sobre el mismo Postgres) si los Excel de 50k+ filas bloquean el request HTTP.
-- **Política de retención:** borrar o cold-storage del `.xlsx` tras N días si ya está en staging/verificación.
+Nombre, apellidos, cédula, género, fecha de nacimiento, nacionalidad, carnet de artesano, provincia, distrito, corregimiento, correo, teléfono o celular, dirección y notas.
 
-### Operación
+### Ficha de la persona
 
-- Backup único: dump de PostgreSQL + volumen/bucket de uploads.
-- Migraciones Prisma sobre el mismo schema `public`.
-- Monitorear tamaño de `staging_rows` y `verification_items` (`PENDING`).
+Al abrir una persona hay varias pestañas:
+
+1. **Información** — datos personales, ubicación y notas.
+2. **Contactos** — varios correos, teléfonos, WhatsApp, página web u otras redes.
+3. **Relaciones** — vínculos con otras personas o empresas (por ejemplo, dueño o socio).
+4. **Cartera** — los casos de seguimiento de esa persona.
+
+Los estados habituales de un registro son: **Activo**, **Inactivo**, **Duplicado** o **Fusionado**.
 
 ---
 
-## 10. Checklist rápido para operadores
+## Empresas
 
-1. Subir Excel en **Importaciones**.
-2. Revisar preview → ajustar **mapeo** → **Procesar**.
-3. En resultados, **Enviar a verificación** (no “crear CRM” directo).
-4. En **Verificación → Cola**, filtrar y pulsar **Verificar**.
-5. Revisar/corregir borrador → **Validar y guardar**.
-6. Confirmar Persona/Empresa en el CRM y evento en **Auditoría**.
+Funciona igual que Personas, pero para **razones sociales**.
 
----
+### Lista
 
-## 11. Variables de entorno relevantes
+- Busque por nombre o RUC.
+- Filtre por provincia, distrito, corregimiento, **tamaño** (micro, pequeña o mediana) y tipo de sociedad.
+- Botón **Nueva empresa** (si su perfil lo permite).
 
-| Variable | Uso |
-|----------|-----|
-| `DATABASE_URL` | PostgreSQL único |
-| `UPLOAD_DIR` | Directorio de archivos Excel |
-| `INTAKE_SESSION_TTL_MIN` | TTL de sesión Intake abierta (no de la cola) |
-| `WS_PATH` | Path WebSocket (p. ej. `/ws/intake`) |
+### Datos que se registran
+
+Razón social, nombre comercial, RUC, dígito verificador (DV), tipo de sociedad (S.A., S.EP., INC., Corp., S. de R.L., etc.), clasificación por tamaño según ingresos, fecha de inscripción, ubicación, correo, teléfono, dirección y notas.
+
+La ficha tiene las mismas pestañas: **Información**, **Contactos**, **Relaciones** y **Cartera**.
 
 ---
 
-*Última actualización alineada al flujo “staging → verification_items → intake bajo demanda → entities”.*
+## Relaciones (vincular)
+
+**Vincular** significa dejar por escrito que una persona y una empresa (o dos personas, o dos empresas) están relacionadas.
+
+Ejemplos de tipo de vínculo: dueño(a), empleado(a), socio(a), sucursal, representante, relacionado(a), subsidiaria, afiliado(a) u otra.
+
+Se agrega o se desactiva desde la pestaña **Relaciones** de la ficha. Así se evita tener la misma historia repetida en dos lugares sin conexión.
+
+---
+
+## Eventos
+
+Muestra **formularios de eventos y capacitaciones** que vienen de **AMPYME Forms** (el sistema de inscripciones a talleres y ferias).
+
+En esta pantalla usted **consulta**: nombre, conferencista, ubicación y estado (abierto, borrador, cerrado, activo, próxima apertura, expirado). Puede ver fechas, cupo, inscripciones y la lista de **personas inscritas**.
+
+La administración pesada del formulario (crear el evento, abrir o cerrar inscripciones) se hace en AMPYME Forms, con el botón **Administrar en AMPYME Forms**.
+
+---
+
+## Cartera de seguimiento
+
+La **cartera** es el expediente de gestión: lo que AMPYME está haciendo con esa persona o empresa (un crédito, una capacitación, un trámite de formalización, etc.).
+
+### Crear un caso
+
+Elija a quién corresponde (persona o empresa), el **asunto**, la **prioridad**, la **categoría** y, si aplica, la fecha del próximo seguimiento.
+
+Categorías: financiamiento, asistencia técnica, registro empresarial, capacitación, formalización.
+
+Estados: **Nuevo**, **En progreso**, **En espera**, **Resuelto**, **Cerrado**.
+
+Prioridades: **Baja**, **Media**, **Alta**, **Urgente**.
+
+El listado destaca casos **vencidos**, **próximos** y **sin gestión**.
+
+### Historial de acciones
+
+Dentro de cada caso se anotan las gestiones: llamada, correo, WhatsApp, visita, reunión, nota, documento u otro, con descripción, resultado y siguientes pasos.
+
+---
+
+## Importaciones (carga de archivos)
+
+Solo para perfiles de **administración**.
+
+Sirve para subir un **Excel o CSV** con muchos registros (base unificada, carga general, inscripción a un evento, censo o encuesta).
+
+**Importante:** subir el archivo **no crea** todavía personas ni empresas. El sistema prepara los datos y un funcionario debe **verificarlos** uno a uno (o en lote, revisándolos) antes de que entren al padrón oficial.
+
+### Pasos
+
+1. **Subir el archivo** y decir de qué tipo de origen es.
+2. **Previsualización** — comprobar que las columnas se leen bien.
+3. **Mapeo** — indicar qué columna es la cédula, el nombre, el RUC, etc., y guardar.
+4. **Procesar** — el sistema revisa filas, errores y posibles duplicados.
+5. **Resultados** — revisar y pulsar **Enviar a verificación**.
+
+A partir de ahí, los registros válidos aparecen en el menú **Verificación**. Si algo falló, se puede **reintentar** el procesamiento del mismo archivo.
+
+---
+
+## Verificación
+
+Aquí se **revisa y corrige** la información **antes** de que quede oficial. Hay dos pestañas.
+
+### Cola de verificación
+
+Registros que esperan a un funcionario. Pueden venir de:
+
+- **IMPORTADO** — salieron de un archivo Excel o CSV.
+- **CAPTURA EN CAMPO** — los llenó el emprendedor en una feria o visita, con el celular.
+
+Puede filtrar por origen, si está asignado a usted o a otra persona, estado, si es persona o empresa, y por provincia, distrito o corregimiento.
+
+Estados: pendiente, asignado, en revisión, validado, rechazado.
+
+Al pulsar **Verificar**, el registro queda a su nombre. Revise o corrija el borrador y pulse **Validar y guardar**. Ahí sí se crea (o actualiza) la persona o empresa en el padrón.
+
+Si no puede terminarlo, use **Liberar** para que otro compañero lo tome. Los administradores pueden **liberar todas las asignaciones**.
+
+La lista se actualiza sola mientras está en esa pantalla.
+
+**Tiempo límite en registros importados:** si deja un registro abierto **30 minutos sin guardar cambios**, vuelve a la cola para que otra persona lo atienda. Solo mirar la pantalla no cuenta como actividad.
+
+### Captura en campo (ferias y visitas)
+
+Sirve para que el **emprendedor llene el formulario en su celular**, sin entrar al CRM.
+
+1. El funcionario crea una **sesión** y elige si es **persona** o **empresa**.
+2. El sistema muestra un **código QR**, un **enlace** y un **código de 6 dígitos**.
+3. El emprendedor abre el enlace (o escanea el QR) y escribe ese código.
+4. Completa el formulario; el funcionario puede ver los datos **en vivo**.
+5. El emprendedor pulsa **Enviar registro**.
+6. El funcionario revisa, puede **editar** y luego **Validar y guardar**.
+
+Si nadie escribe durante unos **20 minutos**, la sesión caduca y hay que crear otra. Se puede generar un código nuevo si el primero se perdió o se compartió mal.
+
+Estados de la sesión: en progreso, enviada, validada o expirada.
+
+---
+
+## Auditoría
+
+Solo para perfiles de **administración**.
+
+Es el **historial de acciones**: quién creó, actualizó o eliminó un registro, y quién inició sesión. Sirve para aclarar dudas (“¿quién cambió esta cédula?”) y para control interno.
+
+Se puede filtrar por tipo de acción. Aparecen la fecha, la acción, de qué se trata (persona, empresa, etc.) y el usuario.
+
+---
+
+## Recorrido típico del día a día
+
+1. **Entra** con su usuario AMPYME.
+2. Mira el **Dashboard** para ver pendientes de cartera.
+3. Atiende **Personas** y **Empresas** (alta, corrección, vínculos).
+4. Si hay gestiones, las anota en **Cartera**.
+5. Si está en una feria, abre **Verificación → Captura en campo**, comparte el QR o el código de 6 dígitos y, al final, **valida**.
+6. Si llegó un Excel, un administrador lo **importa** y el equipo **verifica** los registros hasta **Validar y guardar**.
+7. Quien corresponda consulta **Eventos** (inscritos) o **Auditoría** (quién hizo qué).
+
+Nada entra al padrón definitivo “por arte de magia”: o lo registra un funcionario, o pasa por **verificación**.
+
+---
+
+## Palabras que verá en pantalla
+
+| Palabra | Significado sencillo |
+|---------|----------------------|
+| **Persona** | Emprendedor o persona natural en el padrón. |
+| **Empresa** | Negocio o razón social (MIPYME). |
+| **Vincular / relación** | Asociar a alguien con una empresa (o con otra persona) y decir en qué calidad (dueño, socio, etc.). |
+| **Cartera** | Expediente de seguimiento: lo que se está gestionando con esa persona o empresa. |
+| **Importación** | Cargar muchos datos de un archivo. Aún no son oficiales. |
+| **Verificación** | Revisión humana antes de guardar en el padrón. |
+| **Captura en campo** | Formulario temporal en el celular del emprendedor (enlace o QR). |
+| **Código de 6 dígitos** | Clave corta para abrir ese formulario. |
+| **Validar y guardar** | Pasar el borrador a registro oficial. |
+| **Padrón** | La lista oficial de personas y empresas ya aceptadas. |
+
+---
+
+## Si algo no funciona
+
+- **No entra:** confirme usuario y contraseña de AMPYME, o escriba a **it@ampyme.gob.pa**.
+- **No ve un menú:** es normal según su tipo de usuario; pida permisos al administrador.
+- **El código de campo no abre:** puede haber caducado (~20 minutos sin uso); pida un código o sesión nuevos.
+- **Un registro importado “se le fue” de las manos:** si pasó media hora sin guardar cambios, volvió a la cola; búsquelo de nuevo o pídale a un compañero que lo tome.
+- **Subió un Excel y no aparecen personas:** falta el paso **Enviar a verificación** y luego **Validar y guardar**.
+
+El área de informática (TI) es quien instala, da de alta permisos y resuelve fallos técnicos del servidor. Esta guía cubre **el uso del programa**, no la instalación.
