@@ -59,13 +59,24 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen flex-col overflow-hidden lg:flex-row">
-      <div className="hidden bg-[#073B6F] lg:flex lg:h-screen lg:w-2/3 lg:items-center lg:justify-center">
+      <div className="relative hidden lg:flex lg:h-screen lg:w-2/3">
         <img
-          className="h-full w-full object-contain"
-          src="/logo-rgb-white-GOB_AMPY_EDE.png"
-          alt="AMPYME"
+          className="absolute inset-0 h-full w-full object-cover object-center"
+          src="/fondo-EDE2%20(1).jpg"
+          alt=""
           draggable={false}
         />
+        <div className="relative z-10 flex h-full w-full flex-col items-center justify-center px-10">
+          <img
+            className="w-[min(90%,56rem)] max-h-[55%] object-contain"
+            src="/logo-rgb-white-GOB_AMPY_EDE.png"
+            alt="AMPYME"
+            draggable={false}
+          />
+          <h2 className="mt-6 bg-transparent text-center text-2xl font-semibold tracking-wide text-white drop-shadow-md md:text-3xl">
+            Base de Datos Emprendedores
+          </h2>
+        </div>
       </div>
 
       <div className="flex min-h-screen w-full flex-col bg-white lg:h-screen lg:w-1/3">
@@ -82,7 +93,19 @@ export default function LoginPage() {
             className="flex w-full flex-col"
           >
             <div className="mb-8 text-center">
+              <img
+                className="mx-auto mb-4 h-16 w-auto object-contain"
+                src="/fondo-base3%20(1).jpg"
+                alt=""
+                draggable={false}
+              />
               <p className="text-2xl font-semibold tracking-tight text-[#073B6F]">Emprendedores</p>
+              <img
+                className="mx-auto mt-3 h-24 w-auto object-contain"
+                src="/database%20(1).gif"
+                alt=""
+                draggable={false}
+              />
               <p className="mt-2 text-sm text-gray-500">
                 Sistema de gestión de Emprendedores — AMPYME
               </p>
