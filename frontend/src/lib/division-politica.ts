@@ -32,8 +32,11 @@ function sortByLabel(a: SelectOption, b: SelectOption) {
 
 function resolveProvincia(codeOrName: string | null | undefined) {
   if (!codeOrName) return null;
-  if (tree[codeOrName]) return { code: codeOrName, data: tree[codeOrName] };
-  const entry = Object.entries(tree).find(([, p]) => p.nombre === codeOrName);
+  const raw = String(codeOrName).trim();
+  if (tree[raw]) return { code: raw, data: tree[raw] };
+  const padded = /^\d+$/.test(raw) ? raw.padStart(2, '0').slice(-2) : raw;
+  if (padded !== raw && tree[padded]) return { code: padded, data: tree[padded] };
+  const entry = Object.entries(tree).find(([, p]) => p.nombre === raw);
   return entry ? { code: entry[0], data: entry[1] } : null;
 }
 
@@ -43,9 +46,12 @@ function resolveDistrito(
 ) {
   const prov = resolveProvincia(provinceRef);
   if (!prov || !districtRef) return null;
+  const raw = String(districtRef).trim();
   const dists = prov.data.distritos;
-  if (dists[districtRef]) return { code: districtRef, data: dists[districtRef], prov };
-  const entry = Object.entries(dists).find(([, d]) => d.nombre === districtRef);
+  if (dists[raw]) return { code: raw, data: dists[raw], prov };
+  const padded = /^\d+$/.test(raw) ? raw.padStart(4, '0').slice(-4) : raw;
+  if (padded !== raw && dists[padded]) return { code: padded, data: dists[padded], prov };
+  const entry = Object.entries(dists).find(([, d]) => d.nombre === raw);
   return entry ? { code: entry[0], data: entry[1], prov } : null;
 }
 
@@ -56,9 +62,12 @@ function resolveCorregimiento(
 ) {
   const dist = resolveDistrito(provinceRef, districtRef);
   if (!dist || !corrRef) return null;
+  const raw = String(corrRef).trim();
   const corrs = dist.data.corregimientos;
-  if (corrs[corrRef]) return { code: corrRef, nombre: corrs[corrRef] };
-  const entry = Object.entries(corrs).find(([, nombre]) => nombre === corrRef);
+  if (corrs[raw]) return { code: raw, nombre: corrs[raw] };
+  const padded = /^\d+$/.test(raw) ? raw.padStart(6, '0').slice(-6) : raw;
+  if (padded !== raw && corrs[padded]) return { code: padded, nombre: corrs[padded] };
+  const entry = Object.entries(corrs).find(([, nombre]) => nombre === raw);
   return entry ? { code: entry[0], nombre: entry[1] } : null;
 }
 

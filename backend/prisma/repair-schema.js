@@ -330,7 +330,62 @@ async function main() {
     process.exit(1);
   }
 
+  await seedDivisionPolitica();
+
   console.log('✅ Esquema reparado (tablas críticas presentes)');
+}
+
+async function seedDivisionPolitica() {
+  if (!(await tableExists('provincias'))) return;
+  const jsonPath = path.join(PRISMA_ROOT, 'data/division_politica_panama.json');
+  if (!fs.existsSync(jsonPath)) {
+    console.warn('⚠️  Falta prisma/data/division_politica_panama.json; no se siembra división política');
+    return;
+  }
+
+  const tree = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+  const expectedProv = Object.keys(tree).length;
+  const current = await prisma.provincia.count();
+  if (current >= expectedProv) {
+    console.log(`✓ División política: ${current} provincias`);
+    return;
+  }
+
+  console.log(`🌱 Sembrando división política (${current} → ${expectedProv} provincias)...`);
+  let provCount = 0;
+  let distCount = 0;
+  let corrCount = 0;
+
+  for (const [codProv, provincia] of Object.entries(tree)) {
+    await prisma.provincia.upsert({
+      where: { codProv },
+      create: { codProv, nombre: provincia.nombre },
+      update: { nombre: provincia.nombre },
+    });
+    provCount += 1;
+
+    for (const [codDist, distrito] of Object.entries(provincia.distritos || {})) {
+      await prisma.distrito.upsert({
+        where: { codDist },
+        create: { codDist, nombre: distrito.nombre, codProv },
+        update: { nombre: distrito.nombre, codProv },
+      });
+      distCount += 1;
+
+      for (const [codCorr, nombre] of Object.entries(distrito.corregimientos || {})) {
+        await prisma.corregimiento.upsert({
+          where: { codCorr },
+          create: { codCorr, nombre, codDist },
+          update: { nombre, codDist },
+        });
+        corrCount += 1;
+      }
+    }
+  }
+
+  console.log(
+    `✓ División política sembrada: ${provCount} provincias, ${distCount} distritos, ${corrCount} corregimientos`
+  );
 }
 
 main()

@@ -1,10 +1,10 @@
 /**
- * Ubicación persistible: códigos del JSON que además existen en el catálogo de BD.
- * Si provincias/distritos no están seedados, omite la ubicación en lugar de fallar por FK.
+ * Ubicación persistible: códigos oficiales + filas del catálogo (FK de entities).
+ * Si provincias/distritos no están seedados, los crea desde el JSON en el mismo guardado.
  */
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/database';
-import { locationInputToCodes } from './division-politica';
+import { getDivisionTree, locationInputToCodes } from './division-politica';
 
 type LocationInput = {
   province?: string | null;
@@ -14,37 +14,79 @@ type LocationInput = {
 
 type Db = typeof prisma | Prisma.TransactionClient;
 
+function padDigits(value: string | null | undefined, len: number): string | undefined {
+  if (!value) return undefined;
+  const t = String(value).trim();
+  if (!t) return undefined;
+  if (!/^\d+$/.test(t)) return undefined;
+  return t.padStart(len, '0').slice(-len);
+}
+
+function fallbackCodes(location: LocationInput) {
+  const province = padDigits(location.province, 2);
+  const district = padDigits(location.district, 4);
+  const corregimiento = padDigits(location.corregimiento, 6);
+  return {
+    province,
+    district: province && district?.startsWith(province) ? district : district,
+    corregimiento:
+      district && corregimiento?.startsWith(district) ? corregimiento : corregimiento,
+  };
+}
+
 export async function persistableLocationCodes(location: LocationInput, db: Db = prisma) {
-  const codes = locationInputToCodes(location);
+  let codes = locationInputToCodes(location);
+  if (!codes.province) {
+    codes = fallbackCodes(location);
+  }
   if (!codes.province) {
     return { province: undefined, district: undefined, corregimiento: undefined };
   }
 
-  const prov = await db.provincia.findUnique({
+  const tree = getDivisionTree();
+  const provData = tree[codes.province];
+  const distData = codes.district ? provData?.distritos[codes.district] : undefined;
+  const corrNombre =
+    codes.corregimiento && distData ? distData.corregimientos[codes.corregimiento] : undefined;
+
+  await db.provincia.upsert({
     where: { codProv: codes.province },
-    select: { codProv: true },
+    create: { codProv: codes.province, nombre: provData?.nombre || codes.province },
+    update: provData?.nombre ? { nombre: provData.nombre } : {},
   });
-  if (!prov) {
-    return { province: undefined, district: undefined, corregimiento: undefined };
-  }
 
   let district: string | undefined;
-  let corregimiento: string | undefined;
-
   if (codes.district) {
-    const dist = await db.distrito.findUnique({
+    await db.distrito.upsert({
       where: { codDist: codes.district },
-      select: { codDist: true, codProv: true },
+      create: {
+        codDist: codes.district,
+        nombre: distData?.nombre || codes.district,
+        codProv: codes.province,
+      },
+      update: {
+        ...(distData?.nombre ? { nombre: distData.nombre } : {}),
+        codProv: codes.province,
+      },
     });
-    if (dist && dist.codProv === codes.province) district = dist.codDist;
+    district = codes.district;
   }
 
+  let corregimiento: string | undefined;
   if (district && codes.corregimiento) {
-    const corr = await db.corregimiento.findUnique({
+    await db.corregimiento.upsert({
       where: { codCorr: codes.corregimiento },
-      select: { codCorr: true, codDist: true },
+      create: {
+        codCorr: codes.corregimiento,
+        nombre: corrNombre || codes.corregimiento,
+        codDist: district,
+      },
+      update: {
+        ...(corrNombre ? { nombre: corrNombre } : {}),
+        codDist: district,
+      },
     });
-    if (corr && corr.codDist === district) corregimiento = corr.codCorr;
+    corregimiento = codes.corregimiento;
   }
 
   return { province: codes.province, district, corregimiento };

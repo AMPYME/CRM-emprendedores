@@ -7,6 +7,7 @@ import { IntakeEntityType } from './intake.types';
 import { DEFAULT_NATIONALITY_CODE, resolveNationalityCode } from '../../shared/utils/nationality';
 import { ttlExpiresAtForSession } from './intake-ttl';
 import { parseBoolean } from './intake.mapper';
+import { locationInputToCodes } from '../../shared/utils/division-politica';
 
 export interface IntakeUpdateBody {
   person?: Record<string, string | boolean | undefined>;
@@ -66,6 +67,7 @@ export async function replaceIntakeSnapshot(
   const location = body.location ?? {};
   const contacts = body.contacts ?? [];
   const notes = clean(body.notes);
+  const locCodes = locationInputToCodes(location);
 
   await prisma.$transaction(async (tx) => {
     await tx.intakeEntity.deleteMany({ where: { sessionId } });
@@ -73,9 +75,9 @@ export async function replaceIntakeSnapshot(
     const entityData: Prisma.IntakeEntityCreateInput = {
       session: { connect: { id: sessionId } },
       entityType,
-      province: clean(location.province),
-      district: clean(location.district),
-      corregimiento: clean(location.corregimiento),
+      province: locCodes.province || clean(location.province),
+      district: locCodes.district || clean(location.district),
+      corregimiento: locCodes.corregimiento || clean(location.corregimiento),
       address: clean(location.address),
       notes,
       sourceOrigin: 'EMPRENDEDORES_INTAKE',

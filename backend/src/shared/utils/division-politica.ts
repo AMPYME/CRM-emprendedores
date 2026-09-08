@@ -25,6 +25,7 @@ function loadTree(): DivisionTree {
   if (cached) return cached;
   const candidates = [
     path.join(__dirname, '../../../prisma/data/division_politica_panama.json'),
+    path.join(__dirname, '../../../../prisma/data/division_politica_panama.json'),
     path.join(process.cwd(), 'prisma/data/division_politica_panama.json'),
   ];
   for (const filePath of candidates) {
@@ -37,11 +38,24 @@ function loadTree(): DivisionTree {
   return cached;
 }
 
+export function getDivisionTree(): DivisionTree {
+  return loadTree();
+}
+
+function padDigits(value: string, len: number): string {
+  const t = value.trim();
+  if (!/^\d+$/.test(t)) return t;
+  return t.padStart(len, '0').slice(-len);
+}
+
 function resolveProvincia(codeOrName: string | null | undefined) {
   if (!codeOrName) return null;
+  const raw = String(codeOrName).trim();
   const tree = loadTree();
-  if (tree[codeOrName]) return { code: codeOrName, data: tree[codeOrName] };
-  const entry = Object.entries(tree).find(([, p]) => p.nombre === codeOrName);
+  if (tree[raw]) return { code: raw, data: tree[raw] };
+  const padded = padDigits(raw, 2);
+  if (padded !== raw && tree[padded]) return { code: padded, data: tree[padded] };
+  const entry = Object.entries(tree).find(([, p]) => p.nombre === raw);
   return entry ? { code: entry[0], data: entry[1] } : null;
 }
 
@@ -53,7 +67,11 @@ function resolveDistrito(
   if (!prov || !districtRef) return null;
   const dists = prov.data.distritos;
   if (dists[districtRef]) return { code: districtRef, data: dists[districtRef] };
-  const entry = Object.entries(dists).find(([, d]) => d.nombre === districtRef);
+  const padded = /^\d+$/.test(districtRef.trim())
+    ? districtRef.trim().padStart(4, '0').slice(-4)
+    : districtRef.trim();
+  if (padded !== districtRef && dists[padded]) return { code: padded, data: dists[padded] };
+  const entry = Object.entries(dists).find(([, d]) => d.nombre === districtRef.trim());
   return entry ? { code: entry[0], data: entry[1] } : null;
 }
 
@@ -65,8 +83,11 @@ function resolveCorregimiento(
   const dist = resolveDistrito(provinceRef, districtRef);
   if (!dist || !corrRef) return null;
   const corrs = dist.data.corregimientos;
-  if (corrs[corrRef]) return { code: corrRef, nombre: corrs[corrRef] };
-  const entry = Object.entries(corrs).find(([, nombre]) => nombre === corrRef);
+  const raw = corrRef.trim();
+  if (corrs[raw]) return { code: raw, nombre: corrs[raw] };
+  const padded = /^\d+$/.test(raw) ? raw.padStart(6, '0').slice(-6) : raw;
+  if (padded !== raw && corrs[padded]) return { code: padded, nombre: corrs[padded] };
+  const entry = Object.entries(corrs).find(([, nombre]) => nombre === raw);
   return entry ? { code: entry[0], nombre: entry[1] } : null;
 }
 
