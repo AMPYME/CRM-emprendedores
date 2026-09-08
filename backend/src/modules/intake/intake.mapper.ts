@@ -95,7 +95,7 @@ export function snapshotToCreatePerson(s: IntakeSnapshot) {
     birthDate: clean(p.birth_date),
     nationalityCode: resolveNationalityCode(p.nationality_code),
     educationLevel: clean(p.education_level),
-    hasArtisanCard: p.has_artisan_card ?? undefined,
+    hasArtisanCard: parseBoolean(p.has_artisan_card),
     province: common.province,
     district: common.district,
     corregimiento: common.corregimiento,

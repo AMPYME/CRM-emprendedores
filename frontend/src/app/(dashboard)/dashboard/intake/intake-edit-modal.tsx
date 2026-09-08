@@ -44,7 +44,7 @@ interface Props {
   onClose: () => void;
   sessionId: string;
   snapshot: IntakeSnapshot;
-  accessCode: string;
+  accessCode?: string;
   onSaved?: () => void;
 }
 

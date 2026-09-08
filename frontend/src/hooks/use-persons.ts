@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { personsService, type PersonFilters, type CreatePersonInput, type UpdatePersonInput } from '@/services/persons.service';
+import { getApiErrorMessage } from '@/services/api-client';
 import toast from 'react-hot-toast';
 
 const PERSONS_KEY = 'persons';
@@ -29,8 +30,8 @@ export function useCreatePerson() {
       qc.invalidateQueries({ queryKey: [PERSONS_KEY] });
       toast.success('Persona creada exitosamente');
     },
-    onError: () => {
-      toast.error('Error al crear la persona');
+    onError: (err) => {
+      toast.error(getApiErrorMessage(err) || 'Error al crear la persona');
     },
   });
 }
@@ -44,8 +45,8 @@ export function useUpdatePerson() {
       qc.invalidateQueries({ queryKey: [PERSONS_KEY] });
       toast.success('Persona actualizada exitosamente');
     },
-    onError: () => {
-      toast.error('Error al actualizar la persona');
+    onError: (err) => {
+      toast.error(getApiErrorMessage(err) || 'Error al actualizar la persona');
     },
   });
 }

@@ -33,7 +33,8 @@ function loadTree(): DivisionTree {
       return cached;
     }
   }
-  throw new Error('No se encontró division_politica_panama.json');
+  cached = {};
+  return cached;
 }
 
 function resolveProvincia(codeOrName: string | null | undefined) {

@@ -36,6 +36,7 @@ import {
   IntakeUpdateBody,
 } from './intake.writer';
 import { auditService } from '../audit/audit.service';
+import { persistableLocationCodes } from '../../shared/utils/entity-location';
 
 const DUPLICATE_MSG = 'Este usuario ya está creado en el sistema.';
 
@@ -98,14 +99,18 @@ export const intakeService = {
   },
 
   async getSnapshot(sessionId: string, accessCode?: string): Promise<IntakeSnapshot> {
-    await this.assertAccess(sessionId, accessCode);
+    if (accessCode?.trim()) {
+      await this.assertAccess(sessionId, accessCode);
+    }
     const snapshot = await intakeRepository.getSnapshot(sessionId);
     if (!snapshot) throw new NotFoundError('Sesión de intake', sessionId);
     return snapshot;
   },
 
   async getPublicSession(sessionId: string, accessCode?: string): Promise<IntakePublicSessionResult> {
-    const snapshot = await this.getSnapshot(sessionId, accessCode);
+    await this.assertAccess(sessionId, accessCode);
+    const snapshot = await intakeRepository.getSnapshot(sessionId);
+    if (!snapshot) throw new NotFoundError('Sesión de intake', sessionId);
     return {
       session: {
         sessionId: snapshot.sessionId,
@@ -133,7 +138,9 @@ export const intakeService = {
     body: IntakeUpdateBody,
     accessCode?: string
   ): Promise<IntakeSnapshot> {
-    await this.assertAccess(sessionId, accessCode);
+    if (accessCode?.trim()) {
+      await this.assertAccess(sessionId, accessCode);
+    }
     const session = await intakeRepository.getSession(sessionId);
     if (!session) throw new NotFoundError('Sesión de intake', sessionId);
     if (isExpired(session)) throw new GoneError('La sesión ha expirado');
@@ -184,9 +191,10 @@ export const intakeService = {
     try {
       const created = await prisma.$transaction(async (tx) => {
         const entities: IntakeMigrateResult['entities'] = [];
+        const loc = await persistableLocationCodes(snapshot.location, tx);
 
         if (hasPerson(snapshot.person)) {
-          const input = snapshotToCreatePerson(snapshot);
+          const input = { ...snapshotToCreatePerson(snapshot), ...loc };
           let existing = input.cedula
             ? await tx.entity.findFirst({
                 where: {
@@ -276,7 +284,7 @@ export const intakeService = {
         }
 
         if (hasCompany(snapshot.company)) {
-          const input = snapshotToCreateCompany(snapshot);
+          const input = { ...snapshotToCreateCompany(snapshot), ...loc };
           let existing = input.ruc
             ? await tx.entity.findFirst({
                 where: {
@@ -395,6 +403,10 @@ export const intakeService = {
           throw new BadRequestError('No hay datos para migrar según el tipo de sesión.');
         }
 
+        await tx.verificationItem.updateMany({
+          where: { intakeSessionId: sessionId },
+          data: { intakeSessionId: null },
+        });
         await intakeRepository.deleteSession(sessionId, tx);
         return entities;
       });

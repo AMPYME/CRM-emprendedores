@@ -3,8 +3,7 @@
  */
 import type { IntakeSnapshot } from '@/types/intake.types';
 import type { IntakeUpdateInput } from '@/services/intake.service';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+import { publicApiBaseUrl } from '@/lib/public-urls';
 
 export class PublicIntakeError extends Error {
   status: number;
@@ -22,7 +21,7 @@ interface ApiEnvelope<T> {
 }
 
 async function publicRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${publicApiBaseUrl()}${path}`, {
     ...init,
     headers: {
       'Content-Type': 'application/json',

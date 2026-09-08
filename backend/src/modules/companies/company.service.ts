@@ -7,7 +7,7 @@ import { companyRepository } from './company.repository';
 import { CompanyQueryInput, CreateCompanyInput, UpdateCompanyInput } from './company.validator';
 import { NotFoundError, ConflictError } from '../../shared/errors/app-error';
 import { PaginationMeta } from '../../shared/types/api-response.types';
-import { locationInputToCodes } from '../../shared/utils/division-politica';
+import { persistableLocationCodes } from '../../shared/utils/entity-location';
 import { auditService, AuditActor } from '../audit/audit.service';
 
 function buildDisplayName(legalName: string, tradeName?: string): string {
@@ -48,7 +48,7 @@ export const companyService = {
     }
 
     const displayName = buildDisplayName(input.legalName, input.tradeName);
-    const loc = locationInputToCodes(input);
+    const loc = await persistableLocationCodes(input);
 
     const entity = await companyRepository.create({
       displayName,
@@ -105,7 +105,7 @@ export const companyService = {
       input.district !== undefined ||
       input.corregimiento !== undefined
     ) {
-      const loc = locationInputToCodes({
+      const loc = await persistableLocationCodes({
         province: input.province ?? current.province,
         district: input.district ?? current.district,
         corregimiento: input.corregimiento ?? current.corregimiento,

@@ -28,10 +28,10 @@ import { IntakeSnapshotView } from '../intake-snapshot-view';
 function LiveIndicator({ status, connected }: { status: string; connected: boolean }) {
   if (status === 'validated') return <Badge variant="success">Validada</Badge>;
   if (status === 'expired') return <Badge variant="default">Expirada</Badge>;
-  if (connected && status === 'live') {
+  if (status === 'live') {
     return (
       <Badge variant="success">
-        <Radio className="mr-1 h-3 w-3 animate-pulse" /> En vivo
+        <Radio className={`mr-1 h-3 w-3 ${connected ? 'animate-pulse' : ''}`} /> En vivo
       </Badge>
     );
   }
@@ -56,7 +56,7 @@ export default function IntakeDetailPage() {
 
   const [accessCode, setAccessCode] = useState('');
   const [draftCode, setDraftCode] = useState('');
-  const [accessOpen, setAccessOpen] = useState(true);
+  const [accessOpen, setAccessOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -142,11 +142,11 @@ export default function IntakeDetailPage() {
   };
 
   const canValidate =
-    status === 'live' &&
     !!snapshot &&
     snapshot.status === 'SUBMITTED' &&
-    (!!accessCode || !!verificationId);
-  const canDelete = !!snapshot && status !== 'validated' && status !== 'expired' && !!accessCode;
+    status !== 'expired' &&
+    status !== 'validated';
+  const canDelete = !!snapshot && status !== 'validated' && status !== 'expired';
   const canEdit = canDelete && snapshot?.status === 'SUBMITTED';
 
   return (
@@ -221,7 +221,7 @@ export default function IntakeDetailPage() {
             size="sm"
             className="w-full sm:w-auto"
             onClick={() => setConfirmOpen(true)}
-            disabled={!canValidate || (!accessCode && !verificationId)}
+            disabled={!canValidate}
             icon={<CheckCircle2 className="h-4 w-4" />}
           >
             Validar y guardar
@@ -251,7 +251,7 @@ export default function IntakeDetailPage() {
             action={<Button onClick={() => router.push('/dashboard/intake')}>Volver al listado</Button>}
           />
         </Card>
-      ) : !accessCode ? (
+      ) : !snapshot && !accessCode && !verificationId ? (
         <Card>
           <EmptyState
             icon={KeyRound}
@@ -329,13 +329,13 @@ export default function IntakeDetailPage() {
         isLoading={deleteMutation.isPending}
       />
 
-      {snapshot && accessCode && (
+      {snapshot && (
         <IntakeEditModal
           isOpen={editOpen}
           onClose={() => setEditOpen(false)}
           sessionId={id}
           snapshot={snapshot}
-          accessCode={accessCode}
+          accessCode={accessCode || undefined}
         />
       )}
 

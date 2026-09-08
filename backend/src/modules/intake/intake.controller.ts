@@ -100,7 +100,8 @@ export const intakeController = {
       id,
       req.user?.id,
       req.body.accessCode as string | undefined,
-      req.user?.email
+      req.user?.email,
+      { skipAccessCheck: !req.body?.accessCode }
     );
     intakeWs.notifyValidated(id);
     sendSuccess(res, result, 201);

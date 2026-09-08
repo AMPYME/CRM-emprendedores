@@ -1,7 +1,21 @@
 /** @type {import('next').NextConfig} */
+const apiProxyTarget = (
+  process.env.API_PROXY_TARGET ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  'http://192.168.99.60:4000/api/v1'
+).replace(/\/$/, '');
+
 const nextConfig = {
   output: 'standalone',
   reactStrictMode: true,
+  async rewrites() {
+    return [
+      {
+        source: '/backend-api/:path*',
+        destination: `${apiProxyTarget}/:path*`,
+      },
+    ];
+  },
   env: {
     NEXT_PUBLIC_API_URL:
       process.env.NEXT_PUBLIC_API_URL || 'http://192.168.99.60:4000/api/v1',

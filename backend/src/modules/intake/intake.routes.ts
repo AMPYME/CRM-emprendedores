@@ -30,13 +30,16 @@ import {
   createSessionSchema,
   updateSessionSchema,
   accessCodeQuerySchema,
+  optionalAccessCodeQuerySchema,
   accessCodeBodySchema,
+  optionalAccessCodeBodySchema,
   regenerateAccessCodeSchema,
 } from './intake.validator';
 
 export const intakeRoutes = Router();
 
 const updateWithAccess = updateSessionSchema.merge(accessCodeBodySchema);
+const updateOperator = updateSessionSchema.merge(optionalAccessCodeBodySchema);
 
 // ── Público (sin JWT) ───────────────────────────────────────────
 intakeRoutes.get(
@@ -100,7 +103,7 @@ intakeRoutes.get(
   protect,
   forbidViewer,
   validate(sessionIdParamSchema, 'params'),
-  validate(accessCodeQuerySchema, 'query'),
+  validate(optionalAccessCodeQuerySchema, 'query'),
   asyncHandler(intakeController.getById)
 );
 
@@ -127,7 +130,7 @@ intakeRoutes.post(
   protect,
   forbidViewer,
   validate(sessionIdParamSchema, 'params'),
-  validate(accessCodeBodySchema, 'body'),
+  validate(optionalAccessCodeBodySchema, 'body'),
   asyncHandler(intakeController.validate)
 );
 
@@ -136,7 +139,7 @@ intakeRoutes.patch(
   protect,
   forbidViewer,
   validate(sessionIdParamSchema, 'params'),
-  validate(updateWithAccess, 'body'),
+  validate(updateOperator, 'body'),
   asyncHandler(intakeController.update)
 );
 

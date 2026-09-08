@@ -8,7 +8,7 @@ import { PersonQueryInput, CreatePersonInput, UpdatePersonInput } from './person
 import { NotFoundError, ConflictError } from '../../shared/errors/app-error';
 import { PaginationMeta } from '../../shared/types/api-response.types';
 import { titleCase } from '../../shared/utils/string.utils';
-import { locationInputToCodes } from '../../shared/utils/division-politica';
+import { persistableLocationCodes } from '../../shared/utils/entity-location';
 import { DEFAULT_NATIONALITY_CODE } from '../../shared/utils/nationality';
 import { auditService, AuditActor } from '../audit/audit.service';
 
@@ -52,7 +52,7 @@ export const personService = {
     }
 
     const displayName = buildDisplayName(input.firstName, input.lastName, input.secondLastName);
-    const loc = locationInputToCodes(input);
+    const loc = await persistableLocationCodes(input);
 
     const entity = await personRepository.create({
       displayName,
@@ -114,7 +114,7 @@ export const personService = {
       input.district !== undefined ||
       input.corregimiento !== undefined
     ) {
-      const loc = locationInputToCodes({
+      const loc = await persistableLocationCodes({
         province: input.province ?? current.province,
         district: input.district ?? current.district,
         corregimiento: input.corregimiento ?? current.corregimiento,

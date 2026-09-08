@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { companiesService, type CompanyFilters, type CreateCompanyInput, type UpdateCompanyInput } from '@/services/companies.service';
+import { getApiErrorMessage } from '@/services/api-client';
 import toast from 'react-hot-toast';
 
 const COMPANIES_KEY = 'companies';
@@ -29,8 +30,8 @@ export function useCreateCompany() {
       qc.invalidateQueries({ queryKey: [COMPANIES_KEY] });
       toast.success('Empresa creada exitosamente');
     },
-    onError: () => {
-      toast.error('Error al crear la empresa');
+    onError: (err) => {
+      toast.error(getApiErrorMessage(err) || 'Error al crear la empresa');
     },
   });
 }
@@ -44,8 +45,8 @@ export function useUpdateCompany() {
       qc.invalidateQueries({ queryKey: [COMPANIES_KEY] });
       toast.success('Empresa actualizada exitosamente');
     },
-    onError: () => {
-      toast.error('Error al actualizar la empresa');
+    onError: (err) => {
+      toast.error(getApiErrorMessage(err) || 'Error al actualizar la empresa');
     },
   });
 }

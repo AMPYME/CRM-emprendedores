@@ -31,11 +31,11 @@ export function useIntakeSessions(
   });
 }
 
-export function useIntakeSession(id: string | undefined, accessCode: string | undefined) {
+export function useIntakeSession(id: string | undefined, accessCode?: string) {
   return useQuery({
-    queryKey: [INTAKE_KEY, 'detail', id, accessCode ?? 'no-code'],
-    queryFn: () => intakeService.getById(id!, accessCode!),
-    enabled: !!id && !!accessCode,
+    queryKey: [INTAKE_KEY, 'detail', id, accessCode ?? 'operator'],
+    queryFn: () => intakeService.getById(id!, accessCode),
+    enabled: !!id,
   });
 }
 
@@ -72,7 +72,7 @@ export function useVerifyIntakeAccess() {
 export function useUpdateIntakeSession() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data, accessCode }: { id: string; data: IntakeUpdateInput; accessCode: string }) =>
+    mutationFn: ({ id, data, accessCode }: { id: string; data: IntakeUpdateInput; accessCode?: string }) =>
       intakeService.update(id, data, accessCode),
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: [INTAKE_KEY] });
@@ -98,7 +98,7 @@ export function useDeleteIntakeSession() {
 export function useValidateIntakeSession() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, accessCode }: { id: string; accessCode: string }) =>
+    mutationFn: ({ id, accessCode }: { id: string; accessCode?: string }) =>
       intakeService.validate(id, accessCode),
     onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: [INTAKE_KEY] });

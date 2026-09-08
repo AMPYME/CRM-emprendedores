@@ -28,13 +28,24 @@ export function createApp(): Application {
     .map((o) => o.trim())
     .filter(Boolean);
 
+  const originAllowed = (origin: string | undefined): boolean => {
+    if (!origin) return true;
+    if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) return true;
+    const alt = origin.startsWith('https://')
+      ? `http://${origin.slice('https://'.length)}`
+      : origin.startsWith('http://')
+        ? `https://${origin.slice('http://'.length)}`
+        : origin;
+    return allowedOrigins.includes(alt);
+  };
+
   app.use(
     cors({
       origin(origin, callback) {
-        if (!origin || allowedOrigins.includes(origin)) {
+        if (originAllowed(origin)) {
           callback(null, true);
         } else {
-          callback(new Error('Not allowed by CORS'));
+          callback(null, false);
         }
       },
       credentials: true,

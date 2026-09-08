@@ -3,11 +3,14 @@
  * Centraliza configuración de Axios, interceptores y manejo de tokens.
  */
 import axios, { type AxiosError } from 'axios';
+import { publicApiBaseUrl } from '@/lib/public-urls';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+function apiBaseUrl(): string {
+  return publicApiBaseUrl();
+}
 
 export const apiClient = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1',
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
@@ -16,6 +19,7 @@ export const apiClient = axios.create({
 
 // Interceptor para agregar token de autenticación
 apiClient.interceptors.request.use((config) => {
+  config.baseURL = apiBaseUrl();
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -80,7 +84,7 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const res = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken });
+        const res = await axios.post(`${apiBaseUrl()}/auth/refresh`, { refreshToken });
         const { accessToken: newAccessToken, refreshToken: newRefreshToken } = res.data.data;
 
         localStorage.setItem('token', newAccessToken);

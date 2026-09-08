@@ -128,7 +128,12 @@ class IntakeWsServer {
       this.send(ws, { type: 'access_denied', sessionId, message: 'Sesión no encontrada' });
       return;
     }
-    if (!verifyAccessCode(accessCode || '', session.access_code_hash)) {
+    if (ws.role !== 'operator') {
+      if (!verifyAccessCode(accessCode || '', session.access_code_hash)) {
+        this.send(ws, { type: 'access_denied', sessionId, message: 'Código de acceso incorrecto' });
+        return;
+      }
+    } else if (accessCode?.trim() && !verifyAccessCode(accessCode, session.access_code_hash)) {
       this.send(ws, { type: 'access_denied', sessionId, message: 'Código de acceso incorrecto' });
       return;
     }

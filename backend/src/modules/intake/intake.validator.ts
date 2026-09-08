@@ -12,6 +12,10 @@ export const createSessionSchema = z.object({
 });
 
 const accessCodeSchema = z.string().trim().length(6, 'Código de acceso inválido');
+const optionalAccessCode = z.preprocess(
+  (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+  accessCodeSchema.optional()
+);
 
 export const listQuerySchema = z.object({
   status: z.enum(['DRAFT', 'SUBMITTED', 'VALIDATED', 'EXPIRED']).optional(),
@@ -20,6 +24,14 @@ export const listQuerySchema = z.object({
 
 export const accessCodeQuerySchema = z.object({
   accessCode: accessCodeSchema,
+});
+
+export const optionalAccessCodeQuerySchema = z.object({
+  accessCode: optionalAccessCode,
+});
+
+export const optionalAccessCodeBodySchema = z.object({
+  accessCode: optionalAccessCode,
 });
 
 export const accessCodeBodySchema = z.object({

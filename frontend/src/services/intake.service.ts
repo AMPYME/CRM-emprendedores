@@ -1,6 +1,7 @@
 /**
  * Servicio del intake de emprendedores (REST + helpers de WebSocket / enlace).
  */
+import { toPageProtocol } from '@/lib/public-urls';
 import { apiClient } from './api-client';
 import type { ApiResponse } from '@/types/api.types';
 import type {
@@ -41,9 +42,9 @@ export const intakeService = {
     return res.data.data;
   },
 
-  async getById(id: string, accessCode: string): Promise<IntakeSnapshot> {
+  async getById(id: string, accessCode?: string): Promise<IntakeSnapshot> {
     const res = await apiClient.get<ApiResponse<IntakeSnapshot>>(`/intake/sessions/${id}`, {
-      params: { accessCode },
+      params: accessCode ? { accessCode } : undefined,
     });
     return res.data.data;
   },
@@ -60,18 +61,18 @@ export const intakeService = {
     return res.data.data;
   },
 
-  async validate(id: string, accessCode: string): Promise<IntakeMigrateResult> {
+  async validate(id: string, accessCode?: string): Promise<IntakeMigrateResult> {
     const res = await apiClient.post<ApiResponse<IntakeMigrateResult>>(
       `/intake/sessions/${id}/validate`,
-      { accessCode }
+      accessCode ? { accessCode } : {}
     );
     return res.data.data;
   },
 
-  async update(id: string, data: IntakeUpdateInput, accessCode: string): Promise<IntakeSnapshot> {
+  async update(id: string, data: IntakeUpdateInput, accessCode?: string): Promise<IntakeSnapshot> {
     const res = await apiClient.patch<ApiResponse<IntakeSnapshot>>(`/intake/sessions/${id}`, {
       ...data,
-      accessCode,
+      ...(accessCode ? { accessCode } : {}),
     });
     return res.data.data;
   },
@@ -83,9 +84,12 @@ export const intakeService = {
 
 function intakeWsBase(): string {
   const explicit = process.env.NEXT_PUBLIC_WS_URL;
-  if (explicit) return explicit.replace(/\/$/, '');
-  const api = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
-  return api.replace(/\/api\/v1\/?$/, '').replace(/^http/, 'ws') + '/ws/intake';
+  const raw = explicit
+    ? explicit.replace(/\/$/, '')
+    : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1')
+        .replace(/\/api\/v1\/?$/, '')
+        .replace(/^http/, 'ws') + '/ws/intake';
+  return toPageProtocol(raw);
 }
 
 /** URL del WebSocket de intake para operadores (JWT como query param). */
@@ -106,7 +110,7 @@ export function getIntakeFormUrl(sessionId: string): string {
   const configured = (process.env.NEXT_PUBLIC_INTAKE_FORM_URL || '').trim();
   let base: string;
   if (configured) {
-    base = configured.replace(/\/?$/, '/');
+    base = toPageProtocol(configured.replace(/\/?$/, '/'));
   } else if (typeof window !== 'undefined') {
     base = `${window.location.origin}/emprendedores/`;
   } else {
