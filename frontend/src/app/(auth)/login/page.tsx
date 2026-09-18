@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -18,9 +18,32 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
+const APLICACIONES_INTERNA = 'https://aplicaciones.ampyme.local/';
+const APLICACIONES_PUBLICA = 'http://programas.ampyme.gob.pa/aplicaciones';
+
+async function resolveAplicacionesHubUrl(timeoutMs = 2000): Promise<string> {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    await fetch(APLICACIONES_INTERNA, {
+      method: 'GET',
+      mode: 'no-cors',
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    return APLICACIONES_INTERNA;
+  } catch {
+    return APLICACIONES_PUBLICA;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const { setAuth } = useAuthStore();
+  const [aplicacionesHref, setAplicacionesHref] = useState(APLICACIONES_INTERNA);
+  const [abriendoCentro, setAbriendoCentro] = useState(false);
 
   const {
     register,
@@ -31,6 +54,16 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema),
     defaultValues: { email: '', password: '' },
   });
+
+  useEffect(() => {
+    let cancelado = false;
+    void resolveAplicacionesHubUrl().then((url) => {
+      if (!cancelado) setAplicacionesHref(url);
+    });
+    return () => {
+      cancelado = true;
+    };
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -82,6 +115,32 @@ export default function LoginPage() {
       <div className="flex min-h-screen w-full flex-col bg-white lg:h-screen lg:w-1/3">
         <div className="flex flex-1 items-center justify-center overflow-y-auto px-8 py-10">
           <div className="w-full max-w-[28rem] rounded-2xl border border-gray-200 bg-white p-10 shadow-sm">
+          <a
+            href={aplicacionesHref}
+            onClick={async (e) => {
+              e.preventDefault();
+              if (abriendoCentro) return;
+              setAbriendoCentro(true);
+              try {
+                window.location.assign(await resolveAplicacionesHubUrl());
+              } finally {
+                setAbriendoCentro(false);
+              }
+            }}
+            className="mb-6 inline-flex w-fit max-w-full items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold no-underline"
+            style={{
+              color: '#16A34A',
+              background: 'linear-gradient(135deg, color-mix(in srgb, #16A34A 10%, #ffffff) 0%, color-mix(in srgb, #16A34A 18%, #ffffff) 100%)',
+              border: '1px solid color-mix(in srgb, #16A34A 22%, #ffffff)',
+              opacity: abriendoCentro ? 0.75 : 1,
+              pointerEvents: abriendoCentro ? 'none' : 'auto',
+            }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
+              <path d="M.88,14.09,4.75,18a1,1,0,0,0,1.42,0h0a1,1,0,0,0,0-1.42L2.61,13H23a1,1,0,0,0,1-1h0a1,1,0,0,0,-1-1H2.55L6.17,7.38A1,1,0,0,0,6.17,6h0A1,1,0,0,0,4.75,6L.88,9.85A3,3,0,0,0,.88,14.09Z" />
+            </svg>
+            Volver al Centro de Aplicaciones
+          </a>
           <form
             method="post"
             action="/login"
