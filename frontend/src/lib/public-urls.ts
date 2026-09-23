@@ -1,8 +1,8 @@
 /**
  * URLs públicas incrustadas en el build (NEXT_PUBLIC_*).
- * En páginas HTTPS, las llamadas REST van al mismo origen (`/backend-api`)
- * para no bloquear mixed content. El rewrite de Next las reenvía al API.
- * WebSocket se sube de ws→wss cuando el API tiene TLS.
+ * La API en Dokploy está publicada por HTTP. En una página HTTPS el navegador
+ * no puede llamar http:// (mixed content): el REST sale por `/backend-api`
+ * y el rewrite de Next lo reenvía al API por HTTP.
  */
 export function toPageProtocol(url: string): string {
   if (!url) return url;
@@ -14,11 +14,18 @@ export function toPageProtocol(url: string): string {
   return url;
 }
 
+/** La ruta pública de la API es HTTP. No conservar un https incrustado en el build. */
+export function apiHttpUrl(url: string): string {
+  return url.replace(/^https:\/\//i, 'http://');
+}
+
 export function publicApiBaseUrl(): string {
-  const configured = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+  const configured = apiHttpUrl(
+    process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1'
+  );
   if (typeof window === 'undefined') return configured;
-  if (window.location.protocol === 'https:' && configured.startsWith('http:')) {
+  if (window.location.protocol === 'https:' && configured.startsWith('http://')) {
     return `${window.location.origin}/backend-api`;
   }
-  return toPageProtocol(configured);
+  return configured;
 }

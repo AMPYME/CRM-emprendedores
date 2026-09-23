@@ -1,7 +1,7 @@
 /**
  * Servicio del intake de emprendedores (REST + helpers de WebSocket / enlace).
  */
-import { toPageProtocol } from '@/lib/public-urls';
+import { apiHttpUrl, toPageProtocol } from '@/lib/public-urls';
 import { apiClient } from './api-client';
 import type { ApiResponse } from '@/types/api.types';
 import type {
@@ -87,9 +87,9 @@ function intakeWsBase(): string {
   const raw = explicit
     ? explicit.replace(/\/$/, '')
     : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1')
-        .replace(/\/api\/v1\/?$/, '')
-        .replace(/^http/, 'ws') + '/ws/intake';
-  return toPageProtocol(raw);
+        .replace(/\/api\/v1\/?$/, '') + '/ws/intake';
+  const httpUrl = apiHttpUrl(raw.replace(/^wss:/i, 'https:'));
+  return httpUrl.replace(/^http/i, 'ws');
 }
 
 /** URL del WebSocket de intake para operadores (JWT como query param). */
