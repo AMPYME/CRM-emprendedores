@@ -18,8 +18,21 @@ const contactSchema = z.object({
   isPrimary: z.boolean().default(false),
 });
 
-// ── Crear persona ─────────────────────────────────────────────────
-export const createPersonSchema = z.object({
+function refineSeedCapital(
+  data: { seedCapital?: 0 | 1; seedCapitalDate?: string },
+  ctx: z.RefinementCtx
+) {
+  if (data.seedCapital !== 1) return;
+  if (!/^(0[1-9]|1[0-2])\/\d{4}$/.test(data.seedCapitalDate ?? '')) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['seedCapitalDate'],
+      message: 'La fecha de capital semilla es obligatoria (MM/AAAA)',
+    });
+  }
+}
+
+const personBodySchema = z.object({
   // Campos de entidad
   province: z.string().max(100).trim().optional(),
   district: z.string().max(100).trim().optional(),
@@ -41,17 +54,22 @@ export const createPersonSchema = z.object({
   businessName: z.string().max(200).trim().optional(),
   economicActivity: z.string().max(200).trim().optional(),
   hasArtisanCard: z.boolean().optional(),
+  seedCapital: z.union([z.literal(0), z.literal(1)]).optional(),
+  seedCapitalDate: z.string().trim().max(7).optional(),
 
   // Contactos opcionales en creación
   contacts: z.array(contactSchema).optional(),
 });
 
+export const createPersonSchema = personBodySchema.superRefine(refineSeedCapital);
+
 export type CreatePersonInput = z.infer<typeof createPersonSchema>;
 
 // ── Actualizar persona ────────────────────────────────────────────
-export const updatePersonSchema = createPersonSchema
+export const updatePersonSchema = personBodySchema
   .omit({ contacts: true, sourceOrigin: true })
   .partial()
+  .superRefine(refineSeedCapital)
   .refine((data) => Object.keys(data).length > 0, {
     message: 'Debe enviar al menos un campo para actualizar',
   });
@@ -73,6 +91,9 @@ export const personQuerySchema = z.object({
   gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional(),
   economicActivity: z.string().optional(),
   hasArtisanCard: z.coerce.boolean().optional(),
+  seedCapital: z.enum(['0', '1']).optional().transform((value) => (
+    value === undefined ? undefined : Number(value) as 0 | 1
+  )),
 });
 
 export type PersonQueryInput = z.infer<typeof personQuerySchema>;

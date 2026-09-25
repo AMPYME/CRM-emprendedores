@@ -57,6 +57,8 @@ export const portfolioQuerySchema = z.object({
   status: z.enum(['NEW', 'IN_PROGRESS', 'WAITING', 'RESOLVED', 'CLOSED']).optional(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
   assignedToId: z.string().uuid().optional(),
+  sedeId: z.string().uuid().optional(),
+  departamentoId: z.string().uuid().optional(),
   category: z.string().optional(),
   // Filtros especiales de cartera
   view: z.enum(['overdue', 'upcoming', 'unmanaged', 'all']).optional(),

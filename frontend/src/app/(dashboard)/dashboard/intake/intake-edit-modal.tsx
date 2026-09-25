@@ -29,6 +29,12 @@ const genderOptions = [
   { value: 'OTHER', label: 'Otro' },
 ];
 
+const seedCapitalOptions = [
+  { value: '', label: 'Seleccionar' },
+  { value: '1', label: 'Sí' },
+  { value: '0', label: 'No' },
+];
+
 const yesNoOptions = [
   { value: '', label: 'Seleccionar' },
   { value: 'true', label: 'Sí' },
@@ -87,6 +93,8 @@ function snapshotToForm(s: IntakeSnapshot): FormValues {
     nationalityCode: p?.nationality_code ?? DEFAULT_NATIONALITY_CODE,
     hasArtisanCard:
       p?.has_artisan_card === true ? 'true' : p?.has_artisan_card === false ? 'false' : '',
+    seedCapital: p?.seed_capital === 1 ? '1' : p?.seed_capital === 0 ? '0' : '',
+    seedCapitalDate: p?.seed_capital_date ?? '',
     legalName: c?.legal_name ?? '',
     tradeName: c?.trade_name ?? '',
     ruc: c?.ruc ?? '',
@@ -131,6 +139,8 @@ function formToPayload(snapshot: IntakeSnapshot, v: FormValues): IntakeUpdateInp
       nationalityCode: v.nationalityCode,
       hasArtisanCard:
         v.hasArtisanCard === 'true' ? true : v.hasArtisanCard === 'false' ? false : undefined,
+      seedCapital: v.seedCapital === '1' ? 1 : v.seedCapital === '0' ? 0 : undefined,
+      seedCapitalDate: v.seedCapital === '1' ? v.seedCapitalDate : undefined,
     };
   }
   if (showCompany || v.legalName?.trim()) {
@@ -150,6 +160,7 @@ function formToPayload(snapshot: IntakeSnapshot, v: FormValues): IntakeUpdateInp
 export function IntakeEditModal({ isOpen, onClose, sessionId, snapshot, accessCode, onSaved }: Props) {
   const updateMutation = useUpdateIntakeSession();
   const { register, handleSubmit, reset, watch, setValue } = useForm<FormValues>();
+  const seedCapital = watch('seedCapital');
 
   useEffect(() => {
     if (isOpen && snapshot) reset(snapshotToForm(snapshot));
@@ -206,6 +217,17 @@ export function IntakeEditModal({ isOpen, onClose, sessionId, snapshot, accessCo
               {...register('nationalityCode')}
             />
             <Select label="Carnet de artesano" options={yesNoOptions} {...register('hasArtisanCard')} />
+            <Select label="Capital semilla" options={seedCapitalOptions} {...register('seedCapital')} />
+            {seedCapital === '1' && (
+              <Input
+                label="Fecha de capital semilla *"
+                placeholder="MM/AAAA"
+                {...register('seedCapitalDate', {
+                  required: 'Obligatorio. Use el formato MM/AAAA',
+                  pattern: { value: /^(0[1-9]|1[0-2])\/\d{4}$/, message: 'Use el formato MM/AAAA' },
+                })}
+              />
+            )}
           </>
         )}
         {showCompany && (

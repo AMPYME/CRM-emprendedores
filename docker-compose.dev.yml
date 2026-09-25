@@ -8,7 +8,8 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: emprendedores_db
     ports:
-      - '5432:5432'
+      # Solo esta máquina. El frontend y el backend sí quedan en la LAN.
+      - '127.0.0.1:5432:5432'
     volumes:
       - postgres_data_dev:/var/lib/postgresql/data
     healthcheck:
@@ -43,12 +44,16 @@ services:
       FORMS_MYSQL_DATABASE: forms_ampyme
       CHOKIDAR_USEPOLLING: 'true'
       CHOKIDAR_INTERVAL: 1000
+      # El .env fija solo localhost. En dev se acepta cualquier origen de la LAN.
+      CORS_ORIGIN: '*'
     command: sh scripts/dev-entrypoint.sh
     volumes:
       - ./backend:/app
       - backend_node_modules:/app/node_modules
     ports:
-      - '4000:4000'
+      # 4000: acceso directo en WSL. 8000: portproxy de Windows (192.168.2.112:8000 → WSL:8000).
+      - '0.0.0.0:4000:4000'
+      - '0.0.0.0:8000:4000'
 
   frontend:
     image: node:20-alpine
@@ -59,9 +64,14 @@ services:
       - backend
     environment:
       NODE_ENV: development
-      NEXT_PUBLIC_API_URL: http://localhost:4000/api/v1
-      NEXT_PUBLIC_WS_URL: ws://localhost:4000/ws/intake
-      NEXT_PUBLIC_INTAKE_FORM_URL: http://localhost:3000/emprendedores/
+      # SSR dentro de Docker habla con el servicio backend (nombre de red).
+      # El navegador no resuelve "backend": si entra por el puerto 80 usa el 8000
+      # del mismo host (portproxy de Windows); si entra por :3000 usa el 4000.
+      NEXT_PUBLIC_API_URL: http://backend:4000/api/v1
+      API_PROXY_TARGET: http://backend:4000/api/v1
+      NEXT_PUBLIC_WS_URL: ws://backend:4000/ws/intake
+      NEXT_PUBLIC_LAN_API_PORT: '8000'
+      NEXT_PUBLIC_DIRECT_API_PORT: '4000'
       WATCHPACK_POLLING: 'true'
       CHOKIDAR_USEPOLLING: 'true'
     command: sh -c "npm install && npm run dev -- --hostname 0.0.0.0 --port 3000"
@@ -69,7 +79,7 @@ services:
       - ./frontend:/app
       - frontend_node_modules:/app/node_modules
     ports:
-      - '3000:3000'
+      - '0.0.0.0:3000:3000'
 
 volumes:
   postgres_data_dev:

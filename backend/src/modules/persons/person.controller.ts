@@ -3,6 +3,8 @@
  */
 import { Request, Response } from 'express';
 import { personService } from './person.service';
+import { capitalSemillaService } from '../capital-semilla/capital-semilla.service';
+import { SaveCapitalSemillaInput } from '../capital-semilla/capital-semilla.validator';
 import { sendSuccess, sendCreated, sendPaginated } from '../../shared/utils/response.utils';
 import { AuditActor } from '../audit/audit.service';
 
@@ -17,9 +19,28 @@ export const personController = {
     sendPaginated(res, result.data, result.meta);
   },
 
+  async lookupByCedula(req: Request, res: Response): Promise<void> {
+    const entity = await personService.findByCedula(String(req.query.cedula ?? ''));
+    sendSuccess(res, entity);
+  },
+
   async getById(req: Request, res: Response): Promise<void> {
     const entity = await personService.getById(req.params.id as string);
     sendSuccess(res, entity);
+  },
+
+  async listCapitalSemilla(req: Request, res: Response): Promise<void> {
+    const result = await capitalSemillaService.listByPerson(req.params.id as string);
+    sendSuccess(res, result);
+  },
+
+  async saveCapitalSemilla(req: Request, res: Response): Promise<void> {
+    const result = await capitalSemillaService.save(
+      req.params.id as string,
+      req.body as SaveCapitalSemillaInput,
+      getActor(req)
+    );
+    sendSuccess(res, result);
   },
 
   async create(req: Request, res: Response): Promise<void> {

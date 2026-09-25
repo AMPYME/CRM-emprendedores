@@ -158,6 +158,18 @@ export function resolveEmailForLocalUser(
   return tryEmail(profile.userPrincipalName);
 }
 
+/** Nombre de usuario de acceso. No guarda el correo. */
+export function resolveUsername(profile: AdMeProfile, loginIdentifier: string): string {
+  const candidates = [profile.username, loginIdentifier];
+  for (const raw of candidates) {
+    const value = raw?.trim();
+    if (value && !value.includes('@')) return value;
+  }
+  const email = profile.email || profile.userPrincipalName || loginIdentifier;
+  const local = email.split('@')[0]?.trim();
+  return local || loginIdentifier.trim();
+}
+
 export function namesFromAdProfile(profile: AdMeProfile): { firstName: string; lastName: string } {
   const fn =
     profile.firstName ||

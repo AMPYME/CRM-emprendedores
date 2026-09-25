@@ -96,6 +96,8 @@ function buildPersonSnapshot(
     business_name: fields.extractedBusinessName ?? null,
     economic_activity: getMapped(rawData, mapping, 'economicActivity') ?? null,
     has_artisan_card: null,
+    seed_capital: null,
+    seed_capital_date: null,
   };
 }
 

@@ -11,6 +11,7 @@ import { SearchBar } from '@/components/ui/search-bar';
 import { Select } from '@/components/ui/select';
 import { EmptyState } from '@/components/ui/empty-state';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { Pagination } from '@/components/ui/pagination';
 import {
   Table, TableHead, TableBody, TableRow, TableHeaderCell, TableCell,
 } from '@/components/ui/table';
@@ -52,10 +53,13 @@ function matchesSearch(form: AmpymeForm, query: string): boolean {
     .some((value) => String(value).toLowerCase().includes(q));
 }
 
+const EVENTS_PAGE_SIZE = 10;
+
 export default function EventsPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [page, setPage] = useState(1);
   const user = useAuthStore((s) => s.user);
   const readOnly = isReadOnlyRole(user?.role);
 
@@ -63,6 +67,7 @@ export default function EventsPage() {
 
   const handleSearch = useCallback((q: string) => {
     setSearchQuery(q);
+    setPage(1);
   }, []);
 
   const filteredForms = useMemo(() => {
@@ -70,6 +75,13 @@ export default function EventsPage() {
     const byStatus = filterAmpymeFormsByStatus(forms, statusFilter);
     return byStatus.filter((form) => matchesSearch(form, searchQuery));
   }, [data?.forms, statusFilter, searchQuery]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredForms.length / EVENTS_PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pagedForms = filteredForms.slice(
+    (currentPage - 1) * EVENTS_PAGE_SIZE,
+    currentPage * EVENTS_PAGE_SIZE
+  );
 
   const totalForms = data?.forms?.length ?? 0;
   const hasFilteredOut = totalForms > 0 && filteredForms.length === 0;
@@ -105,7 +117,7 @@ export default function EventsPage() {
             <Select
               options={statusOptions}
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
             />
           </div>
         </div>
@@ -142,7 +154,7 @@ export default function EventsPage() {
             }
             action={
               hasFilteredOut ? (
-                <Button variant="outline" onClick={() => { setStatusFilter('all'); setSearchQuery(''); }}>
+                <Button variant="outline" onClick={() => { setStatusFilter('all'); setSearchQuery(''); setPage(1); }}>
                   Ver todos
                 </Button>
               ) : undefined
@@ -161,7 +173,7 @@ export default function EventsPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredForms.map((form) => {
+              {pagedForms.map((form) => {
                 const status = computeAmpymeFormStatus(form);
                 return (
                   <TableRow key={form.id}>
@@ -206,6 +218,15 @@ export default function EventsPage() {
               })}
             </TableBody>
           </Table>
+        )}
+        {filteredForms.length > EVENTS_PAGE_SIZE && (
+          <div className="border-t px-4 py-3">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setPage}
+            />
+          </div>
         )}
       </Card>
     </div>

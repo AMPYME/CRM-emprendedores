@@ -18,12 +18,27 @@ const SAFE_USER_SELECT = {
   lastLoginAt: true,
   createdAt: true,
   updatedAt: true,
+  sede: {
+    select: { id: true, name: true, deletedAt: true },
+  },
+  departamento: {
+    select: { id: true, name: true, deletedAt: true },
+  },
 } as const;
 
-export type SafeUser = Pick<
-  User,
-  'id' | 'email' | 'firstName' | 'lastName' | 'role' | 'isActive' | 'lastLoginAt' | 'createdAt' | 'updatedAt'
->;
+export type SafeUser = {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: UserRole;
+  isActive: boolean;
+  lastLoginAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  sede: { id: string; name: string; deletedAt: Date | null } | null;
+  departamento: { id: string; name: string; deletedAt: Date | null } | null;
+};
 
 export const authRepository = {
   /**
@@ -62,6 +77,7 @@ export const authRepository = {
     passwordHash: string;
     firstName: string;
     lastName: string;
+    username?: string;
     role?: UserRole;
   }): Promise<SafeUser> {
     return prisma.user.create({
@@ -70,6 +86,7 @@ export const authRepository = {
         passwordHash: data.passwordHash,
         firstName: data.firstName,
         lastName: data.lastName,
+        username: data.username,
         role: data.role || 'EMPREND_OPERADOR',
       },
       select: SAFE_USER_SELECT,
@@ -79,12 +96,13 @@ export const authRepository = {
   /**
    * Actualizar último login y, opcionalmente, sincronizar rol desde AD.
    */
-  async updateLastLogin(id: string, role?: UserRole): Promise<SafeUser> {
+  async updateLastLogin(id: string, role?: UserRole, username?: string): Promise<SafeUser> {
     return prisma.user.update({
       where: { id },
       data: {
         lastLoginAt: new Date(),
         ...(role ? { role } : {}),
+        ...(username ? { username } : {}),
       },
       select: SAFE_USER_SELECT,
     });

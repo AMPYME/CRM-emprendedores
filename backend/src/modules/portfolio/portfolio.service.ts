@@ -3,6 +3,7 @@
  * Lógica de negocio para PortfolioRecord + PortfolioAction.
  */
 import { Prisma } from '@prisma/client';
+import { prisma } from '../../config/database';
 import { portfolioRepository } from './portfolio.repository';
 import {
   PortfolioQueryInput,
@@ -66,26 +67,41 @@ export const portfolioService = {
    * - La entidad debe existir y no estar MERGED
    * - Si se asigna responsable, debe existir
    */
-  async create(input: CreatePortfolioInput) {
+  async create(input: CreatePortfolioInput, actorUserId?: string) {
     // Verificar entidad
     const entityExists = await portfolioRepository.entityExists(input.entityId);
     if (!entityExists) {
       throw new NotFoundError('Entidad', input.entityId);
     }
 
-    // Verificar usuario asignado
-    if (input.assignedToId) {
-      const userExists = await portfolioRepository.userExists(input.assignedToId);
-      if (!userExists) {
-        throw new NotFoundError('Usuario', input.assignedToId);
-      }
+    if (!actorUserId) {
+      throw new BadRequestError('No se pudo identificar al usuario que crea el seguimiento');
     }
+    const assignedToId = actorUserId;
+    const userExists = await portfolioRepository.userExists(assignedToId);
+    if (!userExists) {
+      throw new NotFoundError('Usuario', assignedToId);
+    }
+
+    let sedeId: string | undefined;
+    let departamentoId: string | undefined;
+    const owner = await prisma.user.findUnique({
+      where: { id: assignedToId },
+      select: {
+        sedeId: true,
+        departamentoId: true,
+        sede: { select: { deletedAt: true } },
+        departamento: { select: { deletedAt: true } },
+      },
+    });
+    if (owner?.sedeId && !owner.sede?.deletedAt) sedeId = owner.sedeId;
+    if (owner?.departamentoId && !owner.departamento?.deletedAt) departamentoId = owner.departamentoId;
 
     const data: Prisma.PortfolioRecordCreateInput = {
       entity: { connect: { id: input.entityId } },
-      assignedTo: input.assignedToId
-        ? { connect: { id: input.assignedToId } }
-        : undefined,
+      assignedTo: { connect: { id: assignedToId } },
+      sede: sedeId ? { connect: { id: sedeId } } : undefined,
+      departamento: departamentoId ? { connect: { id: departamentoId } } : undefined,
       status: input.status || 'NEW',
       priority: input.priority || 'MEDIUM',
       category: input.category,
@@ -177,14 +193,33 @@ export const portfolioService = {
   /**
    * Agregar acción/gestión a un registro de cartera.
    */
-  async addAction(portfolioId: string, input: CreateActionInput) {
+  async addAction(portfolioId: string, input: CreateActionInput, actorUserId?: string) {
     const record = await portfolioRepository.findById(portfolioId);
     if (!record) {
       throw new NotFoundError('Registro de cartera', portfolioId);
     }
 
+    let sedeId: string | undefined;
+    let departamentoId: string | undefined;
+    if (actorUserId) {
+      const actor = await prisma.user.findUnique({
+        where: { id: actorUserId },
+        select: {
+          sedeId: true,
+          departamentoId: true,
+          sede: { select: { deletedAt: true } },
+          departamento: { select: { deletedAt: true } },
+        },
+      });
+      if (actor?.sedeId && !actor.sede?.deletedAt) sedeId = actor.sedeId;
+      if (actor?.departamentoId && !actor.departamento?.deletedAt) departamentoId = actor.departamentoId;
+    }
+
     const data: Prisma.PortfolioActionCreateInput = {
       portfolio: { connect: { id: portfolioId } },
+      performedBy: actorUserId ? { connect: { id: actorUserId } } : undefined,
+      sede: sedeId ? { connect: { id: sedeId } } : undefined,
+      departamento: departamentoId ? { connect: { id: departamentoId } } : undefined,
       actionType: input.actionType,
       description: input.description,
       result: input.result,

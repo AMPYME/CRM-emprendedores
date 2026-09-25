@@ -10,6 +10,7 @@ import { authRepository, SafeUser } from './auth.repository';
 import { adLogin, adGetMe } from './ad-user-api.client';
 import {
   resolveEmailForLocalUser,
+  resolveUsername,
   namesFromAdProfile,
   hasAnyRequiredAdRole,
   mapAdRolesToCrmRole,
@@ -112,6 +113,12 @@ function toAuthUser(user: SafeUser): AuthUser {
     isActive: user.isActive,
     lastLoginAt: user.lastLoginAt,
     createdAt: user.createdAt,
+    sede: user.sede && !user.sede.deletedAt
+      ? { id: user.sede.id, name: user.sede.name }
+      : null,
+    departamento: user.departamento && !user.departamento.deletedAt
+      ? { id: user.departamento.id, name: user.departamento.name }
+      : null,
   };
 }
 
@@ -193,6 +200,7 @@ export const authService = {
         );
       }
       const { firstName, lastName } = namesFromAdProfile(me);
+      const username = resolveUsername(me, identifier);
       const placeholderHash = await bcrypt.hash(randomUUID(), 12);
       const crmRole = mapAdRolesToCrmRole(adRoles);
       const created = await authRepository.create({
@@ -200,6 +208,7 @@ export const authService = {
         passwordHash: placeholderHash,
         firstName,
         lastName,
+        username,
         role: crmRole,
       });
       const safe = await authRepository.updateLastLogin(created.id);
@@ -223,7 +232,7 @@ export const authService = {
     }
 
     const roleSync = resolveAdRoleSync(adRoles, user.role);
-    const safeUser = await authRepository.updateLastLogin(user.id, roleSync);
+    const safeUser = await authRepository.updateLastLogin(user.id, roleSync, resolveUsername(me, identifier));
     const accessToken = generateAccessToken(safeUser);
     const refreshToken = generateRefreshToken(safeUser);
     logger.info('Login exitoso (AD)', { userId: user.id, email: user.email });

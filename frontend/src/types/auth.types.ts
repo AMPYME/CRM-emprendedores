@@ -13,6 +13,8 @@ export interface AuthUser {
   isActive: boolean;
   lastLoginAt: string | null;
   createdAt: string;
+  sede: { id: string; name: string } | null;
+  departamento: { id: string; name: string } | null;
 }
 
 export interface AuthTokenResponse {

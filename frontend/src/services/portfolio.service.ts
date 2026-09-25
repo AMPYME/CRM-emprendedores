@@ -9,6 +9,8 @@ interface GetPortfolioParams extends PaginationParams {
   status?: string;
   priority?: string;
   assignedToId?: string;
+  sedeId?: string;
+  departamentoId?: string;
   category?: string;
   view?: 'overdue' | 'upcoming' | 'unmanaged';
 }

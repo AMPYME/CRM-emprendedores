@@ -121,6 +121,8 @@ function mapSnapshot(session: SessionWithEntities): IntakeSnapshot {
         business_name: p.businessName,
         economic_activity: p.economicActivity,
         has_artisan_card: p.hasArtisanCard,
+        seed_capital: p.seedCapital,
+        seed_capital_date: p.seedCapitalDate,
       };
     }
     if (entity.company) {

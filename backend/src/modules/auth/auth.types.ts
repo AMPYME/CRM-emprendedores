@@ -36,6 +36,8 @@ export interface AuthUser {
   isActive: boolean;
   lastLoginAt: Date | null;
   createdAt: Date;
+  sede: { id: string; name: string } | null;
+  departamento: { id: string; name: string } | null;
 }
 
 /**

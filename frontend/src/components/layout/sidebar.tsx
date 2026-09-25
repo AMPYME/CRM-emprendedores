@@ -12,14 +12,14 @@ import {
   Briefcase,
   FileSpreadsheet,
   RadioTower,
-  Shield,
   Settings,
   LogOut,
   ChevronLeft,
+  X,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth.store';
-import { canAccessNav, roleLabel } from '@/lib/roles';
-import { useState } from 'react';
+import { canAccessNav } from '@/lib/roles';
+import { useEffect, useState } from 'react';
 
 const navigation = [
   { id: 'home', name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -27,25 +27,18 @@ const navigation = [
   { id: 'persons', name: 'Personas', href: '/dashboard/persons', icon: Users },
   { id: 'companies', name: 'Empresas', href: '/dashboard/companies', icon: Building2 },
   { id: 'events', name: 'Eventos', href: '/dashboard/events', icon: CalendarDays },
-  { id: 'portfolio', name: 'Cartera', href: '/dashboard/portfolio', icon: Briefcase },
+  { id: 'portfolio', name: 'Seguimiento', href: '/dashboard/portfolio', icon: Briefcase },
   { id: 'imports', name: 'Importaciones', href: '/dashboard/imports', icon: FileSpreadsheet },
   { id: 'intake', name: 'Verificación', href: '/dashboard/intake', icon: RadioTower },
-  { id: 'audit', name: 'Auditoría', href: '/dashboard/audit', icon: Shield },
 ] as const;
 
 type NavItem = (typeof navigation)[number];
 
-/** Normaliza pathname (sin barra final salvo raíz). */
 function normalizePath(path: string): string {
   if (path.length > 1 && path.endsWith('/')) return path.slice(0, -1);
   return path;
 }
 
-/**
- * Ítem activo: rutas bajo `/dashboard/...` no deben marcar el enlace «/dashboard»
- * (si no, Dashboard y Buscar quedarían siempre resaltados).
- * En la portada exacta `/dashboard`, solo «Dashboard» se marca; «Buscar» comparte URL pero no estado activo.
- */
 function isNavItemActive(item: NavItem, pathname: string | null): boolean {
   if (!pathname) return false;
   const path = normalizePath(pathname);
@@ -58,7 +51,18 @@ function isNavItemActive(item: NavItem, pathname: string | null): boolean {
   return path === item.href || path.startsWith(`${item.href}/`);
 }
 
-export function Sidebar() {
+function initials(firstName?: string, lastName?: string): string {
+  const a = firstName?.trim().charAt(0) ?? '';
+  const b = lastName?.trim().charAt(0) ?? '';
+  return (a + b).toUpperCase() || 'U';
+}
+
+interface SidebarProps {
+  mobileOpen: boolean;
+  onMobileClose: () => void;
+}
+
+export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
@@ -66,92 +70,154 @@ export function Sidebar() {
     canAccessNav(user?.role, item.id)
   );
 
+  useEffect(() => {
+    onMobileClose();
+  }, [pathname, onMobileClose]);
+
   const handleLogout = () => {
     logout();
     window.location.href = '/login';
   };
 
+  const compact = collapsed;
+
   return (
-    <aside
-      className={cn(
-        'flex h-screen flex-col border-r border-gray-200 bg-white transition-all duration-300',
-        collapsed ? 'w-[68px]' : 'w-64'
-      )}
-    >
-      {/* Logo */}
-      <div className="flex h-16 items-center justify-between border-b border-gray-100 px-4">
-        {!collapsed && (
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-600 text-white font-bold text-sm">
-              A
-            </div>
-            <span className="text-sm font-bold text-gray-900">AMPYME CRM</span>
+    <>
+      <div
+        className={cn(
+          'fixed inset-0 z-40 bg-slate-900/40 transition-opacity md:hidden',
+          mobileOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+        )}
+        onClick={onMobileClose}
+        aria-hidden={!mobileOpen}
+      />
+
+      <aside
+        className={cn(
+          'fixed inset-y-0 left-0 z-50 flex min-h-screen w-[250px] flex-col text-white transition-all duration-300',
+          'md:static md:z-auto md:translate-x-0',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
+          compact && 'md:w-[76px] lg:w-[250px]'
+        )}
+        style={{
+          background: 'linear-gradient(180deg, #1e3a8a 0%, #1d4ed8 100%)',
+        }}
+        aria-label="Navegación principal"
+      >
+        <div className={cn('flex items-center justify-between gap-2 px-4 pb-2 pt-6', compact && 'md:flex-col md:px-2 lg:flex-row lg:px-4')}>
+          <Link
+            href="/dashboard"
+            className={cn(
+              'flex min-w-0 items-center gap-3 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white',
+              compact && 'md:justify-center lg:justify-start'
+            )}
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/emprendedores-icon.svg"
+                alt=""
+                className="h-8 w-8 object-contain"
+              />
+            </span>
+            <span className={cn('truncate text-[15px] font-semibold tracking-tight', compact && 'md:hidden lg:inline')}>
+              AMPYME CRM
+            </span>
           </Link>
-        )}
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className={cn(
-            'rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600',
-            collapsed && 'mx-auto'
+
+          <button
+            type="button"
+            onClick={onMobileClose}
+            className="rounded-lg p-2 text-white/80 hover:bg-white/10 md:hidden"
+            aria-label="Cerrar menú"
+          >
+            <X className="h-5 w-5" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCollapsed((value) => !value)}
+            className={cn(
+              'hidden rounded-lg p-2 text-white/80 hover:bg-white/10 md:inline-flex lg:hidden',
+              compact && 'md:mx-auto'
+            )}
+            aria-label={compact ? 'Expandir menú' : 'Contraer menú'}
+          >
+            <ChevronLeft className={cn('h-4 w-4 transition-transform', compact && 'rotate-180')} />
+          </button>
+        </div>
+
+        <nav className="mt-6 flex-1 space-y-1.5 overflow-y-auto px-3 pb-4">
+          {navItems.map((item) => {
+            const isActive = isNavItemActive(item, pathname);
+            return (
+              <Link
+                key={item.id}
+                href={item.href}
+                title={item.name}
+                aria-current={isActive ? 'page' : undefined}
+                className={cn(
+                  'flex min-h-11 items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-white transition-colors',
+                  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white',
+                  isActive ? 'bg-white/15' : 'hover:bg-white/10',
+                  compact && 'md:justify-center md:px-2 lg:justify-start lg:px-3'
+                )}
+                style={isActive ? { background: 'rgba(255,255,255,0.14)' } : undefined}
+              >
+                <item.icon className="h-5 w-5 shrink-0" aria-hidden />
+                <span className={cn(compact && 'md:hidden lg:inline')}>{item.name}</span>
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="border-t border-white/15 px-3 py-4">
+          {user && (
+            <div className={cn('mb-3 flex items-center gap-3 px-2', compact && 'md:justify-center lg:justify-start')}>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15 text-sm font-semibold">
+                {initials(user.firstName, user.lastName)}
+              </span>
+              <div className={cn('min-w-0', compact && 'md:hidden lg:block')}>
+                <p className="truncate text-sm font-semibold">
+                  {user.firstName} {user.lastName}
+                </p>
+                {user.sede?.name && (
+                  <p className="truncate text-xs text-white/75">{user.sede.name}</p>
+                )}
+                {user.departamento?.name && (
+                  <p className="truncate text-xs text-white/75">{user.departamento.name}</p>
+                )}
+              </div>
+            </div>
           )}
-        >
-          <ChevronLeft className={cn('h-4 w-4 transition-transform', collapsed && 'rotate-180')} />
-        </button>
-      </div>
 
-      {/* Nav links */}
-      <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-        {navItems.map((item) => {
-          const isActive = isNavItemActive(item, pathname);
-          return (
-            <Link
-              key={item.id}
-              href={item.href}
-              title={collapsed ? item.name : undefined}
-              className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-primary-50 text-primary-700'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
-                collapsed && 'justify-center px-2'
-              )}
-            >
-              <item.icon className="h-5 w-5 shrink-0" />
-              {!collapsed && <span>{item.name}</span>}
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* User area */}
-      <div className="border-t border-gray-100 p-3">
-        {!collapsed && user && (
-          <div className="mb-2 px-3 py-2">
-            <p className="truncate text-sm font-medium text-gray-900">
-              {user.firstName} {user.lastName}
-            </p>
-            <p className="truncate text-xs text-gray-500">{roleLabel(user.role)}</p>
-          </div>
-        )}
-        <div className={cn('flex gap-1', collapsed ? 'flex-col items-center' : '')}>
           <Link
             href="/settings"
             title="Configuración"
-            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            className={cn(
+              'flex min-h-11 items-center gap-3 rounded-[10px] px-3 py-2 text-sm text-white/90 hover:bg-white/10',
+              'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white',
+              compact && 'md:justify-center lg:justify-start'
+            )}
           >
-            <Settings className="h-4 w-4" />
-            {!collapsed && <span>Configuración</span>}
+            <Settings className="h-4 w-4 shrink-0" aria-hidden />
+            <span className={cn(compact && 'md:hidden lg:inline')}>Configuración</span>
           </Link>
           <button
+            type="button"
             onClick={handleLogout}
-            title="Cerrar sesión"
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-500 hover:bg-red-50 hover:text-red-600"
+            title="Salir"
+            className={cn(
+              'flex min-h-11 w-full items-center gap-3 rounded-[10px] px-3 py-2 text-sm text-white/90 hover:bg-white/10',
+              'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white',
+              compact && 'md:justify-center lg:justify-start'
+            )}
           >
-            <LogOut className="h-4 w-4" />
-            {!collapsed && <span>Salir</span>}
+            <LogOut className="h-4 w-4 shrink-0" aria-hidden />
+            <span className={cn(compact && 'md:hidden lg:inline')}>Salir</span>
           </button>
         </div>
-      </div>
-    </aside>
+      </aside>
+    </>
   );
 }

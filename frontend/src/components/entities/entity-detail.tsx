@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, User, Building, Mail, Phone, Globe,
-  FolderKanban, Link2, Plus, Trash2, CheckCircle, ArrowRight,
+  FolderKanban, Link2, Plus, Trash2, CheckCircle, ArrowRight, Eye, Sprout,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
@@ -44,6 +45,10 @@ import type {
   RelationshipType,
 } from '@/types/entities.types';
 import { contactsService } from '@/services/contacts.service';
+import { personsService, type CapitalSemillaRecord } from '@/services/persons.service';
+import { isReadOnlyRole } from '@/lib/roles';
+import { useAuthStore } from '@/stores/auth.store';
+import { getApiErrorMessage } from '@/services/api-client';
 import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 
@@ -131,12 +136,19 @@ const contactTypeOptions = [
 export function EntityDetail({ entityId, backHref, entityType }: EntityDetailProps) {
   const router = useRouter();
   const qc = useQueryClient();
+  const user = useAuthStore((s) => s.user);
+  const readOnly = isReadOnlyRole(user?.role);
 
   // Data
   const { data: entity, isLoading, error } = useEntity(entityId);
   const contacts = useEntityContacts(entityId);
   const portfolios = useEntityPortfolios(entityId);
   const relationships = useEntityRelationships(entityId, { direction: 'both', isActive: true });
+  const capitalSemilla = useQuery({
+    queryKey: ['capital-semilla', entityId],
+    queryFn: () => personsService.listCapitalSemilla(entityId),
+    enabled: entityType === 'PERSON',
+  });
 
   // State
   const [activeTab, setActiveTab] = useState('info');
@@ -153,6 +165,39 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
     role: '',
   });
   const [savingRelationship, setSavingRelationship] = useState(false);
+  const [seedEditor, setSeedEditor] = useState<{
+    recordId?: string;
+    province: string;
+    businessName: string;
+    actaNumber: string;
+    amount: string;
+  } | null>(null);
+  const [savingSeed, setSavingSeed] = useState(false);
+
+  const openSeedEditor = (row?: CapitalSemillaRecord) => {
+    setSeedEditor({
+      recordId: row?.id,
+      province: row?.province ?? '',
+      businessName: row?.businessName ?? '',
+      actaNumber: row?.actaNumber ?? '',
+      amount: row?.amount ?? '',
+    });
+  };
+
+  const saveSeed = async () => {
+    if (!seedEditor) return;
+    setSavingSeed(true);
+    try {
+      await personsService.saveCapitalSemilla(entityId, seedEditor);
+      toast.success(seedEditor.recordId ? 'Capital semilla actualizado' : 'Capital semilla registrado');
+      setSeedEditor(null);
+      await qc.invalidateQueries({ queryKey: ['capital-semilla', entityId] });
+    } catch (error) {
+      toast.error(getApiErrorMessage(error));
+    } finally {
+      setSavingSeed(false);
+    }
+  };
 
   // ── Handlers ─────────────────────────────────
   const handleAddContact = async () => {
@@ -264,10 +309,18 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
     },
     {
       id: 'portfolio',
-      label: 'Cartera',
+      label: 'Seguimiento',
       icon: <FolderKanban className="h-4 w-4" />,
       count: portfolios.data?.length,
     },
+    ...(entityType === 'PERSON'
+      ? [{
+          id: 'capital-semilla',
+          label: 'Capital Semilla',
+          icon: <Sprout className="h-4 w-4" />,
+          count: capitalSemilla.data?.records.length,
+        }]
+      : []),
   ];
 
   return (
@@ -318,6 +371,11 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                     label="Carnet de artesano"
                     value={person.hasArtisanCard === true ? 'Sí' : person.hasArtisanCard === false ? 'No' : null}
                   />
+                  <InfoRow
+                    label="Capital semilla"
+                    value={person.seedCapital === 1 ? 'Sí' : person.seedCapital === 0 ? 'No' : null}
+                  />
+                  <InfoRow label="Fecha de capital semilla" value={person.seedCapitalDate} />
                 </>
               )}
               {entityType === 'COMPANY' && company && (
@@ -349,6 +407,109 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
             </dl>
           </Card>
         </div>
+      )}
+
+      {activeTab === 'capital-semilla' && entityType === 'PERSON' && (
+        <Card
+          title="Capital Semilla"
+          description="Registros vinculados por la cédula de la persona"
+        >
+          {capitalSemilla.isLoading ? (
+            <div className="flex justify-center py-12"><LoadingSpinner text="Buscando capital semilla..." /></div>
+          ) : capitalSemilla.isError ? (
+            <p className="py-12 text-center text-sm text-red-500">No se pudo consultar el capital semilla.</p>
+          ) : !capitalSemilla.data?.cedula ? (
+            <EmptyState
+              icon={Sprout}
+              title="Sin cédula"
+              description="Esta persona no tiene cédula, así que no se puede vincular su capital semilla."
+            />
+          ) : (capitalSemilla.data.records.length === 0) ? (
+            <div className="space-y-4">
+              <EmptyState
+                icon={Sprout}
+                title="Sin registros"
+                description={`No hay capital semilla vinculado a la cédula ${capitalSemilla.data.cedula}.`}
+              />
+              {!readOnly && !seedEditor && (
+                <div className="flex justify-center">
+                  <Button size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => openSeedEditor()}>
+                    Agregar capital semilla
+                  </Button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableHeaderCell>ID</TableHeaderCell>
+                  <TableHeaderCell>Cédula</TableHeaderCell>
+                  <TableHeaderCell>Provincia</TableHeaderCell>
+                  <TableHeaderCell>Nombre del negocio</TableHeaderCell>
+                  <TableHeaderCell>No. de acta</TableHeaderCell>
+                  <TableHeaderCell>Monto</TableHeaderCell>
+                  {!readOnly && <TableHeaderCell align="right">Acciones</TableHeaderCell>}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {capitalSemilla.data.records.map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell>{row.externalId ?? '—'}</TableCell>
+                    <TableCell className="font-mono text-sm">{row.cedula}</TableCell>
+                    <TableCell>{row.province || '—'}</TableCell>
+                    <TableCell>{row.businessName || '—'}</TableCell>
+                    <TableCell>{row.actaNumber || '—'}</TableCell>
+                    <TableCell>
+                      {row.amount != null
+                        ? `B/. ${Number(row.amount).toLocaleString('es-PA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        : '—'}
+                    </TableCell>
+                    {!readOnly && (
+                      <TableCell align="right">
+                        <Button variant="ghost" size="sm" onClick={() => openSeedEditor(row)}>
+                          Editar
+                        </Button>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+          {seedEditor && !readOnly && (
+            <div className="mt-6 grid gap-3 border-t pt-4 sm:grid-cols-2">
+              <Input
+                label="Provincia"
+                value={seedEditor.province}
+                onChange={(e) => setSeedEditor({ ...seedEditor, province: e.target.value })}
+              />
+              <Input
+                label="Nombre del negocio"
+                value={seedEditor.businessName}
+                onChange={(e) => setSeedEditor({ ...seedEditor, businessName: e.target.value })}
+              />
+              <Input
+                label="No. de acta"
+                value={seedEditor.actaNumber}
+                onChange={(e) => setSeedEditor({ ...seedEditor, actaNumber: e.target.value })}
+              />
+              <Input
+                label="Monto"
+                value={seedEditor.amount}
+                onChange={(e) => setSeedEditor({ ...seedEditor, amount: e.target.value })}
+              />
+              <div className="flex gap-2 sm:col-span-2">
+                <Button size="sm" onClick={saveSeed} disabled={savingSeed}>
+                  {savingSeed ? 'Guardando...' : 'Guardar'}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setSeedEditor(null)} disabled={savingSeed}>
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          )}
+        </Card>
       )}
 
       {/* ── TAB: CONTACTS ──────────────────────────── */}
@@ -443,13 +604,13 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
 
       {/* ── TAB: PORTFOLIO ─────────────────────────── */}
       {activeTab === 'portfolio' && (
-        <Card title="Cartera de Seguimiento" description="Registros de seguimiento asociados a esta entidad">
+        <Card title="Seguimiento" description="Registros de seguimiento asociados a esta entidad">
           {portfolios.isLoading ? (
-            <LoadingSpinner text="Cargando cartera..." />
+            <LoadingSpinner text="Cargando seguimiento..." />
           ) : !portfolios.data || portfolios.data.length === 0 ? (
             <EmptyState
               icon={FolderKanban}
-              title="Sin registros en cartera"
+              title="Sin registros de seguimiento"
               description="No hay registros de seguimiento para esta entidad."
             />
           ) : (
@@ -460,7 +621,7 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                   <TableHeaderCell>Estado</TableHeaderCell>
                   <TableHeaderCell>Prioridad</TableHeaderCell>
                   <TableHeaderCell>Próximo seguimiento</TableHeaderCell>
-                  <TableHeaderCell>Acciones</TableHeaderCell>
+                  <TableHeaderCell align="right">Ver</TableHeaderCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -479,8 +640,15 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                     <TableCell>
                       {rec.nextFollowUpDate ? formatDateShort(rec.nextFollowUpDate) : '—'}
                     </TableCell>
-                    <TableCell>
-                      <span className="text-sm text-gray-500">{rec._count?.actions ?? 0}</span>
+                    <TableCell align="right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => router.push(`/dashboard/portfolio/${rec.id}`)}
+                        aria-label="Ver seguimiento"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}

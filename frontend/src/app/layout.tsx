@@ -11,7 +11,7 @@ const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'Emprendedores CRM - AMPYME',
-  description: 'Sistema de gestión de cartera y CRM de emprendedores',
+  description: 'Sistema de gestión de seguimiento y CRM de emprendedores',
   icons: {
     icon: '/emprendedores-icon.svg',
   },

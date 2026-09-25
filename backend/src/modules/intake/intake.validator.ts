@@ -57,6 +57,8 @@ export const updateSessionSchema = z.object({
         .optional(),
       educationLevel: z.string().optional(),
       hasArtisanCard: z.union([z.boolean(), z.string()]).optional(),
+      seedCapital: z.union([z.literal(0), z.literal(1), z.literal('0'), z.literal('1')]).optional(),
+      seedCapitalDate: z.string().optional(),
     })
     .optional(),
   company: z

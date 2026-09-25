@@ -38,6 +38,12 @@ const artisanOptions = [
   { value: 'false', label: 'Sin carnet de artesano' },
 ];
 
+const seedCapitalOptions = [
+  { value: '', label: 'Capital semilla: todos' },
+  { value: '1', label: 'Capital semilla: Sí' },
+  { value: '0', label: 'Capital semilla: No' },
+];
+
 export default function PersonsPage() {
   const user = useAuthStore((s) => s.user);
   const readOnly = isReadOnlyRole(user?.role);
@@ -46,6 +52,7 @@ export default function PersonsPage() {
   const [district, setDistrict] = useState('');
   const [corregimiento, setCorregimiento] = useState('');
   const [hasArtisanCard, setHasArtisanCard] = useState('');
+  const [seedCapital, setSeedCapital] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -58,6 +65,7 @@ export default function PersonsPage() {
     district: district || undefined,
     corregimiento: corregimiento || undefined,
     hasArtisanCard: hasArtisanCard === '' ? undefined : hasArtisanCard === 'true',
+    seedCapital: seedCapital === '' ? undefined : seedCapital === '1' ? 1 : 0,
   });
 
   const deleteMutation = useDeletePerson();
@@ -134,7 +142,7 @@ export default function PersonsPage() {
             </Button>
           </div>
           {showAdvanced && (
-            <div className="grid gap-3 sm:grid-cols-3 border-t pt-4">
+            <div className="grid gap-3 border-t pt-4 sm:grid-cols-2 lg:grid-cols-4">
               <Select
                 options={[{ value: '', label: 'Todos los distritos' }, ...getDistritoOptions(province).filter((o) => o.value)]}
                 value={district}
@@ -151,6 +159,11 @@ export default function PersonsPage() {
                 options={artisanOptions}
                 value={hasArtisanCard}
                 onChange={(e) => { setHasArtisanCard(e.target.value); setPage(1); }}
+              />
+              <Select
+                options={seedCapitalOptions}
+                value={seedCapital}
+                onChange={(e) => { setSeedCapital(e.target.value); setPage(1); }}
               />
             </div>
           )}

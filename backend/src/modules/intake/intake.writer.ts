@@ -10,7 +10,7 @@ import { parseBoolean } from './intake.mapper';
 import { locationInputToCodes } from '../../shared/utils/division-politica';
 
 export interface IntakeUpdateBody {
-  person?: Record<string, string | boolean | undefined>;
+  person?: Record<string, string | boolean | number | undefined>;
   company?: Record<string, string | number | undefined>;
   location?: Record<string, string | undefined>;
   contacts?: Array<{
@@ -123,7 +123,9 @@ export async function replaceIntakeSnapshot(
         genderRaw === 'MALE' || genderRaw === 'FEMALE' || genderRaw === 'OTHER'
           ? genderRaw
           : null;
-      const hasArtisanCard = parseBoolean(person.hasArtisanCard ?? person.hasArtisanCard);
+      const hasArtisanCard = parseBoolean(
+        typeof person.hasArtisanCard === 'number' ? undefined : person.hasArtisanCard
+      );
 
       await tx.intakeEntity.create({
         data: {
@@ -145,6 +147,8 @@ export async function replaceIntakeSnapshot(
               ),
               educationLevel: clean(person.educationLevel) ?? clean(person.educationLevel),
               hasArtisanCard: hasArtisanCard ?? null,
+              seedCapital: person.seedCapital === 1 || person.seedCapital === '1' ? 1 : person.seedCapital === 0 || person.seedCapital === '0' ? 0 : null,
+              seedCapitalDate: person.seedCapital === 1 || person.seedCapital === '1' ? clean(person.seedCapitalDate) ?? null : null,
             },
           },
           contacts: contactCreates.length ? { create: contactCreates } : undefined,
@@ -255,6 +259,12 @@ export async function seedIntakeFromVerificationPayload(
       businessName: snapshot.person.business_name as string | undefined,
       economicActivity: snapshot.person.economic_activity as string | undefined,
       hasArtisanCard: snapshot.person.has_artisan_card as boolean | undefined,
+      seedCapital: snapshot.person.seed_capital === 0 || snapshot.person.seed_capital === 1
+        ? snapshot.person.seed_capital
+        : undefined,
+      seedCapitalDate: typeof snapshot.person.seed_capital_date === 'string'
+        ? snapshot.person.seed_capital_date
+        : undefined,
     };
   }
 

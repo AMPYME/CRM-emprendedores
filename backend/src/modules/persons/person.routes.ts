@@ -3,7 +3,7 @@
  */
 import { Router } from 'express';
 import { personController } from './person.controller';
-import { forbidReadOnly } from '../auth/auth.middleware';
+import { forbidReadOnly, protect } from '../auth/auth.middleware';
 import { asyncHandler } from '../../shared/utils/async-handler';
 import { validate } from '../../shared/middlewares/validate.middleware';
 import {
@@ -12,6 +12,7 @@ import {
   personQuerySchema,
 } from './person.validator';
 import { entityIdParamSchema } from '../entities/entity.validator';
+import { saveCapitalSemillaSchema } from '../capital-semilla/capital-semilla.validator';
 
 export const personRoutes = Router();
 
@@ -19,6 +20,26 @@ personRoutes.get(
   '/',
   validate(personQuerySchema, 'query'),
   asyncHandler(personController.list)
+);
+
+personRoutes.get(
+  '/lookup',
+  asyncHandler(personController.lookupByCedula)
+);
+
+personRoutes.get(
+  '/:id/capital-semilla',
+  validate(entityIdParamSchema, 'params'),
+  asyncHandler(personController.listCapitalSemilla)
+);
+
+personRoutes.put(
+  '/:id/capital-semilla',
+  protect,
+  forbidReadOnly,
+  validate(entityIdParamSchema, 'params'),
+  validate(saveCapitalSemillaSchema, 'body'),
+  asyncHandler(personController.saveCapitalSemilla)
 );
 
 personRoutes.get(

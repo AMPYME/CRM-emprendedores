@@ -96,6 +96,8 @@ export function snapshotToCreatePerson(s: IntakeSnapshot) {
     nationalityCode: resolveNationalityCode(p.nationality_code),
     educationLevel: clean(p.education_level),
     hasArtisanCard: parseBoolean(p.has_artisan_card),
+    seedCapital: p.seed_capital === 0 || p.seed_capital === 1 ? p.seed_capital : undefined,
+    seedCapitalDate: p.seed_capital === 1 ? clean(p.seed_capital_date) : undefined,
     province: common.province,
     district: common.district,
     corregimiento: common.corregimiento,
@@ -140,6 +142,11 @@ export function validateSnapshot(s: IntakeSnapshot): { valid: boolean; errors: s
   }
   if (hasPerson(s.person) && !clean(s.person.first_name)) {
     errors.push('Falta el nombre.');
+  }
+  if (hasPerson(s.person) && s.person.seed_capital === 1) {
+    if (!/^(0[1-9]|1[0-2])\/\d{4}$/.test(s.person.seed_capital_date ?? '')) {
+      errors.push('La fecha de capital semilla es obligatoria (MM/AAAA).');
+    }
   }
   if (
     hasCompany(s.company) &&

@@ -32,6 +32,18 @@ export const personService = {
     };
   },
 
+  async findByCedula(cedula: string) {
+    const normalized = cedula.trim();
+    if (!normalized) {
+      throw new NotFoundError('Persona', cedula);
+    }
+    const entity = await personRepository.findByCedula(normalized);
+    if (!entity) {
+      throw new NotFoundError('Persona', normalized);
+    }
+    return entity;
+  },
+
   async getById(entityId: string) {
     const entity = await personRepository.findById(entityId);
     if (!entity) {
@@ -76,6 +88,8 @@ export const personService = {
         businessName: input.businessName,
         economicActivity: input.economicActivity,
         hasArtisanCard: input.hasArtisanCard,
+        seedCapital: input.seedCapital,
+        seedCapitalDate: input.seedCapital === 1 ? input.seedCapitalDate : null,
       },
       contacts: input.contacts,
     });
@@ -139,6 +153,12 @@ export const personService = {
     if (input.businessName !== undefined) personData.businessName = input.businessName;
     if (input.economicActivity !== undefined) personData.economicActivity = input.economicActivity;
     if (input.hasArtisanCard !== undefined) personData.hasArtisanCard = input.hasArtisanCard;
+    if (input.seedCapital !== undefined) {
+      personData.seedCapital = input.seedCapital;
+      personData.seedCapitalDate = input.seedCapital === 1 ? input.seedCapitalDate ?? null : null;
+    } else if (input.seedCapitalDate !== undefined) {
+      personData.seedCapitalDate = input.seedCapitalDate || null;
+    }
 
     if (input.firstName !== undefined || input.lastName !== undefined || input.secondLastName !== undefined) {
       const firstName = input.firstName ?? current.person!.firstName;

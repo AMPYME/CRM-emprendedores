@@ -2,128 +2,120 @@
 
 import React from 'react';
 import Link from 'next/link';
-import {
-  Users,
-  Building,
-  Calendar,
-  FolderKanban,
-  Upload,
-  TrendingUp,
-  Clock,
-  AlertTriangle,
-  ArrowRight,
-} from 'lucide-react';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Users, Building2, Calendar, Upload, ChevronRight } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { PageHeader } from '@/components/layout/page-header';
-import { useEntities } from '@/hooks/use-entities';
 import { usePersons } from '@/hooks/use-persons';
 import { useCompanies } from '@/hooks/use-companies';
 import { useEvents } from '@/hooks/use-events';
-import { usePortfolioStats } from '@/hooks/use-portfolio';
 import { useAuthStore } from '@/stores/auth.store';
-import { cn } from '@/lib/utils';
 import { canAccessImports, canAccessNav, isReadOnlyRole } from '@/lib/roles';
 
-/* ─── Stats card ──────────────────────────────────────── */
-interface StatCardProps {
-  title: string;
-  value: string | number;
-  icon: React.ElementType;
-  href: string;
-  color: string;
-  subtitle?: string;
+function DashboardScene() {
+  return (
+    <svg
+      aria-hidden
+      className="pointer-events-none absolute bottom-0 right-0 h-56 w-[420px] max-w-full opacity-45"
+      viewBox="0 0 420 220"
+      fill="none"
+    >
+      <path d="M0 170c40-28 70-28 110 0s70 28 110 0 70-28 110 0 60 24 90 8v42H0V170z" fill="#edf4fa" />
+      <path d="M20 186c36-18 62-18 96 0s58 16 94-2 64-20 100 0 62 18 90 6v30H20v-34z" fill="#eaf2fb" />
+      <ellipse cx="78" cy="48" rx="28" ry="14" fill="#dce8f5" />
+      <ellipse cx="102" cy="46" rx="22" ry="12" fill="#edf4fa" />
+      <ellipse cx="300" cy="36" rx="34" ry="16" fill="#dce8f5" />
+      <ellipse cx="328" cy="34" rx="24" ry="12" fill="#eaf2fb" />
+      <rect x="168" y="92" width="36" height="78" rx="3" fill="#dce8f5" />
+      <rect x="210" y="68" width="28" height="102" rx="3" fill="#eaf2fb" />
+      <rect x="244" y="84" width="42" height="86" rx="3" fill="#dce8f5" />
+      <rect x="292" y="104" width="24" height="66" rx="3" fill="#edf4fa" />
+      <rect x="132" y="112" width="22" height="58" rx="3" fill="#eaf2fb" />
+    </svg>
+  );
 }
 
-function StatCard({ title, value, icon: Icon, href, color, subtitle }: StatCardProps) {
+interface MetricCardProps {
+  title: string;
+  value: string | number;
+  caption: string;
+  href: string;
+  icon: React.ElementType;
+  iconColor: string;
+  iconBg: string;
+  cardBg: string;
+}
+
+function MetricCard({
+  title,
+  value,
+  caption,
+  href,
+  icon: Icon,
+  iconColor,
+  iconBg,
+  cardBg,
+}: MetricCardProps) {
   return (
-    <Link href={href} className="group">
-      <Card className="transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
-        <div className="flex items-center justify-between p-6">
-          <div>
-            <p className="text-sm font-medium text-gray-500">{title}</p>
-            <p className="mt-1 text-3xl font-bold text-gray-900">{value}</p>
-            {subtitle && <p className="mt-1 text-xs text-gray-400">{subtitle}</p>}
-          </div>
-          <div className={cn('rounded-xl p-3', color)}>
-            <Icon className="h-6 w-6 text-white" />
-          </div>
-        </div>
-      </Card>
+    <Link
+      href={href}
+      className="group flex min-h-[148px] items-center gap-4 rounded-[14px] border border-[#e2e8f0] p-6 shadow-[0_4px_14px_rgba(15,23,42,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(15,23,42,0.08)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+      style={{ background: cardBg }}
+    >
+      <div className="min-w-0 flex-1">
+        <span
+          className="flex h-11 w-11 items-center justify-center rounded-xl"
+          style={{ background: iconBg, color: iconColor }}
+        >
+          <Icon className="h-5 w-5" aria-hidden />
+        </span>
+        <p className="mt-4 text-[15px] font-semibold text-slate-900">{title}</p>
+        <p className="mt-1 text-[32px] font-bold leading-none text-slate-900">{value}</p>
+        <p className="mt-2 text-sm text-slate-500">{caption}</p>
+      </div>
+      <ChevronRight className="h-5 w-5 shrink-0 text-slate-400 group-hover:text-slate-600" aria-hidden />
     </Link>
   );
 }
 
-/* ─── Portfolio mini-card ─────────────────────────────── */
-interface PortfolioMiniProps {
-  label: string;
-  count: number;
-  icon: React.ElementType;
-  variant: 'success' | 'warning' | 'danger' | 'primary';
-}
-
-function PortfolioMini({ label, count, icon: Icon, variant }: PortfolioMiniProps) {
-  const variantColors = {
-    success: 'text-green-600 bg-green-50',
-    warning: 'text-yellow-600 bg-yellow-50',
-    danger: 'text-red-600 bg-red-50',
-    primary: 'text-primary-600 bg-primary-50',
-  };
-  return (
-    <div className="flex items-center gap-3 rounded-lg border p-3">
-      <div className={cn('rounded-lg p-2', variantColors[variant])}>
-        <Icon className="h-5 w-5" />
-      </div>
-      <div>
-        <p className="text-2xl font-bold text-gray-900">{count}</p>
-        <p className="text-xs text-gray-500">{label}</p>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Quick Action ────────────────────────────────────── */
-interface QuickActionProps {
+interface ActionCardProps {
   title: string;
   description: string;
   href: string;
   icon: React.ElementType;
-  color: string;
+  iconColor: string;
+  iconBg: string;
 }
 
-function QuickAction({ title, description, href, icon: Icon, color }: QuickActionProps) {
+function ActionCard({ title, description, href, icon: Icon, iconColor, iconBg }: ActionCardProps) {
   return (
     <Link
       href={href}
-      className="flex items-center gap-4 rounded-lg border p-4 transition-all hover:shadow-sm hover:border-primary-200 group"
+      className="group flex min-h-[72px] items-center gap-4 rounded-[14px] border border-[#e2e8f0] bg-white px-4 py-4 shadow-[0_4px_14px_rgba(15,23,42,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(15,23,42,0.08)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
     >
-      <div className={cn('rounded-lg p-2.5', color)}>
-        <Icon className="h-5 w-5 text-white" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-gray-800 group-hover:text-primary-700">{title}</p>
-        <p className="text-xs text-gray-500 truncate">{description}</p>
-      </div>
-      <ArrowRight className="h-4 w-4 text-gray-300 group-hover:text-primary-500 transition-colors" />
+      <span
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
+        style={{ background: iconBg, color: iconColor }}
+      >
+        <Icon className="h-5 w-5" aria-hidden />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[15px] font-semibold text-slate-900">{title}</span>
+        <span className="mt-0.5 block text-[13px] leading-snug text-slate-500">{description}</span>
+      </span>
+      <ChevronRight className="h-5 w-5 shrink-0 text-slate-400 group-hover:text-slate-600" aria-hidden />
     </Link>
   );
 }
 
-/* ─── Page ────────────────────────────────────────────── */
 export default function DashboardPage() {
   const { user } = useAuthStore();
   const role = user?.role;
   const showEvents = canAccessNav(role, 'events');
-  const showPortfolio = canAccessNav(role, 'portfolio');
   const showImports = canAccessImports(role);
   const readOnly = isReadOnlyRole(role);
 
   const persons = usePersons({ limit: 1 });
   const companies = useCompanies({ limit: 1 });
   const events = useEvents({ limit: 1 });
-  const portfolioStats = usePortfolioStats();
 
   const personCount = persons.data?.meta?.total ?? '—';
   const companyCount = companies.data?.meta?.total ?? '—';
@@ -132,160 +124,110 @@ export default function DashboardPage() {
   const isLoading =
     persons.isLoading || companies.isLoading || (showEvents && events.isLoading);
 
+  const firstName = user?.firstName ?? 'Usuario';
+
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title={`¡Hola, ${user?.firstName ?? 'Usuario'}!`}
-        description="Bienvenido al Sistema de Gestión de Cartera de Emprendedores - AMPYME"
-      />
+    <div className="relative min-h-full">
+      <DashboardScene />
 
-      {/* ── Stats Grid ───────────────────────────────── */}
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <LoadingSpinner size="lg" text="Cargando estadísticas..." />
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <StatCard
-            title="Personas"
-            value={personCount}
-            icon={Users}
-            href="/dashboard/persons"
-            color="bg-blue-500"
-            subtitle="Emprendedores registrados"
-          />
-          <StatCard
-            title="Empresas"
-            value={companyCount}
-            icon={Building}
-            href="/dashboard/companies"
-            color="bg-emerald-500"
-            subtitle="Empresas registradas"
-          />
-          {showEvents && (
-            <StatCard
-              title="Eventos"
-              value={eventCount}
-              icon={Calendar}
-              href="/dashboard/events"
-              color="bg-amber-500"
-              subtitle="Eventos creados"
+      <div className="relative">
+        <section className="mb-8">
+          <h1 className="text-[32px] font-bold leading-tight text-[#0f172a]">
+            ¡Hola, {firstName}!
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm text-[#64748b] sm:text-[15px]">
+            Bienvenido al Sistema de Gestión de Seguimiento de Emprendedores – AMPYME
+          </p>
+        </section>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <LoadingSpinner size="lg" text="Cargando estadísticas..." />
+          </div>
+        ) : (
+          <section className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <MetricCard
+              title="Personas"
+              value={personCount}
+              caption="Emprendedores registrados"
+              href="/dashboard/persons"
+              icon={Users}
+              iconColor="#2563eb"
+              iconBg="#dbeafe"
+              cardBg="#f8fbff"
             />
-          )}
-        </div>
-      )}
-
-      {/* ── Lower half ─────────────────────────────── */}
-      <div className={cn('grid grid-cols-1 gap-6', showPortfolio && 'lg:grid-cols-3')}>
-        {/* Portfolio overview */}
-        {showPortfolio && (
-        <div className="lg:col-span-2">
-          <Card title="Cartera de Seguimiento" description="Resumen del estado de las gestiones">
-            {portfolioStats.isLoading ? (
-              <div className="flex justify-center py-8">
-                <LoadingSpinner />
-              </div>
-            ) : portfolioStats.error ? (
-              <p className="py-8 text-center text-sm text-gray-400">
-                No se pudieron cargar las estadísticas de cartera.
-              </p>
-            ) : (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  <PortfolioMini
-                    label="Total registros"
-                    count={portfolioStats.data?.total ?? 0}
-                    icon={FolderKanban}
-                    variant="primary"
-                  />
-                  <PortfolioMini
-                    label="Vencidos"
-                    count={portfolioStats.data?.overdue ?? 0}
-                    icon={AlertTriangle}
-                    variant="danger"
-                  />
-                  <PortfolioMini
-                    label="Próximos"
-                    count={portfolioStats.data?.upcoming ?? 0}
-                    icon={Clock}
-                    variant="warning"
-                  />
-                  <PortfolioMini
-                    label="Sin gestión"
-                    count={portfolioStats.data?.unmanaged ?? 0}
-                    icon={TrendingUp}
-                    variant="success"
-                  />
-                </div>
-
-                {/* Status breakdown */}
-                {portfolioStats.data?.byStatus && Object.keys(portfolioStats.data.byStatus).length > 0 && (
-                  <div className="rounded-lg bg-gray-50 p-4">
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                      Por estado
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {Object.entries(portfolioStats.data.byStatus).map(([status, count]) => (
-                        <Badge key={status} variant="default" className="gap-1.5">
-                          {status}: <strong>{count as number}</strong>
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="pt-2">
-                  <Link href="/dashboard/portfolio">
-                    <Button variant="outline" size="sm" icon={<ArrowRight className="h-4 w-4" />}>
-                      Ver cartera completa
-                    </Button>
-                  </Link>
-                </div>
-              </div>
+            <MetricCard
+              title="Empresas"
+              value={companyCount}
+              caption="Empresas registradas"
+              href="/dashboard/companies"
+              icon={Building2}
+              iconColor="#10b981"
+              iconBg="#d1fae5"
+              cardBg="#f7fffb"
+            />
+            {showEvents && (
+              <MetricCard
+                title="Eventos"
+                value={eventCount}
+                caption="Eventos creados"
+                href="/dashboard/events"
+                icon={Calendar}
+                iconColor="#f59e0b"
+                iconBg="#fef3c7"
+                cardBg="#fffdf7"
+              />
             )}
-          </Card>
-        </div>
+          </section>
         )}
 
-        {/* Quick actions */}
-        <div>
-          <Card title="Acciones rápidas" description="Operaciones frecuentes">
-            <div className="space-y-3">
-              <QuickAction
-                title="Ver personas"
-                description="Consultar emprendedores registrados"
-                href="/dashboard/persons"
-                icon={Users}
-                color="bg-blue-500"
+        <hr className="mb-8 border-slate-200" />
+
+        <section>
+          <h2 className="text-[22px] font-bold text-[#0f172a]">Acciones principales</h2>
+          <p className="mt-1 text-sm text-[#64748b]">
+            Accede rápidamente a las funciones más utilizadas
+          </p>
+
+          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <ActionCard
+              title="Ver personas"
+              description="Consultar emprendedores registrados"
+              href="/dashboard/persons"
+              icon={Users}
+              iconColor="#2563eb"
+              iconBg="#dbeafe"
+            />
+            <ActionCard
+              title="Ver empresas"
+              description="Consultar empresas registradas"
+              href="/dashboard/companies"
+              icon={Building2}
+              iconColor="#10b981"
+              iconBg="#d1fae5"
+            />
+            {showEvents && !readOnly && (
+              <ActionCard
+                title="Crear evento"
+                description="Organizar un nuevo evento"
+                href="/dashboard/events?action=create"
+                icon={Calendar}
+                iconColor="#f59e0b"
+                iconBg="#fef3c7"
               />
-              <QuickAction
-                title="Ver empresas"
-                description="Consultar empresas registradas"
-                href="/dashboard/companies"
-                icon={Building}
-                color="bg-emerald-500"
+            )}
+            {showImports && (
+              <ActionCard
+                title="Importar datos"
+                description="Carga masiva desde un archivo"
+                href="/dashboard/imports"
+                icon={Upload}
+                iconColor="#1d4ed8"
+                iconBg="#dbeafe"
               />
-              {showEvents && !readOnly && (
-                <QuickAction
-                  title="Crear evento"
-                  description="Organizar un nuevo evento"
-                  href="/dashboard/events?action=create"
-                  icon={Calendar}
-                  color="bg-amber-500"
-                />
-              )}
-              {showImports && (
-                <QuickAction
-                  title="Importar datos"
-                  description="Carga masiva desde un archivo"
-                  href="/dashboard/imports"
-                  icon={Upload}
-                  color="bg-indigo-500"
-                />
-              )}
-            </div>
-          </Card>
-        </div>
+            )}
+          </div>
+        </section>
       </div>
     </div>
   );

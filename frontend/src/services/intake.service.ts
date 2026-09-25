@@ -1,7 +1,7 @@
 /**
  * Servicio del intake de emprendedores (REST + helpers de WebSocket / enlace).
  */
-import { apiHttpUrl, toPageProtocol } from '@/lib/public-urls';
+import { apiHttpUrl, devBrowserApiPort, devBrowserServiceUrl, toPageProtocol } from '@/lib/public-urls';
 import { apiClient } from './api-client';
 import type { ApiResponse } from '@/types/api.types';
 import type {
@@ -14,7 +14,7 @@ import type {
 } from '@/types/intake.types';
 
 export interface IntakeUpdateInput {
-  person?: Record<string, string | boolean | undefined>;
+  person?: Record<string, string | boolean | number | undefined>;
   company?: Record<string, string | undefined>;
   location?: { province?: string; district?: string; corregimiento?: string; address?: string };
   contacts?: Array<{
@@ -83,6 +83,9 @@ export const intakeService = {
 };
 
 function intakeWsBase(): string {
+  const lan = devBrowserServiceUrl(devBrowserApiPort(), 'ws');
+  if (lan) return `${lan}/ws/intake`;
+
   const explicit = process.env.NEXT_PUBLIC_WS_URL;
   const raw = explicit
     ? explicit.replace(/\/$/, '')

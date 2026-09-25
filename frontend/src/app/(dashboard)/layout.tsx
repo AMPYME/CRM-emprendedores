@@ -5,7 +5,7 @@
  * Protegido: redirige a /login si no hay sesión.
  * También valida rutas según el rol (viewer / operador).
  */
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { Sidebar } from '@/components/layout/sidebar';
@@ -21,6 +21,8 @@ export default function DashboardLayout({
   const { isLoading, user } = useAuth({ requireAuth: true });
   const pathname = usePathname();
   const router = useRouter();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const closeMobile = useCallback(() => setMobileOpen(false), []);
 
   useEffect(() => {
     if (!user || !pathname) return;
@@ -54,11 +56,11 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
-      <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Header />
-        <main className="flex-1 overflow-y-auto p-6">
+    <div className="flex h-screen overflow-hidden bg-[#f8fafc]">
+      <Sidebar mobileOpen={mobileOpen} onMobileClose={closeMobile} />
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <Header onMenuClick={() => setMobileOpen(true)} />
+        <main className="relative flex-1 overflow-y-auto px-4 py-6 sm:px-6 md:px-8 md:py-8 lg:px-10 lg:py-8">
           {children}
         </main>
       </div>

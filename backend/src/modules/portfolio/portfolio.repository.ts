@@ -21,9 +21,19 @@ const PORTFOLIO_LIST_INCLUDES = {
   assignedTo: {
     select: {
       id: true,
-      firstName: true,
-      lastName: true,
-      email: true,
+      username: true,
+    },
+  },
+  sede: {
+    select: {
+      id: true,
+      name: true,
+    },
+  },
+  departamento: {
+    select: {
+      id: true,
+      name: true,
     },
   },
   _count: {
@@ -46,9 +56,19 @@ const PORTFOLIO_DETAIL_INCLUDES = {
   assignedTo: {
     select: {
       id: true,
-      firstName: true,
-      lastName: true,
-      email: true,
+      username: true,
+    },
+  },
+  sede: {
+    select: {
+      id: true,
+      name: true,
+    },
+  },
+  departamento: {
+    select: {
+      id: true,
+      name: true,
     },
   },
   actions: {
@@ -57,10 +77,11 @@ const PORTFOLIO_DETAIL_INCLUDES = {
       performedBy: {
         select: {
           id: true,
-          firstName: true,
-          lastName: true,
+          username: true,
         },
       },
+      sede: { select: { id: true, name: true } },
+      departamento: { select: { id: true, name: true } },
     },
   },
 } satisfies Prisma.PortfolioRecordInclude;
@@ -104,6 +125,8 @@ export const portfolioRepository = {
     if (filters.status) where.status = filters.status;
     if (filters.priority) where.priority = filters.priority;
     if (filters.assignedToId) where.assignedToId = filters.assignedToId;
+    if (filters.sedeId) where.sedeId = filters.sedeId;
+    if (filters.departamentoId) where.departamentoId = filters.departamentoId;
     if (filters.category) where.category = { contains: filters.category, mode: 'insensitive' };
 
     // Filtros especiales de vista
@@ -213,10 +236,11 @@ export const portfolioRepository = {
         performedBy: {
           select: {
             id: true,
-            firstName: true,
-            lastName: true,
+            username: true,
           },
         },
+        sede: { select: { id: true, name: true } },
+        departamento: { select: { id: true, name: true } },
       },
     });
   },
@@ -231,10 +255,11 @@ export const portfolioRepository = {
         performedBy: {
           select: {
             id: true,
-            firstName: true,
-            lastName: true,
+            username: true,
           },
         },
+        sede: { select: { id: true, name: true } },
+        departamento: { select: { id: true, name: true } },
       },
       orderBy: { actionDate: 'desc' },
     });

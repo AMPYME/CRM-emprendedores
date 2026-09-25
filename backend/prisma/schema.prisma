@@ -168,13 +168,18 @@ model User {
   passwordHash String   @map("password_hash")
   firstName    String   @map("first_name")
   lastName     String   @map("last_name")
+  username     String?
   role         UserRole @default(EMPREND_OPERADOR)
   isActive     Boolean  @default(true) @map("is_active")
+  sedeId          String?  @map("sede_id")
+  departamentoId  String?  @map("departamento_id")
   lastLoginAt  DateTime? @map("last_login_at")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   // Relaciones
+  sede                     Sede?             @relation(fields: [sedeId], references: [id], onDelete: SetNull)
+  departamento             Departamento?     @relation(fields: [departamentoId], references: [id], onDelete: SetNull)
   portfolioRecordsAssigned PortfolioRecord[] @relation("AssignedTo")
   portfolioActions         PortfolioAction[] @relation("ActionPerformedBy")
   importBatches            ImportBatch[]     @relation("ImportedBy")
@@ -182,6 +187,7 @@ model User {
   auditLogs                AuditLog[]
   verificationItemsAssigned VerificationItem[] @relation("VerificationAssignedTo")
 
+  @@index([username])
   @@map("users")
 }
 
@@ -278,9 +284,12 @@ model Person {
   businessName    String?   @map("business_name")   // Nombre del negocio si lo tiene
   economicActivity String?  @map("economic_activity")
   hasArtisanCard   Boolean?  @map("has_artisan_card")
+  seedCapital      Int?      @map("seed_capital")
+  seedCapitalDate  String?   @map("seed_capital_date") @db.VarChar(7)
 
   // Relación
   entity          Entity    @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  capitalSemilla  CapitalSemilla?
 
   @@index([cedula])
   @@index([firstName, lastName])
@@ -467,6 +476,8 @@ model PortfolioRecord {
   nextFollowUpDate DateTime?        @map("next_follow_up_date")
   closedAt         DateTime?        @map("closed_at")
   closedReason     String?          @map("closed_reason")
+  sedeId           String?          @map("sede_id")
+  departamentoId   String?          @map("departamento_id")
 
   createdAt        DateTime         @default(now()) @map("created_at")
   updatedAt        DateTime         @updatedAt @map("updated_at")
@@ -474,6 +485,8 @@ model PortfolioRecord {
   // Relaciones
   entity           Entity           @relation(fields: [entityId], references: [id], onDelete: Cascade)
   assignedTo       User?            @relation("AssignedTo", fields: [assignedToId], references: [id])
+  sede             Sede?            @relation(fields: [sedeId], references: [id], onDelete: SetNull)
+  departamento     Departamento?    @relation(fields: [departamentoId], references: [id], onDelete: SetNull)
   actions          PortfolioAction[]
 
   @@index([entityId])
@@ -481,7 +494,41 @@ model PortfolioRecord {
   @@index([status])
   @@index([priority])
   @@index([nextFollowUpDate])
+  @@index([sedeId])
+  @@index([departamentoId])
   @@map("portfolio_records")
+}
+
+/// Sede institucional. El borrado es lógico (`deleted_at`).
+model Sede {
+  id        String    @id @default(uuid())
+  name      String
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  users             User[]
+  portfolioRecords  PortfolioRecord[]
+  portfolioActions  PortfolioAction[]
+
+  @@index([deletedAt])
+  @@map("sedes")
+}
+
+/// Departamento institucional. El borrado es lógico (`deleted_at`).
+model Departamento {
+  id        String    @id @default(uuid())
+  name      String
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  users            User[]
+  portfolioRecords PortfolioRecord[]
+  portfolioActions PortfolioAction[]
+
+  @@index([deletedAt])
+  @@map("departamentos")
 }
 
 /// Acción/gestión realizada sobre un registro de cartera.
@@ -494,16 +541,22 @@ model PortfolioAction {
   result          String?
   nextSteps       String?         @map("next_steps")
   actionDate      DateTime        @default(now()) @map("action_date")
+  sedeId          String?         @map("sede_id")
+  departamentoId  String?         @map("departamento_id")
 
   createdAt       DateTime        @default(now()) @map("created_at")
 
   // Relaciones
   portfolio       PortfolioRecord @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
   performedBy     User?           @relation("ActionPerformedBy", fields: [performedById], references: [id])
+  sede            Sede?           @relation(fields: [sedeId], references: [id], onDelete: SetNull)
+  departamento    Departamento?   @relation(fields: [departamentoId], references: [id], onDelete: SetNull)
 
   @@index([portfolioId])
   @@index([performedById])
   @@index([actionDate])
+  @@index([sedeId])
+  @@index([departamentoId])
   @@map("portfolio_actions")
 }
 
@@ -706,6 +759,8 @@ model IntakePerson {
   businessName     String?   @map("business_name") @db.VarChar(200)
   economicActivity String?   @map("economic_activity") @db.VarChar(200)
   hasArtisanCard   Boolean?  @map("has_artisan_card")
+  seedCapital      Int?      @map("seed_capital")
+  seedCapitalDate  String?   @map("seed_capital_date") @db.VarChar(7)
 
   entity IntakeEntity @relation(fields: [intakeEntityId], references: [id], onDelete: Cascade)
 
@@ -834,4 +889,23 @@ model VerificationItem {
   @@index([searchCedula])
   @@index([searchRuc])
   @@map("verification_items")
+}
+
+/// Registro histórico de Capital Semilla, vinculado a la persona por cédula.
+model CapitalSemilla {
+  id           String   @id @default(uuid())
+  externalId   Int?     @map("external_id")
+  cedula       String
+  cedulaKey    String   @map("cedula_key")
+  province     String?
+  businessName String?  @map("business_name")
+  actaNumber   String?  @map("acta_number")
+  amount       Decimal? @db.Decimal(12, 2)
+  personId     String?  @unique @map("person_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  person       Person?  @relation(fields: [personId], references: [id], onDelete: SetNull)
+
+  @@index([cedulaKey])
+  @@map("capital_semilla")
 }

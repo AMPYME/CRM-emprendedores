@@ -9,6 +9,7 @@ export const PORTFOLIO_CATEGORIES = [
   'Registro Empresarial',
   'Capacitación',
   'Formalización',
+  'Asesoriamiento',
 ] as const;
 
 export type PortfolioCategory = (typeof PORTFOLIO_CATEGORIES)[number];

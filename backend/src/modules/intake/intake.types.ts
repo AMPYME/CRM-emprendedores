@@ -31,6 +31,8 @@ export interface IntakePersonRow {
   business_name: string | null;
   economic_activity: string | null;
   has_artisan_card: boolean | null;
+  seed_capital: number | null;
+  seed_capital_date: string | null;
 }
 
 export interface IntakeCompanyRow {

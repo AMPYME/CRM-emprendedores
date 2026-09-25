@@ -59,6 +59,8 @@ export interface Person {
   nationalityCode: string;
   educationLevel: string | null;
   hasArtisanCard: boolean | null;
+  seedCapital: number | null;
+  seedCapitalDate: string | null;
   entity?: Entity;
 }
 
@@ -151,7 +153,9 @@ export interface PortfolioRecord {
   createdAt: string;
   updatedAt: string;
   entity?: Entity;
-  assignedTo?: { id: string; firstName: string; lastName: string; email: string };
+  assignedTo?: { id: string; username: string | null };
+  sede?: { id: string; name: string } | null;
+  departamento?: { id: string; name: string } | null;
   _count?: { actions: number };
   actions?: PortfolioAction[];
 }
@@ -166,7 +170,9 @@ export interface PortfolioAction {
   nextSteps: string | null;
   actionDate: string;
   createdAt: string;
-  performedBy?: { id: string; firstName: string; lastName: string };
+  performedBy?: { id: string; username: string | null };
+  sede?: { id: string; name: string } | null;
+  departamento?: { id: string; name: string } | null;
 }
 
 export interface PortfolioStats {

@@ -9,7 +9,12 @@ const PORTFOLIO_KEY = 'portfolio';
 const PORTFOLIO_ACTIONS_KEY = 'portfolio-actions';
 const PORTFOLIO_STATS_KEY = 'portfolio-stats';
 
-export function usePortfolios(params?: PaginationParams & { status?: string; priority?: string }) {
+export function usePortfolios(params?: PaginationParams & {
+  status?: string;
+  priority?: string;
+  sedeId?: string;
+  departamentoId?: string;
+}) {
   return useQuery({
     queryKey: [PORTFOLIO_KEY, params],
     queryFn: () => portfolioService.list(params),
@@ -39,7 +44,7 @@ export function useCreatePortfolio() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [PORTFOLIO_KEY] });
       qc.invalidateQueries({ queryKey: [PORTFOLIO_STATS_KEY] });
-      toast.success('Registro de cartera creado');
+      toast.success('Registro de seguimiento creado');
     },
     onError: () => {
       toast.error('Error al crear el registro');

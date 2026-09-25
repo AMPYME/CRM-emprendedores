@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { FolderKanban, Plus, Eye, AlertTriangle } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { PageHeader } from '@/components/layout/page-header';
@@ -19,10 +20,10 @@ import {
   Table, TableHead, TableBody, TableRow, TableHeaderCell, TableCell,
 } from '@/components/ui/table';
 import { usePortfolios, usePortfolioStats, useCreatePortfolio } from '@/hooks/use-portfolio';
-import { useEntities } from '@/hooks/use-entities';
+import { personsService } from '@/services/persons.service';
+import { adminService } from '@/services/admin.service';
 import { usePagination } from '@/hooks/use-pagination';
 import { formatDateShort } from '@/lib/utils';
-import { provinciaNombre } from '@/lib/division-politica';
 import { portfolioCategoryOptions } from '@/lib/portfolio.constants';
 
 const statusOptions = [
@@ -81,20 +82,44 @@ export default function PortfolioPage() {
   const { page, limit, setPage, searchQuery, setSearchQuery } = usePagination();
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
+  const [sedeFilter, setSedeFilter] = useState('');
+  const [departamentoFilter, setDepartamentoFilter] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [entitySearch, setEntitySearch] = useState('');
+  const [cedula, setCedula] = useState('');
   const [selectedEntityId, setSelectedEntityId] = useState('');
+  const [entityLabel, setEntityLabel] = useState('');
+  const [verifyMessage, setVerifyMessage] = useState('');
+  const [verifying, setVerifying] = useState(false);
 
   const { data, isLoading, error } = usePortfolios({
     page, limit,
     search: searchQuery || undefined,
     status: statusFilter || undefined,
     priority: priorityFilter || undefined,
+    sedeId: sedeFilter || undefined,
+    departamentoId: departamentoFilter || undefined,
   });
+
+  const sedes = useQuery({ queryKey: ['sedes'], queryFn: adminService.listSedes });
+  const departamentos = useQuery({ queryKey: ['departamentos'], queryFn: adminService.listDepartamentos });
+
+  const sedeOptions = useMemo(
+    () => [
+      { value: '', label: 'Todas las sedes' },
+      ...(sedes.data ?? []).map((sede) => ({ value: sede.id, label: sede.name })),
+    ],
+    [sedes.data]
+  );
+  const departamentoOptions = useMemo(
+    () => [
+      { value: '', label: 'Todos los departamentos' },
+      ...(departamentos.data ?? []).map((item) => ({ value: item.id, label: item.name })),
+    ],
+    [departamentos.data]
+  );
 
   const stats = usePortfolioStats();
   const createMutation = useCreatePortfolio();
-  const entities = useEntities({ search: entitySearch || undefined, limit: 10 });
 
   const { register, handleSubmit, reset, formState: { errors: formErrors } } = useForm<CreatePortfolioForm>({
     defaultValues: {
@@ -113,9 +138,35 @@ export default function PortfolioPage() {
 
   const openCreate = () => {
     reset();
-    setEntitySearch('');
+    setCedula('');
     setSelectedEntityId('');
+    setEntityLabel('');
+    setVerifyMessage('');
     setIsModalOpen(true);
+  };
+
+  const verifyCedula = async () => {
+    const value = cedula.trim();
+    if (!value) {
+      setVerifyMessage('Ingrese una cédula.');
+      setSelectedEntityId('');
+      setEntityLabel('');
+      return;
+    }
+    setVerifying(true);
+    setVerifyMessage('');
+    try {
+      const entity = await personsService.lookupByCedula(value);
+      setSelectedEntityId(entity.id);
+      setEntityLabel(entity.displayName);
+      setVerifyMessage('');
+    } catch {
+      setSelectedEntityId('');
+      setEntityLabel('');
+      setVerifyMessage('No existe una persona con esa cédula.');
+    } finally {
+      setVerifying(false);
+    }
   };
 
   const closeModal = () => setIsModalOpen(false);
@@ -142,7 +193,7 @@ export default function PortfolioPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Cartera de Seguimiento"
+        title="Seguimiento"
         description="Gestión de casos y seguimiento de emprendedores"
         actions={
           <Button icon={<Plus className="h-4 w-4" />} onClick={openCreate}>
@@ -175,8 +226,8 @@ export default function PortfolioPage() {
 
       {/* Filters */}
       <Card>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-          <div className="flex-1">
+        <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
+          <div className="min-w-[16rem] flex-1">
             <SearchBar placeholder="Buscar por asunto, entidad..." onSearch={handleSearch} initialQuery={searchQuery} />
           </div>
           <div className="w-full sm:w-44">
@@ -185,19 +236,25 @@ export default function PortfolioPage() {
           <div className="w-full sm:w-44">
             <Select options={priorityOptions} value={priorityFilter} onChange={(e) => { setPriorityFilter(e.target.value); setPage(1); }} />
           </div>
+          <div className="w-full sm:w-52">
+            <Select options={sedeOptions} value={sedeFilter} onChange={(e) => { setSedeFilter(e.target.value); setPage(1); }} />
+          </div>
+          <div className="w-full sm:w-56">
+            <Select options={departamentoOptions} value={departamentoFilter} onChange={(e) => { setDepartamentoFilter(e.target.value); setPage(1); }} />
+          </div>
         </div>
       </Card>
 
       {/* Table */}
       <Card className="p-0">
         {isLoading ? (
-          <div className="flex items-center justify-center py-16"><LoadingSpinner size="lg" text="Cargando cartera..." /></div>
+          <div className="flex items-center justify-center py-16"><LoadingSpinner size="lg" text="Cargando seguimiento..." /></div>
         ) : error ? (
-          <div className="py-16 text-center text-sm text-red-500">Error al cargar la cartera.</div>
+          <div className="py-16 text-center text-sm text-red-500">Error al cargar el seguimiento.</div>
         ) : records.length === 0 ? (
           <EmptyState
             icon={FolderKanban}
-            title="No hay registros en cartera"
+            title="No hay registros de seguimiento"
             description={searchQuery ? 'No se encontraron resultados.' : 'Comienza creando un nuevo registro de seguimiento.'}
             action={!searchQuery && (
               <Button icon={<Plus className="h-4 w-4" />} onClick={openCreate}>
@@ -216,7 +273,6 @@ export default function PortfolioPage() {
                   <TableHeaderCell>Prioridad</TableHeaderCell>
                   <TableHeaderCell>Asignado a</TableHeaderCell>
                   <TableHeaderCell>Próximo seguimiento</TableHeaderCell>
-                  <TableHeaderCell>Acciones</TableHeaderCell>
                   <TableHeaderCell align="right">Ver</TableHeaderCell>
                 </TableRow>
               </TableHead>
@@ -245,10 +301,19 @@ export default function PortfolioPage() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {record.assignedTo
-                          ? `${record.assignedTo.firstName} ${record.assignedTo.lastName}`
-                          : <span className="text-gray-400">Sin asignar</span>
-                        }
+                        {record.assignedTo ? (
+                          <div className="flex flex-col gap-0.5 text-sm">
+                            <span>{record.assignedTo.username || '—'}</span>
+                            {record.sede?.name && (
+                              <span className="text-gray-500">{record.sede.name}</span>
+                            )}
+                            {record.departamento?.name && (
+                              <span className="text-gray-500">{record.departamento.name}</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">Sin asignar</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         {record.nextFollowUpDate ? (
@@ -257,9 +322,6 @@ export default function PortfolioPage() {
                             {formatDateShort(record.nextFollowUpDate)}
                           </span>
                         ) : <span className="text-gray-400">—</span>}
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm text-gray-500">{record._count?.actions ?? 0}</span>
                       </TableCell>
                       <TableCell align="right">
                         <Button variant="ghost" size="sm" onClick={() => router.push(`/dashboard/portfolio/${record.id}`)}>
@@ -288,7 +350,7 @@ export default function PortfolioPage() {
       <Modal
         isOpen={isModalOpen}
         onClose={closeModal}
-        title="Nuevo registro de cartera"
+        title="Nuevo seguimiento"
         description="Crear un caso de seguimiento vinculado a un emprendedor"
         size="lg"
         footer={
@@ -306,41 +368,29 @@ export default function PortfolioPage() {
       >
         <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
           <div>
-            <Input
-              label="Buscar entidad *"
-              placeholder="Nombre, cédula o RUC..."
-              value={entitySearch}
-              onChange={(e) => {
-                setEntitySearch(e.target.value);
-                setSelectedEntityId('');
-              }}
-            />
-            {entities.data && (
-              <div className="mt-2 max-h-48 space-y-1 overflow-y-auto rounded-lg border p-2">
-                {entities.data.data.length === 0 ? (
-                  <p className="py-4 text-center text-sm text-gray-400">Sin resultados</p>
-                ) : (
-                  entities.data.data.map((ent) => (
-                    <button
-                      key={ent.id}
-                      type="button"
-                      className={`w-full rounded-lg p-2 text-left text-sm transition hover:bg-gray-100 ${
-                        selectedEntityId === ent.id ? 'bg-primary-50 ring-1 ring-primary-500' : ''
-                      }`}
-                      onClick={() => setSelectedEntityId(ent.id)}
-                    >
-                      <p className="font-medium text-gray-900">{ent.displayName}</p>
-                      <p className="text-xs text-gray-400">
-                        {ent.entityType === 'COMPANY' ? 'Empresa' : 'Persona'} · {provinciaNombre(ent.province) || 'Sin provincia'}
-                      </p>
-                    </button>
-                  ))
-                )}
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <Input
+                  label="Cédula *"
+                  placeholder="X-XXXX-XXXXX"
+                  value={cedula}
+                  onChange={(e) => {
+                    setCedula(e.target.value);
+                    setSelectedEntityId('');
+                    setEntityLabel('');
+                    setVerifyMessage('');
+                  }}
+                />
               </div>
+              <Button type="button" variant="outline" onClick={verifyCedula} isLoading={verifying}>
+                Verificar
+              </Button>
+            </div>
+            {entityLabel && (
+              <p className="mt-2 text-sm text-green-700">Persona encontrada: {entityLabel}</p>
             )}
-            {entities.isLoading && <LoadingSpinner size="sm" text="Buscando..." />}
-            {!selectedEntityId && entitySearch && !entities.isLoading && (
-              <p className="mt-1 text-xs text-gray-500">Selecciona una entidad de la lista.</p>
+            {verifyMessage && (
+              <p className="mt-2 text-sm text-red-600">{verifyMessage}</p>
             )}
           </div>
 

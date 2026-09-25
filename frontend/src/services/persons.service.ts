@@ -14,12 +14,28 @@ export interface PersonFilters extends PaginationParams {
   gender?: string;
   economicActivity?: string;
   hasArtisanCard?: boolean;
+  seedCapital?: 0 | 1;
 }
 
 /**
  * El backend retorna objetos Entity con person/contacts anidados.
  * Estructura: { id (entityId), displayName, province, status, person: { firstName, ... }, contacts: [...] }
  */
+export interface CapitalSemillaRecord {
+  id: string;
+  externalId: number | null;
+  cedula: string;
+  province: string | null;
+  businessName: string | null;
+  actaNumber: string | null;
+  amount: string | null;
+}
+
+export interface CapitalSemillaLink {
+  cedula: string | null;
+  records: CapitalSemillaRecord[];
+}
+
 export interface PersonListItem extends Entity {
   person: Person;
   contacts: EntityContact[];
@@ -41,6 +57,8 @@ export interface CreatePersonInput {
   businessName?: string;
   economicActivity?: string;
   hasArtisanCard?: boolean;
+  seedCapital?: 0 | 1;
+  seedCapitalDate?: string;
   notes?: string;
   contacts?: Array<{
     contactType: string;
@@ -56,6 +74,32 @@ export const personsService = {
   async list(params: PersonFilters = {}): Promise<{ data: PersonListItem[]; meta: PaginationMeta }> {
     const res = await apiClient.get<ApiResponse<PersonListItem[]>>('/persons', { params });
     return { data: res.data.data, meta: res.data.meta! };
+  },
+
+  async lookupByCedula(cedula: string): Promise<PersonListItem> {
+    const res = await apiClient.get<ApiResponse<PersonListItem>>('/persons/lookup', {
+      params: { cedula },
+    });
+    return res.data.data;
+  },
+
+  async listCapitalSemilla(id: string): Promise<CapitalSemillaLink> {
+    const res = await apiClient.get<ApiResponse<CapitalSemillaLink>>(`/persons/${id}/capital-semilla`);
+    return res.data.data;
+  },
+
+  async saveCapitalSemilla(
+    id: string,
+    data: {
+      recordId?: string;
+      province?: string;
+      businessName?: string;
+      actaNumber?: string;
+      amount?: string;
+    }
+  ): Promise<CapitalSemillaRecord> {
+    const res = await apiClient.put<ApiResponse<CapitalSemillaRecord>>(`/persons/${id}/capital-semilla`, data);
+    return res.data.data;
   },
 
   async getById(id: string): Promise<PersonListItem> {

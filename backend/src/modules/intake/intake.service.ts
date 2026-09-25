@@ -240,6 +240,8 @@ export const intakeService = {
                     nationalityCode: input.nationalityCode,
                     educationLevel: input.educationLevel,
                     hasArtisanCard: input.hasArtisanCard,
+                    seedCapital: input.seedCapital,
+                    seedCapitalDate: input.seedCapital === 1 ? input.seedCapitalDate ?? null : null,
                   },
                 },
                 contacts: input.contacts?.length
@@ -272,6 +274,8 @@ export const intakeService = {
                     nationalityCode: input.nationalityCode,
                     educationLevel: input.educationLevel,
                     hasArtisanCard: input.hasArtisanCard,
+                    seedCapital: input.seedCapital,
+                    seedCapitalDate: input.seedCapital === 1 ? input.seedCapitalDate ?? null : null,
                   },
                 },
                 contacts: input.contacts?.length

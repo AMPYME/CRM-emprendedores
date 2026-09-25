@@ -74,6 +74,9 @@ export const personRepository = {
     if (filters.hasArtisanCard !== undefined) {
       personWhere.hasArtisanCard = filters.hasArtisanCard;
     }
+    if (filters.seedCapital !== undefined) {
+      personWhere.seedCapital = filters.seedCapital;
+    }
     if (Object.keys(personWhere).length > 0) where.person = personWhere;
 
     // Búsqueda por nombre, cédula, negocio, contacto

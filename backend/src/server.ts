@@ -43,7 +43,7 @@ async function bootstrap(): Promise<void> {
       if (ids.length > 0) intakeWs.notifyQueueChanged('expired');
     });
 
-    server.listen(config.port, () => {
+    server.listen(config.port, '0.0.0.0', () => {
       logger.info(`🚀 Servidor corriendo en http://localhost:${config.port}`);
       logger.info(`📋 API disponible en http://localhost:${config.port}${config.apiPrefix}`);
       logger.info(`🔌 WebSocket en ws://localhost:${config.port}${config.wsPath}`);

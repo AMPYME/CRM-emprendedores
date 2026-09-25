@@ -252,14 +252,14 @@ export default function PortfolioDetailPage() {
             {/* Assigned to */}
             <Card title="Asignado a">
               {record.assignedTo ? (
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100 text-primary-700 font-semibold">
-                    {record.assignedTo.firstName[0]}{record.assignedTo.lastName[0]}
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">{record.assignedTo.firstName} {record.assignedTo.lastName}</p>
-                    <p className="text-xs text-gray-400">{record.assignedTo.email}</p>
-                  </div>
+                <div className="space-y-1 text-sm">
+                  <p className="font-medium text-gray-900">{record.assignedTo.username || '—'}</p>
+                  {record.sede?.name && (
+                    <p className="text-gray-500">{record.sede.name}</p>
+                  )}
+                  {record.departamento?.name && (
+                    <p className="text-gray-500">{record.departamento.name}</p>
+                  )}
                 </div>
               ) : (
                 <p className="text-sm text-gray-400">Sin asignar</p>
@@ -322,10 +322,16 @@ export default function PortfolioDetailPage() {
                           <span className="text-xs text-gray-400">
                             {formatDate(action.actionDate)}
                           </span>
-                          {action.performedBy && (
-                            <span className="text-xs text-gray-400">
-                              por {action.performedBy.firstName} {action.performedBy.lastName}
+                          {action.performedBy?.username && (
+                            <span className="text-xs text-gray-500">
+                              por {action.performedBy.username}
                             </span>
+                          )}
+                          {action.sede?.name && (
+                            <span className="text-xs text-gray-500">Sede: {action.sede.name}</span>
+                          )}
+                          {action.departamento?.name && (
+                            <span className="text-xs text-gray-500">Departamento: {action.departamento.name}</span>
                           )}
                         </div>
                         <p className="text-sm text-gray-900">{action.description}</p>

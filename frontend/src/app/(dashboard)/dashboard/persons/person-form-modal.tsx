@@ -30,6 +30,8 @@ const personSchema = z.object({
   birthDate: z.string().optional(),
   nationalityCode: z.string().length(3, 'Seleccione la nacionalidad'),
   hasArtisanCard: z.string().optional(),
+  seedCapital: z.string().optional(),
+  seedCapitalDate: z.string().optional(),
   province: z.string().optional(),
   district: z.string().optional(),
   corregimiento: z.string().optional(),
@@ -37,6 +39,15 @@ const personSchema = z.object({
   notes: z.string().optional(),
   email: z.string().email('Correo inválido').optional().or(z.literal('')),
   phone: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (data.seedCapital !== '1') return;
+  if (!/^(0[1-9]|1[0-2])\/\d{4}$/.test(data.seedCapitalDate ?? '')) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['seedCapitalDate'],
+      message: 'Obligatorio. Use el formato MM/AAAA',
+    });
+  }
 });
 
 type PersonForm = z.infer<typeof personSchema>;
@@ -58,6 +69,12 @@ const yesNoOptions = [
   { value: '', label: 'Seleccionar' },
   { value: 'true', label: 'Sí' },
   { value: 'false', label: 'No' },
+];
+
+const seedCapitalOptions = [
+  { value: '', label: 'Seleccionar' },
+  { value: '1', label: 'Sí' },
+  { value: '0', label: 'No' },
 ];
 
 export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProps) {
@@ -84,6 +101,8 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
       birthDate: '',
       nationalityCode: DEFAULT_NATIONALITY_CODE,
       hasArtisanCard: '',
+      seedCapital: '',
+      seedCapitalDate: '',
       province: '',
       district: '',
       corregimiento: '',
@@ -115,6 +134,8 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
         nationalityCode: p?.nationalityCode || DEFAULT_NATIONALITY_CODE,
         hasArtisanCard:
           p?.hasArtisanCard === true ? 'true' : p?.hasArtisanCard === false ? 'false' : '',
+        seedCapital: p?.seedCapital === 1 ? '1' : p?.seedCapital === 0 ? '0' : '',
+        seedCapitalDate: p?.seedCapitalDate || '',
         province: provinceCode,
         district: districtCode,
         corregimiento: corregimientoCode,
@@ -154,6 +175,8 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
           : formData.hasArtisanCard === 'false'
             ? false
             : undefined,
+      seedCapital: (formData.seedCapital === '1' ? 1 : formData.seedCapital === '0' ? 0 : undefined) as 0 | 1 | undefined,
+      seedCapitalDate: formData.seedCapital === '1' ? formData.seedCapitalDate : undefined,
       province: formData.province || undefined,
       district: formData.district || undefined,
       corregimiento: formData.corregimiento || undefined,
@@ -175,6 +198,7 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
   };
 
   const isBusy = createMutation.isPending || updateMutation.isPending;
+  const seedCapital = watch('seedCapital');
 
   return (
     <Modal
@@ -213,6 +237,15 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
             {...register('nationalityCode')}
           />
           <Select label="Carnet de artesano" options={yesNoOptions} {...register('hasArtisanCard')} />
+          <Select label="Capital semilla" options={seedCapitalOptions} {...register('seedCapital')} />
+          {seedCapital === '1' && (
+            <Input
+              label="Fecha de capital semilla *"
+              placeholder="MM/AAAA"
+              error={errors.seedCapitalDate?.message}
+              {...register('seedCapitalDate')}
+            />
+          )}
           <LocationCascadeFields register={register} watch={watch} setValue={setValue} />
           <Input
             label="Correo electrónico"

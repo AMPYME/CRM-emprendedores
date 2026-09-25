@@ -17,6 +17,7 @@
  */
 import { Router } from 'express';
 import { portfolioController } from './portfolio.controller';
+import { protect, forbidReadOnly } from '../auth/auth.middleware';
 import { asyncHandler } from '../../shared/utils/async-handler';
 import { validate } from '../../shared/middlewares/validate.middleware';
 import {
@@ -46,6 +47,8 @@ portfolioRoutes.get(
 
 portfolioRoutes.post(
   '/',
+  protect,
+  forbidReadOnly,
   validate(createPortfolioSchema, 'body'),
   asyncHandler(portfolioController.create)
 );
@@ -74,6 +77,8 @@ portfolioActionRoutes.get(
 
 portfolioActionRoutes.post(
   '/',
+  protect,
+  forbidReadOnly,
   validate(portfolioIdNestedParamSchema, 'params'),
   validate(createActionSchema, 'body'),
   asyncHandler(portfolioController.addAction)
