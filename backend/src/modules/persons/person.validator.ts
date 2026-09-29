@@ -79,7 +79,7 @@ export type UpdatePersonInput = z.infer<typeof updatePersonSchema>;
 // ── Filtros de listado ────────────────────────────────────────────
 export const personQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
+  limit: z.coerce.number().int().min(1).max(30).default(30),
   sortBy: z.enum(['displayName', 'createdAt', 'firstName', 'lastName', 'cedula']).optional(),
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
   search: z.string().trim().min(1).optional(),

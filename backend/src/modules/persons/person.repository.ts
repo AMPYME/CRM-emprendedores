@@ -14,7 +14,7 @@ import { PaginatedResult } from '../../shared/types/api-response.types';
 
 const detailIncludes = {
   person: true,
-  contacts: { orderBy: { isPrimary: 'desc' as const } },
+  contacts: { where: { deletedAt: null }, orderBy: { isPrimary: 'desc' as const } },
   _count: {
     select: {
       relationshipsFrom: true,
@@ -87,7 +87,7 @@ export const personRepository = {
         { person: { firstName: { contains: filters.search, mode: 'insensitive' } } },
         { person: { lastName: { contains: filters.search, mode: 'insensitive' } } },
         { person: { businessName: { contains: filters.search, mode: 'insensitive' } } },
-        { contacts: { some: { contactValue: { contains: filters.search, mode: 'insensitive' } } } },
+        { contacts: { some: { deletedAt: null, contactValue: { contains: filters.search, mode: 'insensitive' } } } },
       ];
     }
 

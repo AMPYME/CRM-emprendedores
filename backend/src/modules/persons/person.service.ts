@@ -11,6 +11,7 @@ import { titleCase } from '../../shared/utils/string.utils';
 import { persistableLocationCodes } from '../../shared/utils/entity-location';
 import { DEFAULT_NATIONALITY_CODE } from '../../shared/utils/nationality';
 import { auditService, AuditActor } from '../audit/audit.service';
+import { actorContext, cambios } from '../audit/audit-snapshot';
 
 function buildDisplayName(firstName: string, lastName: string, secondLastName?: string): string {
   const parts = [titleCase(firstName), titleCase(lastName)];
@@ -94,6 +95,7 @@ export const personService = {
       contacts: input.contacts,
     });
 
+    const quien = await actorContext(actor);
     await auditService.log({
       action: 'CREATE',
       entityType: 'PERSON',
@@ -101,6 +103,20 @@ export const personService = {
       entityLabel: entity.displayName,
       userId: actor?.userId,
       userEmail: actor?.userEmail,
+      metadata: {
+        ...quien,
+        anterior: null,
+        nuevo: {
+          firstName: input.firstName,
+          lastName: input.lastName,
+          secondLastName: input.secondLastName ?? null,
+          cedula: input.cedula ?? null,
+          gender: input.gender ?? null,
+          province: loc.province ?? null,
+          district: loc.district ?? null,
+          corregimiento: loc.corregimiento ?? null,
+        },
+      },
     });
 
     return entity;
@@ -168,6 +184,31 @@ export const personService = {
     }
 
     const entity = await personRepository.update(entityId, entityData, personData);
+    const quien = await actorContext(actor);
+    const { anterior, nuevo } = cambios(
+      {
+        province: current.province,
+        district: current.district,
+        corregimiento: current.corregimiento,
+        address: current.address,
+        notes: current.notes,
+        firstName: current.person?.firstName,
+        lastName: current.person?.lastName,
+        secondLastName: current.person?.secondLastName,
+        cedula: current.person?.cedula,
+        gender: current.person?.gender,
+        birthDate: current.person?.birthDate,
+        nationalityCode: current.person?.nationalityCode,
+        educationLevel: current.person?.educationLevel,
+        occupation: current.person?.occupation,
+        businessName: current.person?.businessName,
+        economicActivity: current.person?.economicActivity,
+        hasArtisanCard: current.person?.hasArtisanCard,
+        seedCapital: current.person?.seedCapital,
+        seedCapitalDate: current.person?.seedCapitalDate,
+      },
+      input as Record<string, unknown>,
+    );
 
     await auditService.log({
       action: 'UPDATE',
@@ -176,7 +217,7 @@ export const personService = {
       entityLabel: entity.displayName,
       userId: actor?.userId,
       userEmail: actor?.userEmail,
-      metadata: { fields: Object.keys(input) },
+      metadata: { ...quien, anterior, nuevo },
     });
 
     return entity;
@@ -189,6 +230,7 @@ export const personService = {
     }
     const result = await personRepository.softDelete(entityId);
 
+    const quien = await actorContext(actor);
     await auditService.log({
       action: 'DELETE',
       entityType: 'PERSON',
@@ -196,6 +238,11 @@ export const personService = {
       entityLabel: entity.displayName,
       userId: actor?.userId,
       userEmail: actor?.userEmail,
+      metadata: {
+        ...quien,
+        anterior: { status: entity.status },
+        nuevo: { status: 'INACTIVE' },
+      },
     });
 
     return result;

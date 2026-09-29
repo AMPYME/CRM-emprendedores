@@ -45,8 +45,11 @@ import type {
   RelationshipType,
 } from '@/types/entities.types';
 import { contactsService } from '@/services/contacts.service';
+import { entitiesService } from '@/services/entities.service';
+import { EntityHistorialPanel } from '@/components/entities/entity-historial';
 import { personsService, type CapitalSemillaRecord } from '@/services/persons.service';
 import { isReadOnlyRole } from '@/lib/roles';
+import { registroEmpresarialTexto } from '@/lib/registro-empresarial';
 import { useAuthStore } from '@/stores/auth.store';
 import { getApiErrorMessage } from '@/services/api-client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -66,9 +69,6 @@ interface EntityDetailProps {
 /* ──────────────────────────────────────────────── */
 const statusLabel: Record<string, string> = {
   ACTIVE: 'Activo', INACTIVE: 'Inactivo', DUPLICATE: 'Duplicado', MERGED: 'Fusionado',
-};
-const statusVariant: Record<string, 'success' | 'default' | 'warning' | 'danger'> = {
-  ACTIVE: 'success', INACTIVE: 'default', DUPLICATE: 'warning', MERGED: 'danger',
 };
 const contactIcons: Record<string, React.ElementType> = {
   EMAIL: Mail, PHONE: Phone, MOBILE: Phone, WHATSAPP: Phone,
@@ -152,6 +152,12 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
 
   // State
   const [activeTab, setActiveTab] = useState('info');
+  const [historialPage, setHistorialPage] = useState(1);
+  const historial = useQuery({
+    queryKey: ['entity-historial', entityId, historialPage],
+    queryFn: () => entitiesService.historial(entityId, historialPage),
+    enabled: activeTab === 'historial' && !!entityId,
+  });
   const [addContactOpen, setAddContactOpen] = useState(false);
   const [contactForm, setContactForm] = useState({ contactType: 'EMAIL', contactValue: '', label: '' });
   const [savingContact, setSavingContact] = useState(false);
@@ -295,29 +301,17 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
   const person = (entity as any).person;
   const company = (entity as any).company;
 
-  const EntityIcon = entityType === 'PERSON' ? User : Building;
-
   // ── Tabs ──────────────────────────────────────
   const tabs = [
-    { id: 'info', label: 'Información', icon: <EntityIcon className="h-4 w-4" /> },
-    { id: 'contacts', label: 'Contactos', icon: <Mail className="h-4 w-4" />, count: contacts.data?.length },
-    {
-      id: 'relationships',
-      label: 'Relaciones',
-      icon: <Link2 className="h-4 w-4" />,
-      count: relationships.data?.length,
-    },
-    {
-      id: 'portfolio',
-      label: 'Seguimiento',
-      icon: <FolderKanban className="h-4 w-4" />,
-      count: portfolios.data?.length,
-    },
+    { id: 'info', label: 'Información' },
+    { id: 'historial', label: 'Historial' },
+    { id: 'contacts', label: 'Contactos', count: contacts.data?.length },
+    { id: 'relationships', label: 'Relaciones', count: relationships.data?.length },
+    { id: 'portfolio', label: 'Seguimiento', count: portfolios.data?.length },
     ...(entityType === 'PERSON'
       ? [{
           id: 'capital-semilla',
           label: 'Capital Semilla',
-          icon: <Sprout className="h-4 w-4" />,
           count: capitalSemilla.data?.records.length,
         }]
       : []),
@@ -331,21 +325,14 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-primary-100 p-2.5">
-              <EntityIcon className="h-6 w-6 text-primary-700" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 truncate">{entity.displayName}</h1>
-              <div className="flex items-center gap-2 mt-1">
-                <Badge variant={statusVariant[entity.status] || 'default'}>
-                  {statusLabel[entity.status] || entity.status}
-                </Badge>
-                <span className="text-xs text-gray-400">
-                  Creado {formatDate(entity.createdAt)}
-                </span>
-              </div>
-            </div>
+          <div>
+            <h1 className="truncate text-2xl font-bold text-[#0F172A]">{entity.displayName}</h1>
+            <p className="mt-1 text-sm text-[#64748B]">
+              Estado: {statusLabel[entity.status] || entity.status}
+            </p>
+            <p className="text-sm text-[#64748B]">
+              Creado el {formatDate(entity.createdAt)}
+            </p>
           </div>
         </div>
       </div>
@@ -376,6 +363,7 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                     value={person.seedCapital === 1 ? 'Sí' : person.seedCapital === 0 ? 'No' : null}
                   />
                   <InfoRow label="Fecha de capital semilla" value={person.seedCapitalDate} />
+                  <InfoRow label="Registro empresarial" value={registroEmpresarialTexto(entity.registroEmpresarialFecha)} span2 />
                 </>
               )}
               {entityType === 'COMPANY' && company && (
@@ -387,6 +375,7 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                   <InfoRow label="Tipo de Sociedad" value={companyTypeLabel(company.companyType) || company.companyType} />
                   <InfoRow label="Clasificación por tamaño" value={companySizeClassLabel(company.companySizeClass)} />
                   <InfoRow label="Fecha de Inscripción" value={company.foundedDate ? formatDateShort(company.foundedDate) : null} />
+                  <InfoRow label="Registro empresarial" value={registroEmpresarialTexto(entity.registroEmpresarialFecha)} span2 />
                 </>
               )}
             </dl>
@@ -407,6 +396,20 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
             </dl>
           </Card>
         </div>
+      )}
+
+      {activeTab === 'historial' && (
+        historial.isLoading ? (
+          <p className="py-10 text-sm text-[#64748B]">Cargando historial...</p>
+        ) : historial.isError || !historial.data ? (
+          <p className="py-10 text-sm text-[#DC2626]">No se pudo cargar el historial.</p>
+        ) : (
+          <EntityHistorialPanel
+            historial={historial.data}
+            page={historialPage}
+            onPageChange={setHistorialPage}
+          />
+        )
       )}
 
       {activeTab === 'capital-semilla' && entityType === 'PERSON' && (
@@ -544,7 +547,9 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                         <Icon className="h-4 w-4 text-gray-600" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{c.contactValue}</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {c.contactType === 'EMAIL' ? 'Correo registrado' : c.contactValue}
+                        </p>
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-gray-400">{c.contactType}</span>
                           {c.label && <span className="text-xs text-gray-400">· {c.label}</span>}

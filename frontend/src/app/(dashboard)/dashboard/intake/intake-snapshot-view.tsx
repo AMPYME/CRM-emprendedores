@@ -113,7 +113,6 @@ function PersonFields({ v }: { v: FormValues }) {
       <ReadOnlyField label="Provincia" value={v.province} />
       <ReadOnlyField label="Distrito" value={v.district} />
       <ReadOnlyField label="Corregimiento" value={v.corregimiento} />
-      <ReadOnlyField label="Correo electrónico" value={v.email} className="sm:col-span-2" />
       <ReadOnlyField label="Teléfono / Celular" value={v.phone} />
       <ReadOnlyField label="Dirección" value={v.address} />
       <div className="sm:col-span-2">
@@ -136,7 +135,6 @@ function CompanyFields({ v }: { v: FormValues }) {
       <ReadOnlyField label="Provincia" value={v.province} />
       <ReadOnlyField label="Distrito" value={v.district} />
       <ReadOnlyField label="Corregimiento" value={v.corregimiento} />
-      <ReadOnlyField label="Correo electrónico" value={v.email} />
       <ReadOnlyField label="Teléfono" value={v.phone} />
       <div className="sm:col-span-2">
         <ReadOnlyField label="Dirección" value={v.address} />

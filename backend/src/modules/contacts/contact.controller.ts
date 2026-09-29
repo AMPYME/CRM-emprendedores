@@ -7,6 +7,12 @@
 import { Request, Response } from 'express';
 import { contactService } from './contact.service';
 import { sendSuccess, sendCreated, sendNoContent } from '../../shared/utils/response.utils';
+import { AuditActor } from '../audit/audit.service';
+
+function getActor(req: Request): AuditActor | undefined {
+  if (!req.user?.id || !req.user?.email) return undefined;
+  return { userId: req.user.id, userEmail: req.user.email };
+}
 
 export const contactController = {
   /**
@@ -23,7 +29,7 @@ export const contactController = {
    * Crea un contacto para una entidad.
    */
   async create(req: Request, res: Response): Promise<void> {
-    const contact = await contactService.create(req.params.entityId as string, req.body);
+    const contact = await contactService.create(req.params.entityId as string, req.body, getActor(req));
     sendCreated(res, contact);
   },
 
@@ -32,7 +38,7 @@ export const contactController = {
    * Actualiza un contacto existente.
    */
   async update(req: Request, res: Response): Promise<void> {
-    const contact = await contactService.update(req.params.id as string, req.body);
+    const contact = await contactService.update(req.params.id as string, req.body, getActor(req));
     sendSuccess(res, contact);
   },
 
@@ -41,7 +47,7 @@ export const contactController = {
    * Elimina un contacto permanentemente.
    */
   async remove(req: Request, res: Response): Promise<void> {
-    await contactService.remove(req.params.id as string);
+    await contactService.remove(req.params.id as string, getActor(req));
     sendNoContent(res);
   },
 };

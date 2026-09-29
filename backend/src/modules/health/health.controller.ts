@@ -30,7 +30,7 @@ export const healthController = {
   async checkDatabase(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const start = Date.now();
-      await prisma.$queryRaw`SELECT 1`;
+      await prisma.$executeRawUnsafe('CALL public.sp_db_ping()');
       const latency = Date.now() - start;
 
       sendSuccess(res, {

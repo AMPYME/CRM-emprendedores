@@ -11,6 +11,7 @@
  */
 import { Router } from 'express';
 import { contactController } from './contact.controller';
+import { forbidReadOnly, protect } from '../auth/auth.middleware';
 import { asyncHandler } from '../../shared/utils/async-handler';
 import { validate } from '../../shared/middlewares/validate.middleware';
 import {
@@ -31,6 +32,8 @@ entityContactRoutes.get(
 
 entityContactRoutes.post(
   '/',
+  protect,
+  forbidReadOnly,
   validate(entityIdParamSchema, 'params'),
   validate(createContactSchema, 'body'),
   asyncHandler(contactController.create)
@@ -41,6 +44,8 @@ export const contactRoutes = Router();
 
 contactRoutes.put(
   '/:id',
+  protect,
+  forbidReadOnly,
   validate(contactIdParamSchema, 'params'),
   validate(updateContactSchema, 'body'),
   asyncHandler(contactController.update)
@@ -48,6 +53,8 @@ contactRoutes.put(
 
 contactRoutes.delete(
   '/:id',
+  protect,
+  forbidReadOnly,
   validate(contactIdParamSchema, 'params'),
   asyncHandler(contactController.remove)
 );

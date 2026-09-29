@@ -3,7 +3,7 @@ import { NotFoundError } from '../../shared/errors/app-error';
 
 const userSelect = {
   id: true,
-  email: true,
+  username: true,
   firstName: true,
   lastName: true,
   role: true,

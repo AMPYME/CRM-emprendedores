@@ -47,7 +47,7 @@ const companyTypeFilterOptions = [
 export default function CompaniesPage() {
   const user = useAuthStore((s) => s.user);
   const readOnly = isReadOnlyRole(user?.role);
-  const { page, limit, setPage, searchQuery, setSearchQuery } = usePagination();
+  const { page, limit, setPage, searchQuery, setSearchQuery } = usePagination({ initialLimit: 30 });
   const [province, setProvince] = useState('');
   const [district, setDistrict] = useState('');
   const [corregimiento, setCorregimiento] = useState('');

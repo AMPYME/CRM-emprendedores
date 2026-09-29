@@ -21,8 +21,8 @@ export function apiHttpUrl(url: string): string {
 
 /**
  * Puerto del API visto desde el navegador.
- * El portproxy de Windows publica el frontend en el puerto 80 y el backend en el 8000.
- * El acceso directo al contenedor (WSL) sigue siendo frontend :3000 y backend :4000.
+ * Si la página se abre por el puerto 80 (o sin puerto), el API se llama en el 8000.
+ * Si se abre por otro puerto (por ejemplo 3000), el API se llama en el 4000.
  */
 export function devBrowserApiPort(): string {
   const lanPort = process.env.NEXT_PUBLIC_LAN_API_PORT || '8000';

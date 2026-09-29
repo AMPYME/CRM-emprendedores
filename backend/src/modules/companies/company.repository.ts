@@ -14,7 +14,7 @@ import { PaginatedResult } from '../../shared/types/api-response.types';
 
 const detailIncludes = {
   company: true,
-  contacts: { orderBy: { isPrimary: 'desc' as const } },
+  contacts: { where: { deletedAt: null }, orderBy: { isPrimary: 'desc' as const } },
   _count: {
     select: {
       relationshipsFrom: true,
@@ -73,7 +73,7 @@ export const companyRepository = {
         { company: { ruc: { contains: filters.search } } },
         { company: { legalName: { contains: filters.search, mode: 'insensitive' } } },
         { company: { tradeName: { contains: filters.search, mode: 'insensitive' } } },
-        { contacts: { some: { contactValue: { contains: filters.search, mode: 'insensitive' } } } },
+        { contacts: { some: { deletedAt: null, contactValue: { contains: filters.search, mode: 'insensitive' } } } },
       ];
     }
 

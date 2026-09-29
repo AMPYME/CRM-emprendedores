@@ -120,17 +120,35 @@ const SEED_EVENT_SLUGS = [
  * Elimina datos de ejecuciones previas del mismo seed (misma marca `sourceOrigin: 'SEED'`).
  * Permite correr `npm run prisma:seed` varias veces sin error de slug único ni duplicados.
  */
+const SEED_PORTFOLIO_SUBJECTS = [
+  'Solicitud de crédito para ampliación de taller',
+  'Asesoría en buenas prácticas agrícolas',
+  'Actualización de datos de RUC en sistema',
+  'Programa de capacitación grupal pendiente',
+  'Apoyo para registro de aviso de operación',
+];
+
 async function clearPreviousSeed(): Promise<void> {
-  await prisma.portfolioAction.deleteMany({
-    where: { portfolio: { entity: { sourceOrigin: 'SEED' } } },
+  await prisma.$transaction(async (tx) => {
+  await tx.$executeRawUnsafe(`SELECT set_config('app.allow_physical_delete', 'on', true)`);
+  await tx.portfolioAction.deleteMany({
+    where: {
+      portfolio: {
+        subject: { in: SEED_PORTFOLIO_SUBJECTS },
+        entity: { sourceOrigin: 'SEED' },
+      },
+    },
   });
-  await prisma.portfolioRecord.deleteMany({
+  await tx.portfolioRecord.deleteMany({
+    where: {
+      subject: { in: SEED_PORTFOLIO_SUBJECTS },
+      entity: { sourceOrigin: 'SEED' },
+    },
+  });
+  await tx.eventRegistration.deleteMany({
     where: { entity: { sourceOrigin: 'SEED' } },
   });
-  await prisma.eventRegistration.deleteMany({
-    where: { entity: { sourceOrigin: 'SEED' } },
-  });
-  await prisma.entityRelationship.deleteMany({
+  await tx.entityRelationship.deleteMany({
     where: {
       OR: [
         { fromEntity: { sourceOrigin: 'SEED' } },
@@ -138,8 +156,11 @@ async function clearPreviousSeed(): Promise<void> {
       ],
     },
   });
-  await prisma.entity.deleteMany({ where: { sourceOrigin: 'SEED' } });
-  await prisma.event.deleteMany({ where: { slug: { in: [...SEED_EVENT_SLUGS] } } });
+  await tx.entity.deleteMany({
+    where: { sourceOrigin: 'SEED', portfolioRecords: { none: {} } },
+  });
+  await tx.event.deleteMany({ where: { slug: { in: [...SEED_EVENT_SLUGS] } } });
+  }, { timeout: 120000 });
 }
 
 async function main() {

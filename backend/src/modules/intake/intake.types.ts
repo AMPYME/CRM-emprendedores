@@ -95,6 +95,7 @@ export interface IntakeSessionSummary {
   entityType: IntakeEntityType;
   status: IntakeStatus;
   createdBy: string | null;
+  createdByUsername: string | null;
   displayName: string;
   expiresAt: string;
   lastActivityAt: string;

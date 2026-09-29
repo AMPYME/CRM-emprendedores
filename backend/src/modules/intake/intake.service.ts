@@ -11,6 +11,7 @@ import {
   GoneError,
 } from '../../shared/errors/app-error';
 import { prisma } from '../../config/database';
+import { callProcedure } from '../../shared/db/procedures';
 import { config } from '../../config/environment';
 import { titleCase } from '../../shared/utils/string.utils';
 import { intakeRepository } from './intake.repository';
@@ -68,7 +69,7 @@ export const intakeService = {
     };
   },
 
-  async listCreators(): Promise<string[]> {
+  async listCreators(): Promise<Array<{ id: string; username: string | null }>> {
     return intakeRepository.listCreators();
   },
 
@@ -162,10 +163,10 @@ export const intakeService = {
     return updated;
   },
 
-  async deleteSession(sessionId: string): Promise<void> {
+  async deleteSession(sessionId: string, deletedById?: string | null): Promise<void> {
     const session = await intakeRepository.getSession(sessionId);
     if (!session) throw new NotFoundError('Sesión de intake', sessionId);
-    await intakeRepository.deleteSession(sessionId);
+    await intakeRepository.deleteSession(sessionId, undefined, deletedById);
   },
 
   async validateAndMigrate(
@@ -219,7 +220,10 @@ export const intakeService = {
             .join(' ');
 
           if (existing && onDuplicate === 'update') {
-            await tx.entityContact.deleteMany({ where: { entityId: existing.id } });
+            await callProcedure(tx, 'sp_soft_delete_entity_contacts', [
+              { value: existing.id, cast: 'text' },
+              { value: createdById ?? null, cast: 'text' },
+            ]);
             const entity = await tx.entity.update({
               where: { id: existing.id },
               data: {
@@ -320,7 +324,10 @@ export const intakeService = {
             : input.legalName;
 
           if (existing && onDuplicate === 'update') {
-            await tx.entityContact.deleteMany({ where: { entityId: existing.id } });
+            await callProcedure(tx, 'sp_soft_delete_entity_contacts', [
+              { value: existing.id, cast: 'text' },
+              { value: createdById ?? null, cast: 'text' },
+            ]);
             const entity = await tx.entity.update({
               where: { id: existing.id },
               data: {
@@ -411,7 +418,7 @@ export const intakeService = {
           where: { intakeSessionId: sessionId },
           data: { intakeSessionId: null },
         });
-        await intakeRepository.deleteSession(sessionId, tx);
+        await intakeRepository.deleteSession(sessionId, tx, createdById);
         return entities;
       });
 

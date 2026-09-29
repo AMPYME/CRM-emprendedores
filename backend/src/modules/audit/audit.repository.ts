@@ -35,12 +35,38 @@ export const auditRepository = {
         skip,
         take: filters.limit,
         include: {
-          user: { select: { id: true, email: true, firstName: true, lastName: true } },
+          user: { select: { id: true, username: true, firstName: true, lastName: true } },
         },
       }),
       prisma.auditLog.count({ where }),
     ]);
 
     return { data, total, page: filters.page, limit: filters.limit };
+  },
+
+  async findByEntity(entityId: string, page: number, limit: number) {
+    const where: Prisma.AuditLogWhereInput = { entityId };
+    const skip = (page - 1) * limit;
+    const [data, total] = await Promise.all([
+      prisma.auditLog.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              sede: { select: { name: true } },
+              departamento: { select: { name: true } },
+            },
+          },
+        },
+      }),
+      prisma.auditLog.count({ where }),
+    ]);
+
+    return { data, total, page, limit };
   },
 };

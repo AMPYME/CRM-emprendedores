@@ -17,6 +17,7 @@ import {
 } from '../../shared/errors/app-error';
 import { PaginationMeta } from '../../shared/types/api-response.types';
 import { auditService, AuditActor } from '../audit/audit.service';
+import { actorContext, cambios } from '../audit/audit-snapshot';
 
 // ── Helpers ───────────────────────────────────────────────────────
 
@@ -67,17 +68,17 @@ export const portfolioService = {
    * - La entidad debe existir y no estar MERGED
    * - Si se asigna responsable, debe existir
    */
-  async create(input: CreatePortfolioInput, actorUserId?: string) {
+  async create(input: CreatePortfolioInput, actor?: AuditActor) {
     // Verificar entidad
     const entityExists = await portfolioRepository.entityExists(input.entityId);
     if (!entityExists) {
       throw new NotFoundError('Entidad', input.entityId);
     }
 
-    if (!actorUserId) {
+    if (!actor?.userId) {
       throw new BadRequestError('No se pudo identificar al usuario que crea el seguimiento');
     }
-    const assignedToId = actorUserId;
+    const assignedToId = actor.userId;
     const userExists = await portfolioRepository.userExists(assignedToId);
     if (!userExists) {
       throw new NotFoundError('Usuario', assignedToId);
@@ -112,7 +113,22 @@ export const portfolioService = {
         : undefined,
     };
 
-    return portfolioRepository.create(data);
+    const record = await portfolioRepository.create(data);
+    const quien = await actorContext(actor);
+    await auditService.log({
+      action: 'CREATE',
+      entityType: 'PORTFOLIO',
+      entityId: input.entityId,
+      entityLabel: record.subject,
+      userId: actor.userId,
+      userEmail: actor.userEmail,
+      metadata: {
+        ...quien,
+        anterior: null,
+        nuevo: vistaCartera(record),
+      },
+    });
+    return record;
   },
 
   /**
@@ -159,16 +175,22 @@ export const portfolioService = {
       }
     }
 
+    const antes = vistaCartera(current);
     const record = await portfolioRepository.update(id, data);
-
+    const quien = await actorContext(actor);
+    const { anterior, nuevo } = cambios(antes, vistaCartera(record));
     await auditService.log({
       action: 'UPDATE',
       entityType: 'PORTFOLIO',
-      entityId: record.id,
+      entityId: record.entityId,
       entityLabel: record.subject,
       userId: actor?.userId,
       userEmail: actor?.userEmail,
-      metadata: { fields: Object.keys(input) },
+      metadata: {
+        ...quien,
+        anterior: { subject: antes.subject, ...anterior },
+        nuevo: { subject: record.subject, ...nuevo },
+      },
     });
 
     return record;
@@ -193,7 +215,7 @@ export const portfolioService = {
   /**
    * Agregar acción/gestión a un registro de cartera.
    */
-  async addAction(portfolioId: string, input: CreateActionInput, actorUserId?: string) {
+  async addAction(portfolioId: string, input: CreateActionInput, actor?: AuditActor) {
     const record = await portfolioRepository.findById(portfolioId);
     if (!record) {
       throw new NotFoundError('Registro de cartera', portfolioId);
@@ -201,9 +223,9 @@ export const portfolioService = {
 
     let sedeId: string | undefined;
     let departamentoId: string | undefined;
-    if (actorUserId) {
-      const actor = await prisma.user.findUnique({
-        where: { id: actorUserId },
+    if (actor?.userId) {
+      const actorUser = await prisma.user.findUnique({
+        where: { id: actor.userId },
         select: {
           sedeId: true,
           departamentoId: true,
@@ -211,13 +233,13 @@ export const portfolioService = {
           departamento: { select: { deletedAt: true } },
         },
       });
-      if (actor?.sedeId && !actor.sede?.deletedAt) sedeId = actor.sedeId;
-      if (actor?.departamentoId && !actor.departamento?.deletedAt) departamentoId = actor.departamentoId;
+      if (actorUser?.sedeId && !actorUser.sede?.deletedAt) sedeId = actorUser.sedeId;
+      if (actorUser?.departamentoId && !actorUser.departamento?.deletedAt) departamentoId = actorUser.departamentoId;
     }
 
     const data: Prisma.PortfolioActionCreateInput = {
       portfolio: { connect: { id: portfolioId } },
-      performedBy: actorUserId ? { connect: { id: actorUserId } } : undefined,
+      performedBy: actor?.userId ? { connect: { id: actor.userId } } : undefined,
       sede: sedeId ? { connect: { id: sedeId } } : undefined,
       departamento: departamentoId ? { connect: { id: departamentoId } } : undefined,
       actionType: input.actionType,
@@ -227,7 +249,28 @@ export const portfolioService = {
       actionDate: input.actionDate ? new Date(input.actionDate) : new Date(),
     };
 
-    return portfolioRepository.addAction(data);
+    const created = await portfolioRepository.addAction(data);
+    const quien = await actorContext(actor);
+    await auditService.log({
+      action: 'CREATE',
+      entityType: 'PORTFOLIO_ACTION',
+      entityId: record.entityId,
+      entityLabel: record.subject,
+      userId: actor?.userId,
+      userEmail: actor?.userEmail,
+      metadata: {
+        ...quien,
+        anterior: null,
+        nuevo: {
+          subject: record.subject,
+          actionType: input.actionType,
+          description: input.description,
+          result: input.result ?? null,
+          nextSteps: input.nextSteps ?? null,
+        },
+      },
+    });
+    return created;
   },
 
   /**
@@ -248,3 +291,30 @@ export const portfolioService = {
     return portfolioRepository.getStats();
   },
 };
+
+function fechaCorta(value: Date | string | null | undefined): string | null {
+  if (!value) return null;
+  const fecha = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(fecha.getTime())) return null;
+  return fecha.toISOString().slice(0, 10);
+}
+
+function vistaCartera(record: {
+  subject: string;
+  status: string;
+  priority: string;
+  category?: string | null;
+  description?: string | null;
+  nextFollowUpDate?: Date | string | null;
+  closedReason?: string | null;
+}) {
+  return {
+    subject: record.subject,
+    status: record.status,
+    priority: record.priority,
+    category: record.category ?? null,
+    description: record.description ?? null,
+    nextFollowUpDate: fechaCorta(record.nextFollowUpDate),
+    closedReason: record.closedReason ?? null,
+  };
+}

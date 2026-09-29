@@ -12,7 +12,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { getApiErrorMessage } from '@/services/api-client';
 
 const loginSchema = z.object({
-  email: z.string().min(1, 'Usuario o correo requerido'),
+  email: z.string().min(1, 'Usuario requerido'),
   password: z.string().min(1, 'La contraseña es requerida'),
 });
 

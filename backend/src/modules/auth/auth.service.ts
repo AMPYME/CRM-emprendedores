@@ -27,6 +27,7 @@ import {
 import {
   AuthUser,
   AuthTokenResponse,
+  PublicAuthUser,
   JwtPayload,
   JwtRefreshPayload,
 } from './auth.types';
@@ -107,6 +108,7 @@ function toAuthUser(user: SafeUser): AuthUser {
   return {
     id: user.id,
     email: user.email,
+    username: user.username,
     firstName: user.firstName,
     lastName: user.lastName,
     role: user.role,
@@ -120,6 +122,11 @@ function toAuthUser(user: SafeUser): AuthUser {
       ? { id: user.departamento.id, name: user.departamento.name }
       : null,
   };
+}
+
+function toClientUser(user: SafeUser): PublicAuthUser {
+  const { email: _email, ...client } = toAuthUser(user);
+  return client;
 }
 
 // ── Servicio exportado ──────────────────────────────────────────
@@ -220,7 +227,7 @@ export const authService = {
       });
       await logLogin(safe);
       return {
-        user: toAuthUser(safe),
+        user: toClientUser(safe),
         accessToken,
         refreshToken,
         adAccessToken: adTokens.accessToken,
@@ -238,7 +245,7 @@ export const authService = {
     logger.info('Login exitoso (AD)', { userId: user.id, email: user.email });
     await logLogin(safeUser);
     return {
-      user: toAuthUser(safeUser),
+      user: toClientUser(safeUser),
       accessToken,
       refreshToken,
       adAccessToken: adTokens.accessToken,
@@ -280,7 +287,7 @@ export const authService = {
     logger.debug('Token renovado', { userId: user.id });
 
     return {
-      user: toAuthUser(user),
+      user: toClientUser(user),
       accessToken,
       refreshToken,
     };
@@ -289,12 +296,12 @@ export const authService = {
   /**
    * Obtener perfil del usuario autenticado.
    */
-  async getProfile(userId: string): Promise<AuthUser> {
+  async getProfile(userId: string): Promise<PublicAuthUser> {
     const user = await authRepository.findByIdSafe(userId);
     if (!user) {
       throw new NotFoundError('Usuario', userId);
     }
-    return toAuthUser(user);
+    return toClientUser(user);
   },
 
   /**
@@ -309,7 +316,7 @@ export const authService = {
   /**
    * Actualizar perfil del usuario autenticado.
    */
-  async updateProfile(userId: string, input: UpdateProfileInput): Promise<AuthUser> {
+  async updateProfile(userId: string, input: UpdateProfileInput): Promise<PublicAuthUser> {
     const user = await authRepository.findByIdSafe(userId);
     if (!user) {
       throw new NotFoundError('Usuario', userId);
@@ -317,7 +324,7 @@ export const authService = {
 
     const updated = await authRepository.updateProfile(userId, input);
     logger.info('Perfil actualizado', { userId });
-    return toAuthUser(updated);
+    return toClientUser(updated);
   },
 
   /**

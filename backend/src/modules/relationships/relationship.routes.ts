@@ -11,6 +11,7 @@
  */
 import { Router } from 'express';
 import { relationshipController } from './relationship.controller';
+import { forbidReadOnly, protect } from '../auth/auth.middleware';
 import { asyncHandler } from '../../shared/utils/async-handler';
 import { validate } from '../../shared/middlewares/validate.middleware';
 import {
@@ -33,6 +34,8 @@ entityRelationshipRoutes.get(
 
 entityRelationshipRoutes.post(
   '/',
+  protect,
+  forbidReadOnly,
   validate(entityIdParamSchema, 'params'),
   validate(createRelationshipSchema, 'body'),
   asyncHandler(relationshipController.create)
@@ -43,6 +46,8 @@ export const relationshipRoutes = Router();
 
 relationshipRoutes.put(
   '/:id',
+  protect,
+  forbidReadOnly,
   validate(relationshipIdParamSchema, 'params'),
   validate(updateRelationshipSchema, 'body'),
   asyncHandler(relationshipController.update)
@@ -50,6 +55,8 @@ relationshipRoutes.put(
 
 relationshipRoutes.delete(
   '/:id',
+  protect,
+  forbidReadOnly,
   validate(relationshipIdParamSchema, 'params'),
   asyncHandler(relationshipController.remove)
 );

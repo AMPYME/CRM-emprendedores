@@ -4,6 +4,7 @@
  */
 import { Prisma, ImportBatch, StagingRow, ImportStatus, StagingRowStatus } from '@prisma/client';
 import { prisma } from '../../config/database';
+import { callProcedure } from '../../shared/db/procedures';
 import { ImportQueryInput, StagingQueryInput } from './import.validator';
 import { PaginatedResult } from '../../shared/types/api-response.types';
 import { ExtractedFields } from './import.types';
@@ -16,7 +17,7 @@ const BATCH_LIST_INCLUDES = {
       id: true,
       firstName: true,
       lastName: true,
-      email: true,
+      username: true,
     },
   },
   _count: {
@@ -33,7 +34,7 @@ const BATCH_DETAIL_INCLUDES = {
       id: true,
       firstName: true,
       lastName: true,
-      email: true,
+      username: true,
     },
   },
   _count: {
@@ -182,8 +183,11 @@ export const importRepository = {
   /**
    * Elimina un lote de importacion y sus filas staging (cascade).
    */
-  async deleteBatch(id: string): Promise<void> {
-    await prisma.importBatch.delete({ where: { id } });
+  async deleteBatch(id: string, deletedById?: string | null): Promise<void> {
+    await callProcedure(prisma, 'sp_soft_delete_import_batch', [
+      { value: id, cast: 'text' },
+      { value: deletedById ?? null, cast: 'text' },
+    ]);
   },
 
   /**
@@ -193,7 +197,9 @@ export const importRepository = {
    */
   async resetBatchForRetry(batchId: string): Promise<BatchWithRelations> {
     return prisma.$transaction(async (tx) => {
-      await tx.stagingRow.deleteMany({ where: { importBatchId: batchId } });
+      await callProcedure(tx, 'sp_soft_delete_staging_rows', [
+        { value: batchId, cast: 'text' },
+      ]);
 
       return tx.importBatch.update({
         where: { id: batchId },

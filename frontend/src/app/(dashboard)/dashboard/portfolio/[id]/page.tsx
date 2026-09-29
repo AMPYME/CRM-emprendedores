@@ -19,6 +19,8 @@ import {
   usePortfolio, useUpdatePortfolio, usePortfolioActions, useAddPortfolioAction,
 } from '@/hooks/use-portfolio';
 import { formatDate, formatDateShort, cn } from '@/lib/utils';
+import { isReadOnlyRole } from '@/lib/roles';
+import { useAuthStore } from '@/stores/auth.store';
 import { provinciaNombre } from '@/lib/division-politica';
 import type { PortfolioAction, ActionType } from '@/types/entities.types';
 
@@ -73,6 +75,7 @@ const actionTypeOptions = [
 export default function PortfolioDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const readOnly = isReadOnlyRole(useAuthStore((state) => state.user?.role));
 
   const { data: record, isLoading, error } = usePortfolio(id);
   const actions = usePortfolioActions(id);
@@ -187,12 +190,28 @@ export default function PortfolioDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" icon={<Edit className="h-4 w-4" />} onClick={openEdit}>
-            Editar
-          </Button>
-          <Button size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => setActionOpen(true)}>
-            Acción
-          </Button>
+          {!readOnly && record.status !== 'RESOLVED' && record.status !== 'CLOSED' && (
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                updateMutation.mutate({ id: record.id, data: { status: 'RESOLVED' } });
+              }}
+              isLoading={updateMutation.isPending}
+            >
+              Marcar como resuelto
+            </Button>
+          )}
+          {!readOnly && (
+            <Button type="button" variant="outline" size="sm" icon={<Edit className="h-4 w-4" />} onClick={openEdit}>
+              Editar
+            </Button>
+          )}
+          {!readOnly && (
+            <Button type="button" size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => setActionOpen(true)}>
+              Acción
+            </Button>
+          )}
         </div>
       </div>
 
@@ -361,8 +380,8 @@ export default function PortfolioDetailPage() {
         title="Editar registro" size="sm"
         footer={
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancelar</Button>
-            <Button onClick={handleUpdate} isLoading={updateMutation.isPending}>Guardar</Button>
+            <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>Cancelar</Button>
+            <Button type="button" onClick={handleUpdate} isLoading={updateMutation.isPending}>Guardar</Button>
           </div>
         }
       >

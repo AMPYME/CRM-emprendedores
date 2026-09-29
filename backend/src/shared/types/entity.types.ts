@@ -3,16 +3,25 @@
  */
 import { Prisma } from '@prisma/client';
 
+const LIST_CONTACTS = {
+  where: {
+    deletedAt: null,
+    contactType: { in: ['EMAIL', 'PHONE', 'MOBILE'] as ('EMAIL' | 'PHONE' | 'MOBILE')[] },
+  },
+  orderBy: { isPrimary: 'desc' as const },
+  take: 3,
+};
+
 export const ENTITY_LIST_INCLUDES = {
   person: true,
   company: true,
-  contacts: true,
+  contacts: LIST_CONTACTS,
 } satisfies Prisma.EntityInclude;
 
 export const ENTITY_DETAIL_INCLUDES = {
   person: true,
   company: true,
-  contacts: { orderBy: { isPrimary: 'desc' as const } },
+  contacts: { where: { deletedAt: null }, orderBy: { isPrimary: 'desc' as const } },
   _count: {
     select: {
       relationshipsFrom: true,
@@ -25,12 +34,12 @@ export const ENTITY_DETAIL_INCLUDES = {
 
 export const PERSON_LIST_INCLUDES = {
   person: true,
-  contacts: { orderBy: { isPrimary: 'desc' as const } },
+  contacts: LIST_CONTACTS,
 } satisfies Prisma.EntityInclude;
 
 export const COMPANY_LIST_INCLUDES = {
   company: true,
-  contacts: { orderBy: { isPrimary: 'desc' as const } },
+  contacts: LIST_CONTACTS,
 } satisfies Prisma.EntityInclude;
 
 export type EntityWithRelations = Prisma.EntityGetPayload<{

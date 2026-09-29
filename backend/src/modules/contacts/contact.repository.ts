@@ -4,6 +4,7 @@
  */
 import { Prisma, EntityContact } from '@prisma/client';
 import { prisma } from '../../config/database';
+import { callProcedure } from '../../shared/db/procedures';
 
 export const contactRepository = {
   /**
@@ -48,12 +49,18 @@ export const contactRepository = {
   },
 
   /**
-   * Elimina un contacto permanentemente.
+   * Borrado lógico del contacto. El procedimiento guarda quién lo dio de baja.
    */
-  async remove(id: string): Promise<EntityContact> {
-    return prisma.entityContact.delete({
-      where: { id },
-    });
+  async remove(id: string, deletedById?: string | null): Promise<EntityContact> {
+    const current = await prisma.entityContact.findFirst({ where: { id } });
+    if (!current) {
+      throw new Error('CONTACT_NOT_FOUND');
+    }
+    await callProcedure(prisma, 'sp_soft_delete_contact', [
+      { value: id, cast: 'text' },
+      { value: deletedById ?? null, cast: 'text' },
+    ]);
+    return current;
   },
 
   /**

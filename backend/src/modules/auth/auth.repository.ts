@@ -11,6 +11,7 @@ import { prisma } from '../../config/database';
 const SAFE_USER_SELECT = {
   id: true,
   email: true,
+  username: true,
   firstName: true,
   lastName: true,
   role: true,
@@ -29,6 +30,7 @@ const SAFE_USER_SELECT = {
 export type SafeUser = {
   id: string;
   email: string;
+  username: string | null;
   firstName: string;
   lastName: string;
   role: UserRole;

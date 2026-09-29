@@ -61,6 +61,8 @@ portfolioRoutes.get(
 
 portfolioRoutes.put(
   '/:id',
+  protect,
+  forbidReadOnly,
   validate(portfolioIdParamSchema, 'params'),
   validate(updatePortfolioSchema, 'body'),
   asyncHandler(portfolioController.update)

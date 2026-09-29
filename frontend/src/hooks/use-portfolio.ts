@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { portfolioService } from '@/services/portfolio.service';
 import type { PaginationParams } from '@/types/api.types';
 import toast from 'react-hot-toast';
+import { getApiErrorMessage } from '@/services/api-client';
 
 const PORTFOLIO_KEY = 'portfolio';
 const PORTFOLIO_ACTIONS_KEY = 'portfolio-actions';
@@ -62,8 +63,8 @@ export function useUpdatePortfolio() {
       qc.invalidateQueries({ queryKey: [PORTFOLIO_STATS_KEY] });
       toast.success('Registro actualizado');
     },
-    onError: () => {
-      toast.error('Error al actualizar el registro');
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error));
     },
   });
 }

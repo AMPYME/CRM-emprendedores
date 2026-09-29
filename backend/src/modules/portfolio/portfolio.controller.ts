@@ -49,7 +49,11 @@ export const portfolioController = {
    * Crear registro de cartera.
    */
   async create(req: Request, res: Response): Promise<void> {
-    const record = await portfolioService.create(req.body, req.user?.id);
+    const actor =
+      req.user?.id && req.user?.email
+        ? { userId: req.user.id, userEmail: req.user.email }
+        : undefined;
+    const record = await portfolioService.create(req.body, actor);
     sendCreated(res, record);
   },
 
@@ -71,10 +75,14 @@ export const portfolioController = {
    * Agregar acción a un registro de cartera.
    */
   async addAction(req: Request, res: Response): Promise<void> {
+    const actor =
+      req.user?.id && req.user?.email
+        ? { userId: req.user.id, userEmail: req.user.email }
+        : undefined;
     const action = await portfolioService.addAction(
       req.params.portfolioId as string,
       req.body,
-      req.user?.id
+      actor
     );
     sendCreated(res, action);
   },

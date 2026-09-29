@@ -186,6 +186,11 @@ model User {
   createdEntities          Entity[]          @relation("CreatedBy")
   auditLogs                AuditLog[]
   verificationItemsAssigned VerificationItem[] @relation("VerificationAssignedTo")
+  verificationItemsDeleted  VerificationItem[] @relation("VerificationDeletedBy")
+  contactsDeleted           EntityContact[]    @relation("ContactDeletedBy")
+  registrationsDeleted      EventRegistration[] @relation("RegistrationDeletedBy")
+  importsDeleted            ImportBatch[]      @relation("ImportDeletedBy")
+  intakeSessionsDeleted     IntakeSession[]    @relation("IntakeDeletedBy")
 
   @@index([username])
   @@map("users")
@@ -207,6 +212,7 @@ model AuditLog {
 
   @@index([action])
   @@index([entityType])
+  @@index([entityId])
   @@index([userId])
   @@index([createdAt])
   @@map("audit_logs")
@@ -232,6 +238,7 @@ model Entity {
 
   // Trazabilidad
   notes           String?
+  registroEmpresarialFecha DateTime? @map("registro_empresarial_fecha") @db.Date
   sourceOrigin    String?      @map("source_origin")  // Ej: "IMPORTACION_DIRECTORIO_2024", "EVENTO_CUMBRE_2024", "MANUAL"
   importBatchId   String?      @map("import_batch_id")
   mergedIntoId    String?      @map("merged_into_id")  // Si fue fusionada con otra entidad
@@ -334,16 +341,21 @@ model EntityContact {
   label         String?     // Ej: "Personal", "Trabajo", "WhatsApp negocio"
   isPrimary     Boolean     @default(false) @map("is_primary")
   isVerified    Boolean     @default(false) @map("is_verified")
+  deletedAt     DateTime?   @map("deleted_at")
+  deletedById   String?     @map("deleted_by_id")
 
   createdAt     DateTime    @default(now()) @map("created_at")
   updatedAt     DateTime    @updatedAt @map("updated_at")
 
   // Relación
   entity        Entity      @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  deletedBy     User?       @relation("ContactDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
 
   @@index([entityId])
   @@index([contactType, contactValue])
   @@index([contactValue])
+  @@index([deletedAt])
+  @@index([deletedById])
   @@map("entity_contacts")
 }
 
@@ -423,6 +435,8 @@ model EventRegistration {
   // Trazabilidad de importación
   sourceOrigin       String?            @map("source_origin")
   importBatchId      String?            @map("import_batch_id")
+  deletedAt          DateTime?          @map("deleted_at")
+  deletedById        String?            @map("deleted_by_id")
 
   createdAt          DateTime           @default(now()) @map("created_at")
   updatedAt          DateTime           @updatedAt @map("updated_at")
@@ -432,11 +446,15 @@ model EventRegistration {
   entity             Entity             @relation(fields: [entityId], references: [id], onDelete: Cascade)
   answers            EventRegistrationAnswer[]
   importBatch        ImportBatch?        @relation(fields: [importBatchId], references: [id])
+  deletedBy          User?               @relation("RegistrationDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
 
-  @@unique([eventId, entityId]) // Una entidad solo se registra una vez por evento
+  // Unicidad de inscripciones activas: índice parcial en la migración
+  // event_registrations_active_event_entity_key (deleted_at IS NULL).
   @@index([eventId])
   @@index([entityId])
   @@index([status])
+  @@index([deletedAt])
+  @@index([deletedById])
   @@map("event_registrations")
 }
 
@@ -581,6 +599,8 @@ model ImportBatch {
   errorLog         Json?        @map("error_log")
   columnMapping    Json?        @map("column_mapping")    // Mapeo de columnas Excel → campos del sistema
   importedById     String?      @map("imported_by_id")
+  deletedAt        DateTime?    @map("deleted_at")
+  deletedById      String?      @map("deleted_by_id")
 
   startedAt        DateTime?    @map("started_at")
   completedAt      DateTime?    @map("completed_at")
@@ -589,6 +609,7 @@ model ImportBatch {
 
   // Relaciones
   importedBy       User?        @relation("ImportedBy", fields: [importedById], references: [id])
+  deletedBy        User?        @relation("ImportDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
   stagingRows      StagingRow[]
   entities         Entity[]
   eventRegistrations EventRegistration[]
@@ -597,6 +618,8 @@ model ImportBatch {
   @@index([status])
   @@index([sourceType])
   @@index([importedById])
+  @@index([deletedAt])
+  @@index([deletedById])
   @@map("import_batches")
 }
 
@@ -627,6 +650,7 @@ model StagingRow {
   matchReason      String?         @map("match_reason")    // Ej: "cedula_exacta", "email_exacto", "nombre_fuzzy"
 
   processedAt      DateTime?       @map("processed_at")
+  deletedAt        DateTime?       @map("deleted_at")
   createdAt        DateTime        @default(now()) @map("created_at")
 
   // Relaciones
@@ -640,6 +664,7 @@ model StagingRow {
   @@index([extractedRuc])
   @@index([extractedEmail])
   @@index([extractedPhone])
+  @@index([deletedAt])
   @@map("staging_rows")
 }
 
@@ -707,14 +732,19 @@ model IntakeSession {
   updatedAt      DateTime            @updatedAt @map("updated_at")
   lastActivityAt DateTime            @default(now()) @map("last_activity_at")
   expiresAt      DateTime            @map("expires_at")
+  deletedAt      DateTime?           @map("deleted_at")
+  deletedById    String?             @map("deleted_by_id")
 
   entities       IntakeEntity[]
   verificationItem VerificationItem?
+  deletedBy      User?               @relation("IntakeDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([expiresAt])
   @@index([lastActivityAt])
   @@index([createdBy])
+  @@index([deletedAt])
+  @@index([deletedById])
   @@map("intake_sessions")
 }
 
@@ -729,6 +759,7 @@ model IntakeEntity {
   address       String?
   notes         String?
   sourceOrigin  String     @default("EMPRENDEDORES_INTAKE") @map("source_origin") @db.VarChar(120)
+  deletedAt     DateTime?  @map("deleted_at")
   createdAt     DateTime   @default(now()) @map("created_at")
   updatedAt     DateTime   @updatedAt @map("updated_at")
 
@@ -741,6 +772,7 @@ model IntakeEntity {
 
   @@index([sessionId])
   @@index([entityType])
+  @@index([deletedAt])
   @@map("intake_entities")
 }
 
@@ -867,6 +899,8 @@ model VerificationItem {
   validatedAt       DateTime?          @map("validated_at")
   rejectedAt        DateTime?          @map("rejected_at")
   rejectionReason   String?            @map("rejection_reason")
+  deletedAt         DateTime?          @map("deleted_at")
+  deletedById       String?            @map("deleted_by_id")
 
   createdAt         DateTime           @default(now()) @map("created_at")
   updatedAt         DateTime           @updatedAt @map("updated_at")
@@ -874,6 +908,7 @@ model VerificationItem {
   importBatch       ImportBatch?       @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
   stagingRow        StagingRow?        @relation(fields: [stagingRowId], references: [id], onDelete: SetNull)
   assignedTo        User?              @relation("VerificationAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  deletedBy         User?              @relation("VerificationDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
   intakeSession     IntakeSession?     @relation(fields: [intakeSessionId], references: [id], onDelete: SetNull)
 
   @@index([status])
@@ -888,6 +923,8 @@ model VerificationItem {
   @@index([status, source, entityType])
   @@index([searchCedula])
   @@index([searchRuc])
+  @@index([deletedAt])
+  @@index([deletedById])
   @@map("verification_items")
 }
 

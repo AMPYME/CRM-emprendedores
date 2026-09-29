@@ -47,7 +47,7 @@ const seedCapitalOptions = [
 export default function PersonsPage() {
   const user = useAuthStore((s) => s.user);
   const readOnly = isReadOnlyRole(user?.role);
-  const { page, limit, setPage, searchQuery, setSearchQuery } = usePagination();
+  const { page, limit, setPage, searchQuery, setSearchQuery } = usePagination({ initialLimit: 30 });
   const [province, setProvince] = useState('');
   const [district, setDistrict] = useState('');
   const [corregimiento, setCorregimiento] = useState('');
@@ -119,7 +119,7 @@ export default function PersonsPage() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
             <div className="flex-1">
               <SearchBar
-                placeholder="Buscar por nombre, cédula, correo..."
+                placeholder="Buscar por nombre o cédula..."
                 onSearch={handleSearch}
                 initialQuery={searchQuery}
               />
@@ -209,7 +209,6 @@ export default function PersonsPage() {
               <TableBody>
                 {persons.map((item) => {
                   const p = item.person;
-                  const email = item.contacts?.find((c) => c.contactType === 'EMAIL');
                   const phone = item.contacts?.find(
                     (c) => c.contactType === 'PHONE' || c.contactType === 'MOBILE'
                   );
@@ -234,9 +233,8 @@ export default function PersonsPage() {
                       </TableCell>
                       <TableCell>
                         <div className="space-y-0.5">
-                          {email && <p className="text-xs text-gray-600">{email.contactValue}</p>}
                           {phone && <p className="text-xs text-gray-500">{phone.contactValue}</p>}
-                          {!email && !phone && <span className="text-xs text-gray-400">—</span>}
+                          {!phone && <span className="text-xs text-gray-400">—</span>}
                         </div>
                       </TableCell>
                       <TableCell>

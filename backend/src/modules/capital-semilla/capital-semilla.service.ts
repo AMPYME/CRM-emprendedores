@@ -6,6 +6,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/database';
 import { BadRequestError, ConflictError, NotFoundError } from '../../shared/errors/app-error';
 import { auditService, AuditActor } from '../audit/audit.service';
+import { actorContext, cambios } from '../audit/audit-snapshot';
 import { SaveCapitalSemillaInput } from './capital-semilla.validator';
 
 export function cedulaKey(value: string): string {
@@ -98,6 +99,8 @@ export const capitalSemillaService = {
           personId: !owned || owned.id === current.id ? person.id : current.personId,
         },
       });
+      const quien = await actorContext(actor);
+      const { anterior, nuevo } = cambios(vistaCapital(current), vistaCapital(updated));
       await auditService.log({
         action: 'UPDATE',
         entityType: 'CAPITAL_SEMILLA',
@@ -105,14 +108,7 @@ export const capitalSemillaService = {
         entityLabel: person.entity.displayName,
         userId: actor?.userId,
         userEmail: actor?.userEmail,
-        metadata: {
-          recordId: updated.id,
-          cedula: updated.cedula,
-          province: updated.province,
-          businessName: updated.businessName,
-          actaNumber: updated.actaNumber,
-          amount: updated.amount === null ? null : updated.amount.toString(),
-        },
+        metadata: { ...quien, anterior, nuevo },
       });
       return toRecord(updated);
     }
@@ -124,6 +120,7 @@ export const capitalSemillaService = {
     const created = await prisma.capitalSemilla.create({
       data: { ...fields, personId: person.id },
     });
+    const quien = await actorContext(actor);
     await auditService.log({
       action: 'CREATE',
       entityType: 'CAPITAL_SEMILLA',
@@ -132,17 +129,28 @@ export const capitalSemillaService = {
       userId: actor?.userId,
       userEmail: actor?.userEmail,
       metadata: {
-        recordId: created.id,
-        cedula: created.cedula,
-        province: created.province,
-        businessName: created.businessName,
-        actaNumber: created.actaNumber,
-        amount: created.amount === null ? null : created.amount.toString(),
+        ...quien,
+        anterior: null,
+        nuevo: vistaCapital(created),
       },
     });
     return toRecord(created);
   },
 };
+
+function vistaCapital(row: {
+  province: string | null;
+  businessName: string | null;
+  actaNumber: string | null;
+  amount: Prisma.Decimal | null;
+}) {
+  return {
+    province: row.province,
+    businessName: row.businessName,
+    actaNumber: row.actaNumber,
+    amount: row.amount === null ? null : row.amount.toString(),
+  };
+}
 
 function emptyToNull(value: string | null | undefined): string | null {
   const text = value?.trim() ?? '';

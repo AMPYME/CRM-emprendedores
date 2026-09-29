@@ -16,6 +16,8 @@ import { buildMapping, applyMapping, getAvailableSystemFields, inferEntityType, 
 import { deduplicateRow } from './dedup.service';
 import { StagingToEntityData, ColumnMapping, ExtractedFields, ValidationResult, ImportBatchProgress, ImportExecuteBatchProgress } from './import.types';
 import { auditService } from '../audit/audit.service';
+import { actorContext } from '../audit/audit-snapshot';
+import { intakeRepository } from '../intake/intake.repository';
 import { getImportBatchSettings, sleep } from './import-batch.util';
 import { iterateCsvRows, peekCsvHeadersAndSample, getCsvHeaders } from './csv-stream.service';
 import {
@@ -1088,7 +1090,7 @@ export const importService = {
    * Si ya se enviaron filas a la cola de verificación / intake, se eliminan
    * (salvo las ya validadas en el CRM) para no dejar duplicados.
    */
-  async cancelBatch(batchId: string) {
+  async cancelBatch(batchId: string, actor?: { userId: string; userEmail?: string }) {
     const batch = await importRepository.findBatchById(batchId);
     if (!batch) throw new NotFoundError('Lote de importación', batchId);
 
@@ -1097,16 +1099,31 @@ export const importService = {
     }
 
     const { deleted, sessionIds } =
-      await verificationRepository.deleteUnvalidatedByImportBatch(batchId);
+      await verificationRepository.deleteUnvalidatedByImportBatch(batchId, actor?.userId ?? null);
     if (sessionIds.length > 0) {
-      await prisma.intakeSession.deleteMany({ where: { id: { in: sessionIds } } });
+      await intakeRepository.deleteSessions(sessionIds, actor?.userId ?? null);
     }
     if (deleted > 0) {
+      const quien = await actorContext(actor?.userId ? { userId: actor.userId, userEmail: actor.userEmail || '' } : undefined);
+      await auditService.log({
+        action: 'DELETE',
+        entityType: 'VERIFICATION',
+        entityId: batchId,
+        entityLabel: batch.originalFileName,
+        userId: actor?.userId,
+        userEmail: actor?.userEmail,
+        metadata: {
+          ...quien,
+          registros: deleted,
+          motivo: 'Baja lógica de datos que estaban en verificación',
+        },
+      });
       intakeWs.notifyQueueChanged('import_cancelled');
-      logger.info('Cancelación: se quitaron registros de verificación/intake', {
+      logger.info('Cancelación: baja lógica de registros de verificación/intake', {
         batchId,
         deleted,
         sessions: sessionIds.length,
+        usuario: quien.usuario,
       });
     }
 
@@ -1119,7 +1136,7 @@ export const importService = {
   /**
    * Elimina un lote y todos sus staging rows (solo si PENDING, CANCELLED o FAILED).
    */
-  async deleteBatch(batchId: string) {
+  async deleteBatch(batchId: string, deletedById?: string | null) {
     const batch = await importRepository.findBatchById(batchId);
     if (!batch) throw new NotFoundError('Lote de importación', batchId);
 
@@ -1130,7 +1147,7 @@ export const importService = {
       );
     }
 
-    await importRepository.deleteBatch(batchId);
+    await importRepository.deleteBatch(batchId, deletedById);
   },
 
   // ═══════════════════════════════════════════════════════════════

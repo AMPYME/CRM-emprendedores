@@ -366,7 +366,7 @@ export const verificationService = {
     }
 
     if (item.intakeSessionId) {
-      await intakeRepository.deleteSession(item.intakeSessionId).catch(() => undefined);
+      await intakeRepository.deleteSession(item.intakeSessionId, undefined, userId).catch(() => undefined);
     }
 
     await auditService.log({
@@ -391,7 +391,7 @@ export const verificationService = {
       .filter((id): id is string => !!id);
 
     if (sessionIds.length > 0) {
-      await prisma.intakeSession.deleteMany({ where: { id: { in: sessionIds } } });
+      await intakeRepository.deleteSessions(sessionIds, userId);
     }
 
     const result = await verificationRepository.releaseAllAssigned();
@@ -519,7 +519,7 @@ export const verificationService = {
     });
 
     if (item.intakeSessionId) {
-      await intakeRepository.deleteSession(item.intakeSessionId).catch(() => undefined);
+      await intakeRepository.deleteSession(item.intakeSessionId, undefined, userId).catch(() => undefined);
     }
 
     await auditService.log({

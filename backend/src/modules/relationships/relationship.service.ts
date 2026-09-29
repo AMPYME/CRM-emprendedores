@@ -14,6 +14,8 @@ import {
   relationshipPairErrorMessage,
 } from './relationship.rules';
 import { NotFoundError, ConflictError, ValidationError } from '../../shared/errors/app-error';
+import { auditService, AuditActor } from '../audit/audit.service';
+import { actorContext, cambios } from '../audit/audit-snapshot';
 
 const DUPLICATE_RELATION_MESSAGE =
   'Ya existe una relación entre estas dos entidades. Edítala o elimínala antes de crear otra.';
@@ -39,7 +41,7 @@ export const relationshipService = {
    * - Misma dirección inactiva → reactivar
    * - Dirección inversa inactiva → reorientar y reactivar
    */
-  async create(fromEntityId: string, input: CreateRelationshipInput) {
+  async create(fromEntityId: string, input: CreateRelationshipInput, actor?: AuditActor) {
     if (fromEntityId === input.toEntityId) {
       throw new ConflictError('Una entidad no puede tener una relación consigo misma');
     }
@@ -75,7 +77,7 @@ export const relationshipService = {
         existingLink.toEntityId === input.toEntityId;
 
       // Inactiva en cualquier dirección → reactivar con la orientación pedida
-      return relationshipRepository.update(existingLink.id, {
+      const reactivada = await relationshipRepository.update(existingLink.id, {
         ...(sameDirection
           ? {}
           : {
@@ -88,6 +90,8 @@ export const relationshipService = {
         endDate: input.endDate ? new Date(input.endDate) : null,
         isActive: true,
       });
+      await auditarRelacion('UPDATE', existingLink, reactivada, actor);
+      return reactivada;
     }
 
     try {
@@ -101,7 +105,9 @@ export const relationshipService = {
         isActive: input.isActive ?? true,
       };
 
-      return await relationshipRepository.create(data);
+      const created = await relationshipRepository.create(data);
+      await auditarRelacion('CREATE', null, created, actor);
+      return created;
     } catch (err: any) {
       if (err?.code === 'P2002') {
         throw new ConflictError(DUPLICATE_RELATION_MESSAGE);
@@ -113,7 +119,7 @@ export const relationshipService = {
   /**
    * Actualiza una relación existente.
    */
-  async update(id: string, input: UpdateRelationshipInput) {
+  async update(id: string, input: UpdateRelationshipInput, actor?: AuditActor) {
     const current = await relationshipRepository.findById(id);
     if (!current) {
       throw new NotFoundError('Relación', id);
@@ -170,7 +176,9 @@ export const relationshipService = {
     }
 
     try {
-      return await relationshipRepository.update(id, data);
+      const updated = await relationshipRepository.update(id, data);
+      await auditarRelacion('UPDATE', current, updated, actor);
+      return updated;
     } catch (err: any) {
       if (err?.code === 'P2002') {
         throw new ConflictError(DUPLICATE_RELATION_MESSAGE);
@@ -182,11 +190,76 @@ export const relationshipService = {
   /**
    * Soft delete: marca la relación como inactiva.
    */
-  async remove(id: string) {
+  async remove(id: string, actor?: AuditActor) {
     const current = await relationshipRepository.findById(id);
     if (!current) {
       throw new NotFoundError('Relación', id);
     }
-    return relationshipRepository.softDelete(id);
+    const removed = await relationshipRepository.softDelete(id);
+    await auditarRelacion('DELETE', current, { ...current, ...removed, isActive: false }, actor);
+    return removed;
   },
 };
+
+function fechaCorta(value: Date | string | null | undefined): string | null {
+  if (!value) return null;
+  const fecha = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(fecha.getTime())) return null;
+  return fecha.toISOString().slice(0, 10);
+}
+
+function vistaRelacion(rel: {
+  fromEntityId: string;
+  toEntityId: string;
+  relationshipType: string;
+  role?: string | null;
+  startDate?: Date | string | null;
+  endDate?: Date | string | null;
+  isActive: boolean;
+  fromEntity?: { displayName?: string | null };
+  toEntity?: { displayName?: string | null };
+}, entityId: string) {
+  const contraparte = rel.fromEntityId === entityId ? rel.toEntity : rel.fromEntity;
+  return {
+    contraparte: contraparte?.displayName ?? null,
+    relationshipType: rel.relationshipType,
+    role: rel.role ?? null,
+    startDate: fechaCorta(rel.startDate),
+    endDate: fechaCorta(rel.endDate),
+    isActive: rel.isActive,
+  };
+}
+
+async function auditarRelacion(
+  action: 'CREATE' | 'UPDATE' | 'DELETE',
+  before: Parameters<typeof vistaRelacion>[0] | null,
+  after: Parameters<typeof vistaRelacion>[0],
+  actor?: AuditActor,
+) {
+  const quien = await actorContext(actor);
+  const ids = new Set(
+    [before?.fromEntityId, before?.toEntityId, after.fromEntityId, after.toEntityId].filter(
+      (id): id is string => Boolean(id),
+    ),
+  );
+
+  for (const entityId of ids) {
+    const previo = before ? vistaRelacion(before, entityId) : null;
+    const siguiente = vistaRelacion(after, entityId);
+    const diff = previo ? cambios(previo, siguiente) : { anterior: null, nuevo: siguiente };
+    const anterior = diff.anterior
+      ? { ...diff.anterior, contraparte: previo?.contraparte ?? null }
+      : null;
+    const nuevo = { ...(diff.nuevo ?? {}), contraparte: siguiente.contraparte };
+
+    await auditService.log({
+      action,
+      entityType: 'RELATIONSHIP',
+      entityId,
+      entityLabel: siguiente.contraparte ?? undefined,
+      userId: actor?.userId,
+      userEmail: actor?.userEmail,
+      metadata: { ...quien, anterior, nuevo },
+    });
+  }
+}

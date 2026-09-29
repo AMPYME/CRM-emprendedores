@@ -68,7 +68,7 @@ export const registrationController = {
    * Eliminar inscripción.
    */
   async remove(req: Request, res: Response): Promise<void> {
-    await registrationService.remove(req.params.id as string);
+    await registrationService.remove(req.params.id as string, req.user?.id);
     sendNoContent(res);
   },
 };

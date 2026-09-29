@@ -1,9 +1,10 @@
 import { Prisma, VerificationStatus } from '@prisma/client';
 import { prisma } from '../../config/database';
+import { callProcedure } from '../../shared/db/procedures';
 import type { VerificationQueryInput } from './verification.validator';
 
 const LIST_INCLUDE = {
-  assignedTo: { select: { id: true, firstName: true, lastName: true, email: true } },
+  assignedTo: { select: { id: true, firstName: true, lastName: true, username: true } },
   importBatch: { select: { id: true, originalFileName: true } },
   intakeSession: { select: { id: true, expiresAt: true, lastActivityAt: true } },
 } satisfies Prisma.VerificationItemInclude;
@@ -180,8 +181,11 @@ export const verificationRepository = {
     });
   },
 
-  /** Borra ítems no validados de un lote (cancelar importación en curso). */
-  async deleteUnvalidatedByImportBatch(importBatchId: string) {
+  /**
+   * Baja lógica de ítems no validados. Guarda el funcionario en deleted_by_id.
+   * La fila permanece para auditoría (vw_verification_items_eliminadas).
+   */
+  async deleteUnvalidatedByImportBatch(importBatchId: string, deletedById?: string | null) {
     const items = await prisma.verificationItem.findMany({
       where: { importBatchId, status: { not: 'VALIDATED' } },
       select: { id: true, intakeSessionId: true },
@@ -192,9 +196,10 @@ export const verificationRepository = {
     if (items.length === 0) {
       return { deleted: 0, sessionIds };
     }
-    const result = await prisma.verificationItem.deleteMany({
-      where: { id: { in: items.map((i) => i.id) } },
-    });
-    return { deleted: result.count, sessionIds };
+    await callProcedure(prisma, 'sp_soft_delete_verifications_unvalidated', [
+      { value: importBatchId, cast: 'text' },
+      { value: deletedById ?? null, cast: 'text' },
+    ]);
+    return { deleted: items.length, sessionIds };
   },
 };

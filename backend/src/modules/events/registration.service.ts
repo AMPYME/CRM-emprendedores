@@ -152,12 +152,12 @@ export const registrationService = {
   /**
    * Eliminar inscripción y sus respuestas.
    */
-  async remove(id: string) {
+  async remove(id: string, userId?: string | null) {
     const registration = await registrationRepository.findById(id);
     if (!registration) {
       throw new NotFoundError('Inscripción', id);
     }
 
-    return registrationRepository.remove(id);
+    return registrationRepository.remove(id, userId);
   },
 };

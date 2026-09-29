@@ -3,6 +3,7 @@
  */
 import { ContactType, Gender, Prisma, CompanySizeClass } from '@prisma/client';
 import { prisma } from '../../config/database';
+import { callProcedure } from '../../shared/db/procedures';
 import { IntakeEntityType } from './intake.types';
 import { DEFAULT_NATIONALITY_CODE, resolveNationalityCode } from '../../shared/utils/nationality';
 import { ttlExpiresAtForSession } from './intake-ttl';
@@ -70,7 +71,9 @@ export async function replaceIntakeSnapshot(
   const locCodes = locationInputToCodes(location);
 
   await prisma.$transaction(async (tx) => {
-    await tx.intakeEntity.deleteMany({ where: { sessionId } });
+    await callProcedure(tx, 'sp_soft_delete_intake_entities', [
+      { value: sessionId, cast: 'text' },
+    ]);
 
     const entityData: Prisma.IntakeEntityCreateInput = {
       session: { connect: { id: sessionId } },

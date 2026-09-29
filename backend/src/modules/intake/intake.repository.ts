@@ -3,6 +3,7 @@
  */
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/database';
+import { callProcedure } from '../../shared/db/procedures';
 import {
   IntakeSessionRow,
   IntakeSnapshot,
@@ -18,6 +19,7 @@ import { ttlExpiresAt } from './intake-ttl';
 
 const SNAPSHOT_INCLUDE = {
   entities: {
+    where: { deletedAt: null },
     orderBy: { createdAt: 'asc' as const },
     include: {
       person: true,
@@ -185,7 +187,7 @@ export const intakeRepository = {
     return { session: toSessionRow(session), accessCode };
   },
 
-  async listCreators(): Promise<string[]> {
+  async listCreators(): Promise<Array<{ id: string; username: string | null }>> {
     const rows = await prisma.intakeSession.findMany({
       where: {
         expiresAt: { gte: new Date() },
@@ -196,7 +198,8 @@ export const intakeRepository = {
       select: { createdBy: true },
       orderBy: { createdBy: 'asc' },
     });
-    return rows.map((r) => r.createdBy).filter((v): v is string => !!v && v !== '');
+    const ids = rows.map((r) => r.createdBy).filter((v): v is string => !!v && v !== '');
+    return usernameByIds(ids);
   },
 
   async verifySessionAccess(sessionId: string, accessCode: string): Promise<boolean> {
@@ -233,6 +236,12 @@ export const intakeRepository = {
       take: 500,
     });
 
+    const names = new Map(
+      (await usernameByIds(
+        sessions.map((session) => session.createdBy).filter((id): id is string => !!id)
+      )).map((creator) => [creator.id, creator.username])
+    );
+
     return sessions.map((session) => {
       const snapshot = mapSnapshot(session);
       return {
@@ -240,6 +249,7 @@ export const intakeRepository = {
         entityType: snapshot.entityType,
         status: session.status,
         createdBy: session.createdBy,
+        createdByUsername: session.createdBy ? names.get(session.createdBy) ?? null : null,
         displayName: snapshot.displayName || typeFallback(snapshot.entityType),
         expiresAt: iso(session.expiresAt),
         lastActivityAt: iso(session.lastActivityAt),
@@ -301,14 +311,25 @@ export const intakeRepository = {
     return session ? mapSnapshot(session) : null;
   },
 
-  async deleteSession(sessionId: string, tx?: Prisma.TransactionClient): Promise<void> {
-    const db = tx ?? prisma;
-    await db.intakeSession.delete({ where: { id: sessionId } }).catch((err: unknown) => {
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
-        return;
-      }
-      throw err;
-    });
+  async deleteSession(
+    sessionId: string,
+    tx?: Prisma.TransactionClient,
+    deletedById?: string | null
+  ): Promise<void> {
+    await this.deleteSessions([sessionId], deletedById, tx);
+  },
+
+  async deleteSessions(
+    sessionIds: string[],
+    deletedById?: string | null,
+    tx?: Prisma.TransactionClient
+  ): Promise<void> {
+    const ids = sessionIds.filter(Boolean);
+    if (ids.length === 0) return;
+    await callProcedure(tx ?? prisma, 'sp_soft_delete_intake_sessions', [
+      { value: ids.join(','), cast: 'text' },
+      { value: deletedById ?? null, cast: 'text' },
+    ]);
   },
 
   async cleanupExpired(): Promise<string[]> {
@@ -353,9 +374,24 @@ export const intakeRepository = {
       });
     }
 
-    await prisma.intakeSession.deleteMany({
-      where: { id: { in: ids } },
-    });
+    await this.deleteSessions(ids, null);
     return ids;
   },
 };
+
+function visibleUsername(username: string | null | undefined): string | null {
+  const raw = username?.trim() || '';
+  if (!raw || raw.includes('@')) return null;
+  return raw;
+}
+
+async function usernameByIds(ids: string[]): Promise<Array<{ id: string; username: string | null }>> {
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return [];
+  const users = await prisma.user.findMany({
+    where: { id: { in: unique } },
+    select: { id: true, username: true },
+  });
+  const names = new Map(users.map((user) => [user.id, visibleUsername(user.username)]));
+  return unique.map((id) => ({ id, username: names.get(id) ?? null }));
+}

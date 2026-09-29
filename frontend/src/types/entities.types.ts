@@ -37,6 +37,7 @@ export interface Entity {
   corregimiento: string | null; // codCorr (6 dígitos)
   address: string | null;
   notes: string | null;
+  registroEmpresarialFecha: string | null;
   sourceOrigin: string | null;
   importBatchId: string | null;
   createdAt: string;

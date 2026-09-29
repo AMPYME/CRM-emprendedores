@@ -191,9 +191,9 @@ export default function AuditPage() {
                     <TableCell>
                       {log.user
                         ? `${log.user.firstName} ${log.user.lastName}`
-                        : log.userEmail || '—'}
-                      {log.user?.email && (
-                        <p className="text-xs text-gray-400">{log.user.email}</p>
+                        : '—'}
+                      {log.user?.username && (
+                        <p className="text-xs text-gray-400">{log.user.username}</p>
                       )}
                     </TableCell>
                   </TableRow>

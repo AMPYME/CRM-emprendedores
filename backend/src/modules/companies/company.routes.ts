@@ -3,7 +3,7 @@
  */
 import { Router } from 'express';
 import { companyController } from './company.controller';
-import { forbidReadOnly } from '../auth/auth.middleware';
+import { forbidReadOnly, protect } from '../auth/auth.middleware';
 import { asyncHandler } from '../../shared/utils/async-handler';
 import { validate } from '../../shared/middlewares/validate.middleware';
 import {
@@ -29,6 +29,7 @@ companyRoutes.get(
 
 companyRoutes.post(
   '/',
+  protect,
   forbidReadOnly,
   validate(createCompanySchema, 'body'),
   asyncHandler(companyController.create)
@@ -36,6 +37,7 @@ companyRoutes.post(
 
 companyRoutes.put(
   '/:id',
+  protect,
   forbidReadOnly,
   validate(entityIdParamSchema, 'params'),
   validate(updateCompanySchema, 'body'),
@@ -44,6 +46,7 @@ companyRoutes.put(
 
 companyRoutes.delete(
   '/:id',
+  protect,
   forbidReadOnly,
   validate(entityIdParamSchema, 'params'),
   asyncHandler(companyController.remove)

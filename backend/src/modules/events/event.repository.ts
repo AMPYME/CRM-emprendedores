@@ -24,6 +24,7 @@ const EVENT_DETAIL_INCLUDES = {
     },
   },
   registrations: {
+    where: { deletedAt: null },
     take: 10,
     orderBy: { registeredAt: 'desc' as const },
     include: {

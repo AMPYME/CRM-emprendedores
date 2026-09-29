@@ -96,7 +96,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                 <span className="block text-sm font-medium leading-tight text-slate-900">
                   {user.firstName} {user.lastName}
                 </span>
-                <span className="block max-w-[180px] truncate text-xs text-slate-500">{user.email}</span>
+                <span className="block max-w-[180px] truncate text-xs text-slate-500">{user.username || 'usuario'}</span>
               </span>
               <ChevronDown className="h-4 w-4 text-slate-400" aria-hidden />
             </button>

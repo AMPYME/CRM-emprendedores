@@ -48,7 +48,6 @@ export interface AmpymeFormSubmissionRow {
   apellido: string | null;
   provincia: string | null;
   telefono: string | null;
-  email: string | null;
 }
 
 export interface AmpymeFormSubmissionsPayload {

@@ -63,6 +63,7 @@ export interface IntakeSessionSummary {
   entityType: IntakeEntityType;
   status: IntakeStatus;
   createdBy: string | null;
+  createdByUsername: string | null;
   displayName: string;
   expiresAt: string;
   lastActivityAt: string;
@@ -77,7 +78,7 @@ export interface IntakeCreateResult {
 
 export interface IntakeSessionListResult {
   sessions: IntakeSessionSummary[];
-  creators: string[];
+  creators: Array<{ id: string; username: string | null }>;
   total: number;
 }
 

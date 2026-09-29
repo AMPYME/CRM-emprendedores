@@ -53,7 +53,7 @@ export const entityRepository = {
         { company: { ruc: { contains: filters.search } } },
         { company: { legalName: { contains: filters.search, mode: 'insensitive' } } },
         { company: { tradeName: { contains: filters.search, mode: 'insensitive' } } },
-        { contacts: { some: { contactValue: { contains: filters.search, mode: 'insensitive' } } } },
+        { contacts: { some: { deletedAt: null, contactValue: { contains: filters.search, mode: 'insensitive' } } } },
       ];
     }
 
@@ -78,6 +78,15 @@ export const entityRepository = {
     return prisma.entity.findUnique({
       where: { id },
       include: ENTITY_DETAIL_INCLUDES,
+    });
+  },
+
+  async setRegistroEmpresarialFecha(id: string, fecha: string | null) {
+    return prisma.entity.update({
+      where: { id },
+      data: {
+        registroEmpresarialFecha: fecha ? new Date(`${fecha}T00:00:00.000Z`) : null,
+      },
     });
   },
 };

@@ -21,10 +21,9 @@ export interface AuditLog {
   entityId: string | null;
   entityLabel: string | null;
   userId: string | null;
-  userEmail: string | null;
   metadata: Record<string, unknown> | null;
   createdAt: string;
-  user?: { id: string; firstName: string; lastName: string; email: string } | null;
+  user?: { id: string; firstName: string; lastName: string; username: string | null } | null;
 }
 
 export interface AuditLogFilters extends PaginationParams {

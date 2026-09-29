@@ -32,6 +32,7 @@ function isPrivateDevOrigin(origin: string): boolean {
 
 export function createApp(): Application {
   const app = express();
+  app.set('etag', false);
 
   // Detrás de reverse proxy (Dokploy/Traefik) para rate-limit por IP real
   app.set('trust proxy', 1);

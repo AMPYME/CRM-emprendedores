@@ -4,6 +4,7 @@
  */
 import { Prisma, EventRegistration } from '@prisma/client';
 import { prisma } from '../../config/database';
+import { callProcedure } from '../../shared/db/procedures';
 import { RegistrationQueryInput } from './registration.validator';
 import { PaginatedResult } from '../../shared/types/api-response.types';
 
@@ -144,10 +145,8 @@ export const registrationRepository = {
    * Verifica si ya existe inscripción (entidad + evento).
    */
   async findExisting(eventId: string, entityId: string): Promise<EventRegistration | null> {
-    return prisma.eventRegistration.findUnique({
-      where: {
-        eventId_entityId: { eventId, entityId },
-      },
+    return prisma.eventRegistration.findFirst({
+      where: { eventId, entityId },
     });
   },
 
@@ -192,12 +191,18 @@ export const registrationRepository = {
   },
 
   /**
-   * Elimina inscripción y sus respuestas (cascade).
+   * Borrado lógico de la inscripción. Las respuestas quedan asociadas al registro.
    */
-  async remove(id: string): Promise<EventRegistration> {
-    return prisma.eventRegistration.delete({
-      where: { id },
-    });
+  async remove(id: string, deletedById?: string | null): Promise<EventRegistration> {
+    const current = await prisma.eventRegistration.findFirst({ where: { id } });
+    if (!current) {
+      throw new Error('REGISTRATION_NOT_FOUND');
+    }
+    await callProcedure(prisma, 'sp_soft_delete_registration', [
+      { value: id, cast: 'text' },
+      { value: deletedById ?? null, cast: 'text' },
+    ]);
+    return current;
   },
 
   /**

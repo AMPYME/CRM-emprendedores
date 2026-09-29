@@ -49,7 +49,7 @@ export type UpdateCompanyInput = z.infer<typeof updateCompanySchema>;
 // ── Filtros de listado ────────────────────────────────────────────
 export const companyQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
+  limit: z.coerce.number().int().min(1).max(30).default(30),
   sortBy: z.enum(['displayName', 'createdAt', 'legalName', 'tradeName', 'ruc']).optional(),
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
   search: z.string().trim().min(1).optional(),

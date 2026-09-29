@@ -233,10 +233,10 @@ export default function IntakeListPage() {
   const [deleteTarget, setDeleteTarget] = useState<ShareSession | null>(null);
 
   useEffect(() => {
-    if (!createdBy && currentUser?.email) {
-      setCreatedBy(currentUser.email);
+    if (!createdBy && currentUser?.id) {
+      setCreatedBy(currentUser.id);
     }
-  }, [createdBy, currentUser?.email]);
+  }, [createdBy, currentUser?.id]);
 
   const { data, isLoading } = useIntakeSessions(status || undefined, createdBy || undefined);
   const sessions = data?.sessions ?? [];
@@ -247,11 +247,13 @@ export default function IntakeListPage() {
     () => [
       { value: '', label: 'Todos los usuarios' },
       ...((data?.creators ?? []).map((creator) => ({
-        value: creator,
-        label: creator === currentUser?.email ? `${creator} (mi sesión)` : creator,
+        value: creator.id,
+        label: creator.id === currentUser?.id
+          ? `${creator.username || 'usuario'} (mi sesión)`
+          : (creator.username || 'usuario'),
       }))),
     ],
-    [data?.creators, currentUser?.email]
+    [data?.creators, currentUser?.id]
   );
 
   const openCreate = () => {
@@ -374,7 +376,7 @@ export default function IntakeListPage() {
                       </div>
                       <p className="truncate text-xs text-gray-400">{s.sessionId}</p>
                       <p className="truncate text-xs text-gray-500">
-                        Creado por: <span className="font-medium text-gray-700">{s.createdBy || 'Sin usuario'}</span>
+                        Creado por: <span className="font-medium text-gray-700">{s.createdByUsername || 'Sin usuario'}</span>
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-4">

@@ -50,6 +50,7 @@ personRoutes.get(
 
 personRoutes.post(
   '/',
+  protect,
   forbidReadOnly,
   validate(createPersonSchema, 'body'),
   asyncHandler(personController.create)
@@ -57,6 +58,7 @@ personRoutes.post(
 
 personRoutes.put(
   '/:id',
+  protect,
   forbidReadOnly,
   validate(entityIdParamSchema, 'params'),
   validate(updatePersonSchema, 'body'),
@@ -65,6 +67,7 @@ personRoutes.put(
 
 personRoutes.delete(
   '/:id',
+  protect,
   forbidReadOnly,
   validate(entityIdParamSchema, 'params'),
   asyncHandler(personController.remove)

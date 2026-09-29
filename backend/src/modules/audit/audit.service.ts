@@ -9,6 +9,17 @@ export interface AuditActor {
   userEmail: string;
 }
 
+const CAMPOS_PLANOS = ['province', 'businessName', 'actaNumber', 'amount', 'cedula'] as const;
+
+function nuevoDesdeMetadataPlana(metadata: Record<string, unknown>): Record<string, unknown> | null {
+  if (metadata.anterior || metadata.nuevo) return null;
+  const nuevo: Record<string, unknown> = {};
+  for (const campo of CAMPOS_PLANOS) {
+    if (metadata[campo] !== undefined) nuevo[campo] = metadata[campo];
+  }
+  return Object.keys(nuevo).length > 0 ? nuevo : null;
+}
+
 function buildPaginationMeta(total: number, page: number, limit: number): PaginationMeta {
   const totalPages = Math.ceil(total / limit);
   return { page, limit, total, totalPages, hasNextPage: page < totalPages, hasPrevPage: page > 1 };
@@ -54,7 +65,48 @@ export const auditService = {
       to: filters.to ? new Date(filters.to) : undefined,
     });
     return {
-      data: result.data,
+      data: result.data.map((row) => {
+        const { userEmail: _correo, user, ...rest } = row;
+        return {
+          ...rest,
+          user: user
+            ? {
+                id: user.id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                username: user.username && !user.username.includes('@') ? user.username : null,
+              }
+            : null,
+        };
+      }),
+      meta: buildPaginationMeta(result.total, result.page, result.limit),
+    };
+  },
+
+  async listByEntity(entityId: string, page: number, limit: number) {
+    const result = await auditRepository.findByEntity(entityId, page, limit);
+    return {
+      data: result.data.map((row) => {
+        const metadata = (row.metadata ?? {}) as Record<string, unknown>;
+        const usuarioMeta = typeof metadata.usuario === 'string' && !metadata.usuario.includes('@')
+          ? metadata.usuario
+          : null;
+        const sedeMeta = typeof metadata.sede === 'string' ? metadata.sede : null;
+        const departamentoMeta = typeof metadata.departamento === 'string' ? metadata.departamento : null;
+        const nuevoGuardado = metadata.nuevo ?? nuevoDesdeMetadataPlana(metadata);
+        return {
+          id: row.id,
+          action: row.action,
+          entityType: row.entityType,
+          createdAt: row.createdAt,
+          usuario: usuarioMeta || (row.user?.username && !row.user.username.includes('@') ? row.user.username : null),
+          sede: sedeMeta || row.user?.sede?.name || null,
+          departamento: departamentoMeta || row.user?.departamento?.name || null,
+          anterior: metadata.anterior ?? null,
+          nuevo: nuevoGuardado,
+          campos: Array.isArray(metadata.fields) ? metadata.fields : null,
+        };
+      }),
       meta: buildPaginationMeta(result.total, result.page, result.limit),
     };
   },

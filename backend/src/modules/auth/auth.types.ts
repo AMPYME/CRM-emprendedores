@@ -30,6 +30,7 @@ export interface JwtRefreshPayload {
 export interface AuthUser {
   id: string;
   email: string;
+  username: string | null;
   firstName: string;
   lastName: string;
   role: UserRole;
@@ -43,8 +44,10 @@ export interface AuthUser {
 /**
  * Respuesta de login/register/refresh con tokens + datos de usuario.
  */
+export type PublicAuthUser = Omit<AuthUser, 'email'>;
+
 export interface AuthTokenResponse {
-  user: AuthUser;
+  user: PublicAuthUser;
   accessToken: string;
   refreshToken: string;
   /** Token AD-userAPI para consultar la API de formularios (admin). */

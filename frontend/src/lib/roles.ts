@@ -1,7 +1,7 @@
 import type { UserRole } from '@/types/auth.types';
 
 const FULL_ACCESS: UserRole[] = ['SUPER_ADMIN', 'ADMIN', 'EMPREND_ADMIN'];
-const VIEWER_NAV = new Set(['home', 'persons', 'companies', 'events']);
+const VIEWER_NAV = new Set(['home', 'persons', 'companies', 'events', 'registro-empresarial']);
 const OPERADOR_BLOCKED_NAV = new Set(['imports']);
 
 export function isFullAccessRole(role: UserRole | undefined | null): boolean {
@@ -60,6 +60,7 @@ export function canAccessPath(
     if (path.startsWith('/dashboard/persons')) return true;
     if (path.startsWith('/dashboard/companies')) return true;
     if (path.startsWith('/dashboard/events')) return true;
+    if (path === '/registro-empresarial' || path.startsWith('/registro-empresarial/')) return true;
     if (path === '/settings') return true;
     return false;
   }

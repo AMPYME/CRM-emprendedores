@@ -70,7 +70,7 @@ export default function UsersPage() {
             <TableHead>
               <TableRow>
                 <TableHeaderCell>Nombre</TableHeaderCell>
-                <TableHeaderCell>Correo</TableHeaderCell>
+                <TableHeaderCell>Usuario</TableHeaderCell>
                 <TableHeaderCell>Rol</TableHeaderCell>
                 <TableHeaderCell>Sede</TableHeaderCell>
                 <TableHeaderCell>Departamento</TableHeaderCell>
@@ -81,7 +81,7 @@ export default function UsersPage() {
               {(users.data ?? []).map((user) => (
                 <TableRow key={user.id}>
                   <TableCell>{user.firstName} {user.lastName}</TableCell>
-                  <TableCell>{user.email}</TableCell>
+                  <TableCell>{user.username || '—'}</TableCell>
                   <TableCell>{roleLabel(user.role)}</TableCell>
                   <TableCell>{user.sede?.name ?? '—'}</TableCell>
                   <TableCell>{user.departamento?.name ?? '—'}</TableCell>

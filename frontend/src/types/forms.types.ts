@@ -36,5 +36,4 @@ export interface AmpymeFormSubmission {
   apellido?: string | null;
   provincia?: string | null;
   telefono?: string | null;
-  email?: string | null;
 }
