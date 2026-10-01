@@ -16,6 +16,7 @@ import {
 import { NotFoundError, ConflictError, ValidationError } from '../../shared/errors/app-error';
 import { auditService, AuditActor } from '../audit/audit.service';
 import { actorContext, cambios } from '../audit/audit-snapshot';
+import { personChangeService } from '../person-changes/person-change.service';
 
 const DUPLICATE_RELATION_MESSAGE =
   'Ya existe una relación entre estas dos entidades. Edítala o elimínala antes de crear otra.';
@@ -45,6 +46,7 @@ export const relationshipService = {
     if (fromEntityId === input.toEntityId) {
       throw new ConflictError('Una entidad no puede tener una relación consigo misma');
     }
+    await personChangeService.assertNoPendingForEntity(fromEntityId);
 
     const [fromType, toType] = await Promise.all([
       relationshipRepository.getEntityType(fromEntityId),
@@ -195,6 +197,7 @@ export const relationshipService = {
     if (!current) {
       throw new NotFoundError('Relación', id);
     }
+    await personChangeService.assertNoPendingForEntity(current.fromEntityId);
     const removed = await relationshipRepository.softDelete(id);
     await auditarRelacion('DELETE', current, { ...current, ...removed, isActive: false }, actor);
     return removed;

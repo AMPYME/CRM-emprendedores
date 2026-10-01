@@ -38,16 +38,13 @@ export interface AuthUser {
   lastLoginAt: Date | null;
   createdAt: Date;
   sede: { id: string; name: string } | null;
-  departamento: { id: string; name: string } | null;
 }
 
 /**
  * Respuesta de login/register/refresh con tokens + datos de usuario.
  */
-export type PublicAuthUser = Omit<AuthUser, 'email'>;
-
 export interface AuthTokenResponse {
-  user: PublicAuthUser;
+  user: AuthUser;
   accessToken: string;
   refreshToken: string;
   /** Token AD-userAPI para consultar la API de formularios (admin). */

@@ -202,4 +202,25 @@ export const verificationRepository = {
     ]);
     return { deleted: items.length, sessionIds };
   },
+
+  /** Baja lógica de un ítem (no validado). */
+  async softDelete(id: string, deletedById?: string | null) {
+    const item = await prisma.verificationItem.findFirst({
+      where: { id },
+      select: { id: true, status: true, intakeSessionId: true },
+    });
+    if (!item) return null;
+    if (item.status === 'VALIDATED') {
+      return { blocked: true as const, item };
+    }
+    await prisma.verificationItem.update({
+      where: { id },
+      data: {
+        deletedAt: new Date(),
+        deletedById: deletedById ?? null,
+        intakeSessionId: null,
+      },
+    });
+    return { blocked: false as const, item };
+  },
 };

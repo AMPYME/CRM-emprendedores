@@ -3,6 +3,11 @@
  */
 import { z } from 'zod';
 import { isNationalityCode } from '../../shared/utils/nationality';
+import {
+  DocumentTypeValue,
+  normalizeDocumentNumber,
+  validateDocumentNumber,
+} from '../../shared/utils/document.utils';
 
 const nationalityCodeSchema = z
   .string()
@@ -10,7 +15,6 @@ const nationalityCodeSchema = z
   .toUpperCase()
   .refine((v) => isNationalityCode(v), { message: 'Código de nacionalidad ISO Alpha-3 inválido' });
 
-// ── Schema de contacto embebido ───────────────────────────────────
 const contactSchema = z.object({
   contactType: z.enum(['EMAIL', 'PHONE', 'MOBILE', 'WHATSAPP', 'WEBSITE', 'SOCIAL_MEDIA', 'OTHER']),
   contactValue: z.string().min(1, 'Valor de contacto requerido').max(300).trim(),
@@ -18,22 +22,26 @@ const contactSchema = z.object({
   isPrimary: z.boolean().default(false),
 });
 
-function refineSeedCapital(
-  data: { seedCapital?: 0 | 1; seedCapitalDate?: string },
-  ctx: z.RefinementCtx
+const documentTypeSchema = z.enum(['CEDULA_NUMERO', 'CEDULA_LETRA', 'PASAPORTE']);
+
+function refineDocument(
+  data: { documentType?: DocumentTypeValue; documentNumber?: string; cedula?: string },
+  ctx: z.RefinementCtx,
+  options?: { required?: boolean }
 ) {
-  if (data.seedCapital !== 1) return;
-  if (!/^(0[1-9]|1[0-2])\/\d{4}$/.test(data.seedCapitalDate ?? '')) {
+  const documentType = data.documentType;
+  const documentNumber = data.documentNumber ?? data.cedula;
+  const err = validateDocumentNumber(documentType, documentNumber, options);
+  if (err) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      path: ['seedCapitalDate'],
-      message: 'La fecha de capital semilla es obligatoria (MM/AAAA)',
+      path: err.includes('tipo') ? ['documentType'] : ['documentNumber'],
+      message: err,
     });
   }
 }
 
 const personBodySchema = z.object({
-  // Campos de entidad
   province: z.string().max(100).trim().optional(),
   district: z.string().max(100).trim().optional(),
   corregimiento: z.string().max(100).trim().optional(),
@@ -41,11 +49,13 @@ const personBodySchema = z.object({
   notes: z.string().max(2000).trim().optional(),
   sourceOrigin: z.string().max(100).trim().optional(),
 
-  // Campos de persona
   firstName: z.string().min(1, 'Nombre es requerido').max(100).trim(),
   lastName: z.string().min(1, 'Apellido es requerido').max(100).trim(),
   secondLastName: z.string().max(100).trim().optional(),
-  cedula: z.string().max(20).trim().optional(),
+  documentType: documentTypeSchema,
+  documentNumber: z.string().min(1, 'Número de documento es requerido').max(40).trim(),
+  /** Compat: algunos clientes aún envían cedula */
+  cedula: z.string().max(40).trim().optional(),
   gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional(),
   birthDate: z.string().optional(),
   nationalityCode: nationalityCodeSchema.optional(),
@@ -54,29 +64,51 @@ const personBodySchema = z.object({
   businessName: z.string().max(200).trim().optional(),
   economicActivity: z.string().max(200).trim().optional(),
   hasArtisanCard: z.boolean().optional(),
-  seedCapital: z.union([z.literal(0), z.literal(1)]).optional(),
-  seedCapitalDate: z.string().trim().max(7).optional(),
 
-  // Contactos opcionales en creación
   contacts: z.array(contactSchema).optional(),
 });
 
-export const createPersonSchema = personBodySchema.superRefine(refineSeedCapital);
+export const createPersonSchema = personBodySchema.superRefine((data, ctx) =>
+  refineDocument(data, ctx, { required: true })
+);
 
 export type CreatePersonInput = z.infer<typeof createPersonSchema>;
 
-// ── Actualizar persona ────────────────────────────────────────────
 export const updatePersonSchema = personBodySchema
   .omit({ contacts: true, sourceOrigin: true })
   .partial()
-  .superRefine(refineSeedCapital)
+  .superRefine((data, ctx) => {
+    const touchingDoc =
+      data.documentType !== undefined ||
+      data.documentNumber !== undefined ||
+      data.cedula !== undefined;
+    if (touchingDoc) {
+      refineDocument(data, ctx, { required: true });
+    }
+  })
   .refine((data) => Object.keys(data).length > 0, {
     message: 'Debe enviar al menos un campo para actualizar',
   });
 
 export type UpdatePersonInput = z.infer<typeof updatePersonSchema>;
 
-// ── Filtros de listado ────────────────────────────────────────────
+export function resolveDocumentFields(input: {
+  documentType?: DocumentTypeValue;
+  documentNumber?: string;
+  cedula?: string;
+}): { documentType?: DocumentTypeValue; documentNumber?: string; cedula?: string } {
+  const documentType = input.documentType;
+  const documentNumber = normalizeDocumentNumber(
+    documentType,
+    input.documentNumber ?? input.cedula
+  );
+  return {
+    documentType,
+    documentNumber,
+    cedula: documentNumber,
+  };
+}
+
 export const personQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(30).default(30),

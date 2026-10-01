@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback } from 'react';
 import Link from 'next/link';
-import { Building, Plus, Eye, Edit, Trash2 } from 'lucide-react';
+import { Building, Plus } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -20,7 +20,7 @@ import {
   TableHeaderCell,
   TableCell,
 } from '@/components/ui/table';
-import { useCompanies, useDeleteCompany } from '@/hooks/use-companies';
+import { useCompanies } from '@/hooks/use-companies';
 import { usePagination } from '@/hooks/use-pagination';
 import { CompanyFormModal } from './company-form-modal';
 import { getProvinciaOptions, getDistritoOptions, getCorregimientoOptions, provinciaNombre } from '@/lib/division-politica';
@@ -28,6 +28,9 @@ import { COMPANY_SIZE_CLASS_OPTIONS } from '@/lib/company-size-class';
 import { COMPANY_TYPE_OPTIONS } from '@/lib/company-types';
 import { isReadOnlyRole } from '@/lib/roles';
 import { useAuthStore } from '@/stores/auth.store';
+import { personChangesService } from '@/services/person-changes.service';
+import toast from 'react-hot-toast';
+import { getApiErrorMessage } from '@/services/api-client';
 
 const provinciaOptions = [
   { value: '', label: 'Todas las provincias' },
@@ -47,7 +50,7 @@ const companyTypeFilterOptions = [
 export default function CompaniesPage() {
   const user = useAuthStore((s) => s.user);
   const readOnly = isReadOnlyRole(user?.role);
-  const { page, limit, setPage, searchQuery, setSearchQuery } = usePagination({ initialLimit: 30 });
+  const { page, limit, setPage, searchQuery, setSearchQuery } = usePagination();
   const [province, setProvince] = useState('');
   const [district, setDistrict] = useState('');
   const [corregimiento, setCorregimiento] = useState('');
@@ -68,25 +71,32 @@ export default function CompaniesPage() {
     companyType: companyType || undefined,
   });
 
-  const deleteMutation = useDeleteCompany();
-
   const handleSearch = useCallback((q: string) => {
     setSearchQuery(q);
     setPage(1);
   }, [setSearchQuery, setPage]);
-
-  const handleDelete = (id: string, name: string) => {
-    if (window.confirm(`¿Estás seguro de eliminar "${name}"?`)) {
-      deleteMutation.mutate(id);
-    }
-  };
 
   const openCreate = () => {
     setEditId(null);
     setIsModalOpen(true);
   };
 
-  const openEdit = (id: string) => { setEditId(id); setIsModalOpen(true); };
+  const openEdit = async (id: string) => {
+    try {
+      const pending = await personChangesService.hasPending(id);
+      if (pending) {
+        toast.error(
+          'Esta empresa tiene cambios pendientes de confirmación. Confírmelos o cancele antes de editar.'
+        );
+        return;
+      }
+      setEditId(id);
+      setIsModalOpen(true);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err) || 'No se pudo verificar pendientes');
+    }
+  };
+
   const closeModal = () => {
     setIsModalOpen(false);
     setEditId(null);
@@ -213,26 +223,17 @@ export default function CompaniesPage() {
                       </Badge>
                     </TableCell>
                     <TableCell align="right">
-                      <div className="flex items-center justify-end gap-1">
-                          <Link href={`/dashboard/companies/${item.id}`}>
-                          <Button variant="ghost" size="sm" title="Ver detalle"><Eye className="h-4 w-4" /></Button>
+                      <div className="flex items-center justify-end gap-2">
+                        <Link href={`/dashboard/companies/${item.id}`}>
+                          <Button variant="ghost" size="sm">
+                            Ver
+                          </Button>
                         </Link>
-                          {!readOnly && (
-                            <>
-                              <Button variant="ghost" size="sm" title="Editar" onClick={() => openEdit(item.id)}>
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                title="Eliminar"
-                                className="text-red-500 hover:text-red-700"
-                                onClick={() => handleDelete(item.id, c?.legalName || item.displayName)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
+                        {!readOnly && (
+                          <Button variant="ghost" size="sm" onClick={() => openEdit(item.id)}>
+                            Editar
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

@@ -6,6 +6,7 @@ export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'EMPREND_ADMIN' | 'EMPREND_OPER
 
 export interface AuthUser {
   id: string;
+  email: string;
   username: string | null;
   firstName: string;
   lastName: string;
@@ -14,7 +15,6 @@ export interface AuthUser {
   lastLoginAt: string | null;
   createdAt: string;
   sede: { id: string; name: string } | null;
-  departamento: { id: string; name: string } | null;
 }
 
 export interface AuthTokenResponse {

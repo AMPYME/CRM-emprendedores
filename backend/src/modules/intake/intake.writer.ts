@@ -3,7 +3,6 @@
  */
 import { ContactType, Gender, Prisma, CompanySizeClass } from '@prisma/client';
 import { prisma } from '../../config/database';
-import { callProcedure } from '../../shared/db/procedures';
 import { IntakeEntityType } from './intake.types';
 import { DEFAULT_NATIONALITY_CODE, resolveNationalityCode } from '../../shared/utils/nationality';
 import { ttlExpiresAtForSession } from './intake-ttl';
@@ -11,7 +10,7 @@ import { parseBoolean } from './intake.mapper';
 import { locationInputToCodes } from '../../shared/utils/division-politica';
 
 export interface IntakeUpdateBody {
-  person?: Record<string, string | boolean | number | undefined>;
+  person?: Record<string, string | boolean | undefined>;
   company?: Record<string, string | number | undefined>;
   location?: Record<string, string | undefined>;
   contacts?: Array<{
@@ -71,9 +70,7 @@ export async function replaceIntakeSnapshot(
   const locCodes = locationInputToCodes(location);
 
   await prisma.$transaction(async (tx) => {
-    await callProcedure(tx, 'sp_soft_delete_intake_entities', [
-      { value: sessionId, cast: 'text' },
-    ]);
+    await tx.intakeEntity.deleteMany({ where: { sessionId } });
 
     const entityData: Prisma.IntakeEntityCreateInput = {
       session: { connect: { id: sessionId } },
@@ -101,15 +98,12 @@ export async function replaceIntakeSnapshot(
 
     const hasPersonData = !!(
       clean(person.firstName) ||
-      clean(person.firstName) ||
       clean(person.lastName) ||
-      clean(person.lastName) ||
-      clean(person.cedula)
+      clean(person.cedula) ||
+      clean(person.documentNumber)
     );
     const hasCompanyData = !!(
       clean(company.legalName) ||
-      clean(company.legalName) ||
-      clean(company.tradeName) ||
       clean(company.tradeName) ||
       clean(company.ruc)
     );
@@ -117,8 +111,8 @@ export async function replaceIntakeSnapshot(
     const createCompany = hasCompanyData || (entityType === 'COMPANY' && !hasPersonData);
 
     if (createPerson) {
-      const firstName = clean(person.firstName) ?? clean(person.firstName);
-      const lastName = clean(person.lastName) ?? clean(person.lastName);
+      const firstName = clean(person.firstName);
+      const lastName = clean(person.lastName);
       const displayName =
         [firstName, lastName].filter(Boolean).join(' ') || 'Sin nombre';
       const genderRaw = (clean(person.gender) ?? '').toUpperCase();
@@ -126,9 +120,8 @@ export async function replaceIntakeSnapshot(
         genderRaw === 'MALE' || genderRaw === 'FEMALE' || genderRaw === 'OTHER'
           ? genderRaw
           : null;
-      const hasArtisanCard = parseBoolean(
-        typeof person.hasArtisanCard === 'number' ? undefined : person.hasArtisanCard
-      );
+      const hasArtisanCard = parseBoolean(person.hasArtisanCard);
+      const cedula = clean(person.documentNumber) ?? clean(person.cedula);
 
       await tx.intakeEntity.create({
         data: {
@@ -137,21 +130,17 @@ export async function replaceIntakeSnapshot(
           displayName,
           person: {
             create: {
-              cedula: clean(person.cedula),
+              cedula,
               firstName,
               lastName,
-              secondLastName: clean(person.secondLastName) ?? clean(person.secondLastName),
+              secondLastName: clean(person.secondLastName),
               gender,
-              birthDate: parseDate(person.birthDate ?? person.birthDate),
+              birthDate: parseDate(person.birthDate),
               nationalityCode: resolveNationalityCode(
-                clean(person.nationalityCode) ??
-                  clean(person.nationalityCode) ??
-                  DEFAULT_NATIONALITY_CODE
+                clean(person.nationalityCode) ?? DEFAULT_NATIONALITY_CODE
               ),
-              educationLevel: clean(person.educationLevel) ?? clean(person.educationLevel),
+              educationLevel: clean(person.educationLevel),
               hasArtisanCard: hasArtisanCard ?? null,
-              seedCapital: person.seedCapital === 1 || person.seedCapital === '1' ? 1 : person.seedCapital === 0 || person.seedCapital === '0' ? 0 : null,
-              seedCapitalDate: person.seedCapital === 1 || person.seedCapital === '1' ? clean(person.seedCapitalDate) ?? null : null,
             },
           },
           contacts: contactCreates.length ? { create: contactCreates } : undefined,
@@ -251,6 +240,10 @@ export async function seedIntakeFromVerificationPayload(
   if (snapshot.person) {
     body.person = {
       cedula: snapshot.person.cedula as string | undefined,
+      documentNumber: (snapshot.person.document_number ?? snapshot.person.cedula) as
+        | string
+        | undefined,
+      documentType: snapshot.person.document_type as string | undefined,
       firstName: snapshot.person.first_name as string | undefined,
       lastName: snapshot.person.last_name as string | undefined,
       secondLastName: snapshot.person.second_last_name as string | undefined,
@@ -262,12 +255,6 @@ export async function seedIntakeFromVerificationPayload(
       businessName: snapshot.person.business_name as string | undefined,
       economicActivity: snapshot.person.economic_activity as string | undefined,
       hasArtisanCard: snapshot.person.has_artisan_card as boolean | undefined,
-      seedCapital: snapshot.person.seed_capital === 0 || snapshot.person.seed_capital === 1
-        ? snapshot.person.seed_capital
-        : undefined,
-      seedCapitalDate: typeof snapshot.person.seed_capital_date === 'string'
-        ? snapshot.person.seed_capital_date
-        : undefined,
     };
   }
 

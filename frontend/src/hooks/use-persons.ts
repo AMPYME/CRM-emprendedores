@@ -28,10 +28,11 @@ export function useCreatePerson() {
     mutationFn: (data: CreatePersonInput) => personsService.create(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [PERSONS_KEY] });
-      toast.success('Persona creada exitosamente');
+      qc.invalidateQueries({ queryKey: ['person-change-requests'] });
+      toast.success('Cambio pendiente de confirmación. Revise Confirmación.');
     },
     onError: (err) => {
-      toast.error(getApiErrorMessage(err) || 'Error al crear la persona');
+      toast.error(getApiErrorMessage(err) || 'Error al encolar la creación');
     },
   });
 }
@@ -43,10 +44,11 @@ export function useUpdatePerson() {
       personsService.update(id, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [PERSONS_KEY] });
-      toast.success('Persona actualizada exitosamente');
+      qc.invalidateQueries({ queryKey: ['person-change-requests'] });
+      toast.success('Cambio pendiente de confirmación. Revise Confirmación.');
     },
     onError: (err) => {
-      toast.error(getApiErrorMessage(err) || 'Error al actualizar la persona');
+      toast.error(getApiErrorMessage(err) || 'Error al encolar la actualización');
     },
   });
 }
@@ -57,10 +59,11 @@ export function useDeletePerson() {
     mutationFn: (id: string) => personsService.remove(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [PERSONS_KEY] });
-      toast.success('Persona eliminada');
+      qc.invalidateQueries({ queryKey: ['person-change-requests'] });
+      toast.success('Eliminación pendiente de confirmación. Revise Confirmación.');
     },
     onError: () => {
-      toast.error('Error al eliminar la persona');
+      toast.error('Error al encolar la eliminación');
     },
   });
 }

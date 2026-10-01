@@ -23,9 +23,9 @@ export const createCompanySchema = z.object({
 
   // Campos de empresa
   legalName: z.string().min(1, 'Razón social es requerida').max(300).trim(),
-  tradeName: z.string().max(300).trim().optional(),
-  ruc: z.string().max(30).trim().optional(),
-  dv: z.string().max(5).trim().optional(),
+  tradeName: z.string().min(1, 'Nombre comercial es requerido').max(300).trim(),
+  ruc: z.string().min(1, 'RUC es requerido').max(30).trim(),
+  dv: z.string().min(1, 'DV es requerido').max(5).trim(),
   companyType: z.string().max(50).trim().optional(),
   companySizeClass: z.enum(['MICRO', 'PEQUENA', 'MEDIANA']).optional(),
   foundedDate: z.string().optional(),

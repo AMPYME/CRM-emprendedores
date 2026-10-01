@@ -45,6 +45,8 @@ export interface CreatePersonInput {
   firstName: string;
   lastName: string;
   secondLastName?: string;
+  documentType?: 'CEDULA_NUMERO' | 'CEDULA_LETRA' | 'PASAPORTE';
+  documentNumber?: string;
   cedula?: string;
   gender?: string;
   birthDate?: string;
@@ -57,8 +59,6 @@ export interface CreatePersonInput {
   businessName?: string;
   economicActivity?: string;
   hasArtisanCard?: boolean;
-  seedCapital?: 0 | 1;
-  seedCapitalDate?: string;
   notes?: string;
   contacts?: Array<{
     contactType: string;
@@ -107,17 +107,26 @@ export const personsService = {
     return res.data.data;
   },
 
-  async create(data: CreatePersonInput): Promise<PersonListItem> {
-    const res = await apiClient.post<ApiResponse<PersonListItem>>('/persons', data);
+  async create(data: CreatePersonInput): Promise<{ queued: boolean; id: string; message?: string }> {
+    const res = await apiClient.post<ApiResponse<{ queued: boolean; id: string; message?: string }>>(
+      '/persons',
+      data
+    );
     return res.data.data;
   },
 
-  async update(id: string, data: UpdatePersonInput): Promise<PersonListItem> {
-    const res = await apiClient.put<ApiResponse<PersonListItem>>(`/persons/${id}`, data);
+  async update(id: string, data: UpdatePersonInput): Promise<{ queued: boolean; id: string; message?: string }> {
+    const res = await apiClient.put<ApiResponse<{ queued: boolean; id: string; message?: string }>>(
+      `/persons/${id}`,
+      data
+    );
     return res.data.data;
   },
 
-  async remove(id: string): Promise<void> {
-    await apiClient.delete(`/persons/${id}`);
+  async remove(id: string): Promise<{ queued: boolean; id: string; message?: string }> {
+    const res = await apiClient.delete<ApiResponse<{ queued: boolean; id: string; message?: string }>>(
+      `/persons/${id}`
+    );
+    return res.data.data;
   },
 };

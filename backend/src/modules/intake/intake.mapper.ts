@@ -10,6 +10,10 @@ import {
 } from './intake.types';
 import { locationInputToCodes } from '../../shared/utils/division-politica';
 import { resolveNationalityCode } from '../../shared/utils/nationality';
+import {
+  inferDocumentType,
+  validateDocumentNumber,
+} from '../../shared/utils/document.utils';
 
 const CONTACT_TYPES: ContactType[] = [
   'EMAIL', 'PHONE', 'MOBILE', 'WHATSAPP', 'WEBSITE', 'SOCIAL_MEDIA', 'OTHER',
@@ -86,18 +90,20 @@ export function snapshotToCreatePerson(s: IntakeSnapshot) {
   const p = s.person!;
   const contacts = mapContacts(s.contacts);
   const common = entityCommon(s);
+  const documentNumber = clean(p.cedula);
+  const documentType = inferDocumentType(documentNumber);
   return {
     firstName: clean(p.first_name) || 'Sin nombre',
     lastName: clean(p.last_name) || 'Sin apellido',
     secondLastName: clean(p.second_last_name),
-    cedula: clean(p.cedula),
+    documentType,
+    documentNumber,
+    cedula: documentNumber,
     gender: normalizeGender(p.gender),
     birthDate: clean(p.birth_date),
     nationalityCode: resolveNationalityCode(p.nationality_code),
     educationLevel: clean(p.education_level),
     hasArtisanCard: parseBoolean(p.has_artisan_card),
-    seedCapital: p.seed_capital === 0 || p.seed_capital === 1 ? p.seed_capital : undefined,
-    seedCapitalDate: p.seed_capital === 1 ? clean(p.seed_capital_date) : undefined,
     province: common.province,
     district: common.district,
     corregimiento: common.corregimiento,
@@ -140,21 +146,30 @@ export function validateSnapshot(s: IntakeSnapshot): { valid: boolean; errors: s
   if (!hasPerson(s.person) && !hasCompany(s.company)) {
     errors.push('No hay datos de persona ni empresa.');
   }
-  if (hasPerson(s.person) && !clean(s.person.first_name)) {
-    errors.push('Falta el nombre.');
-  }
-  if (hasPerson(s.person) && s.person.seed_capital === 1) {
-    if (!/^(0[1-9]|1[0-2])\/\d{4}$/.test(s.person.seed_capital_date ?? '')) {
-      errors.push('La fecha de capital semilla es obligatoria (MM/AAAA).');
+  if (hasPerson(s.person)) {
+    if (!clean(s.person.first_name)) {
+      errors.push('Falta el nombre.');
+    }
+    const documentNumber = clean(s.person.cedula);
+    const documentType = inferDocumentType(documentNumber);
+    const docErr = validateDocumentNumber(documentType, documentNumber, { required: true });
+    if (docErr) {
+      errors.push(docErr);
     }
   }
-  if (
-    hasCompany(s.company) &&
-    !clean(s.company.legal_name) &&
-    !clean(s.company.trade_name) &&
-    !clean(s.company.ruc)
-  ) {
-    errors.push('Falta la razón social o el nombre de la empresa.');
+  if (hasCompany(s.company)) {
+    if (!clean(s.company.legal_name)) {
+      errors.push('Falta la razón social.');
+    }
+    if (!clean(s.company.trade_name)) {
+      errors.push('Falta el nombre comercial.');
+    }
+    if (!clean(s.company.ruc)) {
+      errors.push('Falta el RUC.');
+    }
+    if (!clean(s.company.dv)) {
+      errors.push('Falta el DV.');
+    }
   }
   return { valid: errors.length === 0, errors };
 }

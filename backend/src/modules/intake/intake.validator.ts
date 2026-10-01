@@ -47,6 +47,8 @@ export const updateSessionSchema = z.object({
       lastName: z.string().optional(),
       secondLastName: z.string().optional(),
       cedula: z.string().optional(),
+      documentType: z.enum(['CEDULA_NUMERO', 'CEDULA_LETRA', 'PASAPORTE']).optional(),
+      documentNumber: z.string().optional(),
       gender: z.string().optional(),
       birthDate: z.string().optional(),
       nationalityCode: z
@@ -57,8 +59,6 @@ export const updateSessionSchema = z.object({
         .optional(),
       educationLevel: z.string().optional(),
       hasArtisanCard: z.union([z.boolean(), z.string()]).optional(),
-      seedCapital: z.union([z.literal(0), z.literal(1), z.literal('0'), z.literal('1')]).optional(),
-      seedCapitalDate: z.string().optional(),
     })
     .optional(),
   company: z

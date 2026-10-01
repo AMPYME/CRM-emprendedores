@@ -16,8 +16,6 @@ import { buildMapping, applyMapping, getAvailableSystemFields, inferEntityType, 
 import { deduplicateRow } from './dedup.service';
 import { StagingToEntityData, ColumnMapping, ExtractedFields, ValidationResult, ImportBatchProgress, ImportExecuteBatchProgress } from './import.types';
 import { auditService } from '../audit/audit.service';
-import { actorContext } from '../audit/audit-snapshot';
-import { intakeRepository } from '../intake/intake.repository';
 import { getImportBatchSettings, sleep } from './import-batch.util';
 import { iterateCsvRows, peekCsvHeadersAndSample, getCsvHeaders } from './csv-stream.service';
 import {
@@ -422,12 +420,12 @@ export const importService = {
           rowNumber += 1;
 
           try {
-            const fields = applyMapping(rawRow, mapping);
+        const fields = applyMapping(rawRow, mapping);
             chunk.push({
-              importBatchId: batchId,
+          importBatchId: batchId,
               rowNumber,
-              rawData: rawRow,
-              ...fields,
+          rawData: rawRow,
+          ...fields,
             });
           } catch (rowErr) {
             await persistProgress(batchId, {
@@ -812,7 +810,7 @@ export const importService = {
     }
 
     const { rowBatchSize, rowBatchDelayMs } = getImportBatchSettings();
-    const mapping = (batch.columnMapping as ColumnMapping) || {};
+      const mapping = (batch.columnMapping as ColumnMapping) || {};
     const sourceOrigin = `IMPORT_${batch.sourceType}_${batch.id.substring(0, 8)}`;
 
     if (batch.status === 'REVIEW_REQUIRED') {
@@ -851,17 +849,17 @@ export const importService = {
       try {
         const rawData = row.rawData as Record<string, unknown>;
         const fields = rowToExtractedFields(row);
-        let primaryEntityId: string;
+          let primaryEntityId: string;
 
         if (isUnifiedCsvSource(batch.sourceType)) {
-          const result = await this.importUnificadaRow(
-            fields,
-            rawData,
-            mapping,
-            sourceOrigin,
-            batchId,
-            batch.importedById ?? undefined
-          );
+            const result = await this.importUnificadaRow(
+              fields,
+              rawData,
+              mapping,
+              sourceOrigin,
+              batchId,
+              batch.importedById ?? undefined
+            );
           primaryEntityId = result.personId || result.companyId || '';
           if (!primaryEntityId) {
             throw new Error('La fila no produjo persona ni empresa');
@@ -886,49 +884,49 @@ export const importService = {
               metadata: { importBatchId: batchId, personId: result.personId },
             });
           }
-        } else {
-          const entityType = inferEntityType(batch.sourceType, fields);
-          const entityData = this.buildEntityData(
-            entityType,
-            fields,
-            rawData,
-            mapping,
-            sourceOrigin,
-            batchId
-          );
-          const entity = await this.createEntityFromStaging(entityData);
-          primaryEntityId = entity.id;
-          await auditService.log({
-            action: 'CREATE',
-            entityType: entity.entityType,
-            entityId: entity.id,
-            entityLabel: entity.displayName,
-            userId: batch.importedById ?? undefined,
-            metadata: { importBatchId: batchId },
-          });
-        }
+          } else {
+            const entityType = inferEntityType(batch.sourceType, fields);
+            const entityData = this.buildEntityData(
+              entityType,
+              fields,
+              rawData,
+              mapping,
+              sourceOrigin,
+              batchId
+            );
+            const entity = await this.createEntityFromStaging(entityData);
+            primaryEntityId = entity.id;
+            await auditService.log({
+              action: 'CREATE',
+              entityType: entity.entityType,
+              entityId: entity.id,
+              entityLabel: entity.displayName,
+              userId: batch.importedById ?? undefined,
+              metadata: { importBatchId: batchId },
+            });
+          }
 
-        await importRepository.updateStagingRow(row.id, {
-          status: 'IMPORTED',
-          matchedEntityId: primaryEntityId,
-          processedAt: new Date(),
-        });
+          await importRepository.updateStagingRow(row.id, {
+            status: 'IMPORTED',
+            matchedEntityId: primaryEntityId,
+            processedAt: new Date(),
+          });
 
         importedInBatch++;
-      } catch (err) {
-        logger.warn(`Error importando fila ${row.rowNumber}`, {
-          batchId,
-          rowId: row.id,
-          error: err instanceof Error ? err.message : 'Error desconocido',
-        });
+        } catch (err) {
+          logger.warn(`Error importando fila ${row.rowNumber}`, {
+            batchId,
+            rowId: row.id,
+            error: err instanceof Error ? err.message : 'Error desconocido',
+          });
 
-        await importRepository.updateStagingRow(row.id, {
-          status: 'ERROR',
-          validationErrors: {
-            import: [err instanceof Error ? err.message : 'Error al crear entidad'],
-          },
-          processedAt: new Date(),
-        });
+          await importRepository.updateStagingRow(row.id, {
+            status: 'ERROR',
+            validationErrors: {
+              import: [err instanceof Error ? err.message : 'Error al crear entidad'],
+            },
+            processedAt: new Date(),
+          });
 
         errorsInBatch++;
       }
@@ -1090,7 +1088,7 @@ export const importService = {
    * Si ya se enviaron filas a la cola de verificación / intake, se eliminan
    * (salvo las ya validadas en el CRM) para no dejar duplicados.
    */
-  async cancelBatch(batchId: string, actor?: { userId: string; userEmail?: string }) {
+  async cancelBatch(batchId: string) {
     const batch = await importRepository.findBatchById(batchId);
     if (!batch) throw new NotFoundError('Lote de importación', batchId);
 
@@ -1099,31 +1097,16 @@ export const importService = {
     }
 
     const { deleted, sessionIds } =
-      await verificationRepository.deleteUnvalidatedByImportBatch(batchId, actor?.userId ?? null);
+      await verificationRepository.deleteUnvalidatedByImportBatch(batchId);
     if (sessionIds.length > 0) {
-      await intakeRepository.deleteSessions(sessionIds, actor?.userId ?? null);
+      await prisma.intakeSession.deleteMany({ where: { id: { in: sessionIds } } });
     }
     if (deleted > 0) {
-      const quien = await actorContext(actor?.userId ? { userId: actor.userId, userEmail: actor.userEmail || '' } : undefined);
-      await auditService.log({
-        action: 'DELETE',
-        entityType: 'VERIFICATION',
-        entityId: batchId,
-        entityLabel: batch.originalFileName,
-        userId: actor?.userId,
-        userEmail: actor?.userEmail,
-        metadata: {
-          ...quien,
-          registros: deleted,
-          motivo: 'Baja lógica de datos que estaban en verificación',
-        },
-      });
       intakeWs.notifyQueueChanged('import_cancelled');
-      logger.info('Cancelación: baja lógica de registros de verificación/intake', {
+      logger.info('Cancelación: se quitaron registros de verificación/intake', {
         batchId,
         deleted,
         sessions: sessionIds.length,
-        usuario: quien.usuario,
       });
     }
 
@@ -1136,7 +1119,7 @@ export const importService = {
   /**
    * Elimina un lote y todos sus staging rows (solo si PENDING, CANCELLED o FAILED).
    */
-  async deleteBatch(batchId: string, deletedById?: string | null) {
+  async deleteBatch(batchId: string) {
     const batch = await importRepository.findBatchById(batchId);
     if (!batch) throw new NotFoundError('Lote de importación', batchId);
 
@@ -1147,7 +1130,7 @@ export const importService = {
       );
     }
 
-    await importRepository.deleteBatch(batchId, deletedById);
+    await importRepository.deleteBatch(batchId);
   },
 
   // ═══════════════════════════════════════════════════════════════
@@ -1293,51 +1276,51 @@ export const importService = {
 
       if (!options?.skipPerson && (kind === 'PERSON' || kind === 'BOTH')) {
         const existing = fields.extractedCedula
-          ? await tx.entity.findFirst({
-              where: {
-                entityType: 'PERSON',
-                status: { not: 'MERGED' },
-                person: { cedula: fields.extractedCedula },
-              },
+        ? await tx.entity.findFirst({
+            where: {
+              entityType: 'PERSON',
+              status: { not: 'MERGED' },
+              person: { cedula: fields.extractedCedula },
+            },
               select: { id: true, displayName: true },
-            })
-          : null;
+          })
+        : null;
 
         personEntity = existing
           ? existing
           : await tx.entity.create({
-              data: {
-                entityType: 'PERSON',
-                status: 'ACTIVE',
-                displayName: personName || 'Sin nombre',
-                province: loc.province,
-                district: loc.district,
-                corregimiento: loc.corregimiento,
-                address,
-                sourceOrigin,
-                importBatchId,
-                createdById,
-                person: {
-                  create: {
-                    firstName: fields.extractedFirstName || 'Sin nombre',
-                    lastName: fields.extractedLastName || 'Sin apellido',
-                    cedula: fields.extractedCedula,
-                  },
-                },
-                contacts: contactNestedCreate(),
+          data: {
+            entityType: 'PERSON',
+            status: 'ACTIVE',
+            displayName: personName || 'Sin nombre',
+            province: loc.province,
+            district: loc.district,
+            corregimiento: loc.corregimiento,
+            address,
+            sourceOrigin,
+            importBatchId,
+            createdById,
+            person: {
+              create: {
+                firstName: fields.extractedFirstName || 'Sin nombre',
+                lastName: fields.extractedLastName || 'Sin apellido',
+                cedula: fields.extractedCedula,
               },
+            },
+                contacts: contactNestedCreate(),
+          },
               select: { id: true, displayName: true },
-            });
+        });
       }
 
       if (!options?.skipCompany && (kind === 'COMPANY' || kind === 'BOTH')) {
         const existing = fields.extractedRuc
-          ? await tx.entity.findFirst({
-              where: {
-                entityType: 'COMPANY',
-                status: { not: 'MERGED' },
-                company: { ruc: fields.extractedRuc },
-              },
+        ? await tx.entity.findFirst({
+            where: {
+              entityType: 'COMPANY',
+              status: { not: 'MERGED' },
+              company: { ruc: fields.extractedRuc },
+            },
               select: { id: true, displayName: true },
             })
           : companyLegalName
@@ -1348,54 +1331,54 @@ export const importService = {
                   company: { legalName: { equals: companyLegalName, mode: 'insensitive' } },
                 },
                 select: { id: true, displayName: true },
-              })
-            : null;
+          })
+        : null;
 
         companyEntity = existing
           ? existing
           : await tx.entity.create({
-              data: {
-                entityType: 'COMPANY',
-                status: 'ACTIVE',
+          data: {
+            entityType: 'COMPANY',
+            status: 'ACTIVE',
                 displayName: companyLegalName || 'Empresa sin nombre',
-                province: loc.province,
-                district: loc.district,
-                corregimiento: loc.corregimiento,
-                address,
-                sourceOrigin,
-                importBatchId,
-                createdById,
-                company: {
-                  create: {
+            province: loc.province,
+            district: loc.district,
+            corregimiento: loc.corregimiento,
+            address,
+            sourceOrigin,
+            importBatchId,
+            createdById,
+            company: {
+              create: {
                     legalName: companyLegalName || 'Empresa sin nombre',
-                    ruc: fields.extractedRuc,
-                  },
-                },
-                contacts: contactNestedCreate(),
+                ruc: fields.extractedRuc,
               },
+            },
+                contacts: contactNestedCreate(),
+          },
               select: { id: true, displayName: true },
-            });
+        });
       }
 
       if (personEntity && companyEntity) {
-        const existingRel = await tx.entityRelationship.findFirst({
-          where: {
-            OR: [
-              { fromEntityId: personEntity.id, toEntityId: companyEntity.id },
-              { fromEntityId: companyEntity.id, toEntityId: personEntity.id },
-            ],
+      const existingRel = await tx.entityRelationship.findFirst({
+        where: {
+          OR: [
+            { fromEntityId: personEntity.id, toEntityId: companyEntity.id },
+            { fromEntityId: companyEntity.id, toEntityId: personEntity.id },
+          ],
+        },
+      });
+
+      if (!existingRel) {
+        await tx.entityRelationship.create({
+          data: {
+            fromEntityId: personEntity.id,
+            toEntityId: companyEntity.id,
+            relationshipType: 'OWNER',
+            isActive: true,
           },
         });
-
-        if (!existingRel) {
-          await tx.entityRelationship.create({
-            data: {
-              fromEntityId: personEntity.id,
-              toEntityId: companyEntity.id,
-              relationshipType: 'OWNER',
-              isActive: true,
-            },
-          });
         }
       }
 

@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback } from 'react';
 import Link from 'next/link';
-import { Users, Plus, Eye, Edit, Trash2 } from 'lucide-react';
+import { Users, Plus } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -20,12 +20,15 @@ import {
   TableHeaderCell,
   TableCell,
 } from '@/components/ui/table';
-import { usePersons, useDeletePerson } from '@/hooks/use-persons';
+import { usePersons } from '@/hooks/use-persons';
 import { usePagination } from '@/hooks/use-pagination';
 import { PersonFormModal } from './person-form-modal';
 import { getProvinciaOptions, getDistritoOptions, getCorregimientoOptions, provinciaNombre } from '@/lib/division-politica';
 import { isReadOnlyRole } from '@/lib/roles';
 import { useAuthStore } from '@/stores/auth.store';
+import { personChangesService } from '@/services/person-changes.service';
+import toast from 'react-hot-toast';
+import { getApiErrorMessage } from '@/services/api-client';
 
 const provinciaOptions = [
   { value: '', label: 'Todas las provincias' },
@@ -38,21 +41,14 @@ const artisanOptions = [
   { value: 'false', label: 'Sin carnet de artesano' },
 ];
 
-const seedCapitalOptions = [
-  { value: '', label: 'Capital semilla: todos' },
-  { value: '1', label: 'Capital semilla: Sí' },
-  { value: '0', label: 'Capital semilla: No' },
-];
-
 export default function PersonsPage() {
   const user = useAuthStore((s) => s.user);
   const readOnly = isReadOnlyRole(user?.role);
-  const { page, limit, setPage, searchQuery, setSearchQuery } = usePagination({ initialLimit: 30 });
+  const { page, limit, setPage, searchQuery, setSearchQuery } = usePagination();
   const [province, setProvince] = useState('');
   const [district, setDistrict] = useState('');
   const [corregimiento, setCorregimiento] = useState('');
   const [hasArtisanCard, setHasArtisanCard] = useState('');
-  const [seedCapital, setSeedCapital] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -65,30 +61,32 @@ export default function PersonsPage() {
     district: district || undefined,
     corregimiento: corregimiento || undefined,
     hasArtisanCard: hasArtisanCard === '' ? undefined : hasArtisanCard === 'true',
-    seedCapital: seedCapital === '' ? undefined : seedCapital === '1' ? 1 : 0,
   });
-
-  const deleteMutation = useDeletePerson();
 
   const handleSearch = useCallback((q: string) => {
     setSearchQuery(q);
     setPage(1);
   }, [setSearchQuery, setPage]);
 
-  const handleDelete = (id: string, name: string) => {
-    if (window.confirm(`¿Estás seguro de eliminar a "${name}"?`)) {
-      deleteMutation.mutate(id);
-    }
-  };
-
   const openCreate = () => {
     setEditId(null);
     setIsModalOpen(true);
   };
 
-  const openEdit = (id: string) => {
-    setEditId(id);
-    setIsModalOpen(true);
+  const openEdit = async (id: string) => {
+    try {
+      const pending = await personChangesService.hasPending(id);
+      if (pending) {
+        toast.error(
+          'Esta persona tiene cambios pendientes de confirmación. Confírmelos o cancele antes de editar.'
+        );
+        return;
+      }
+      setEditId(id);
+      setIsModalOpen(true);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err) || 'No se pudo verificar pendientes');
+    }
   };
 
   const closeModal = () => {
@@ -119,7 +117,7 @@ export default function PersonsPage() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
             <div className="flex-1">
               <SearchBar
-                placeholder="Buscar por nombre o cédula..."
+                placeholder="Buscar por nombre, cédula, correo..."
                 onSearch={handleSearch}
                 initialQuery={searchQuery}
               />
@@ -142,7 +140,7 @@ export default function PersonsPage() {
             </Button>
           </div>
           {showAdvanced && (
-            <div className="grid gap-3 border-t pt-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-3 border-t pt-4">
               <Select
                 options={[{ value: '', label: 'Todos los distritos' }, ...getDistritoOptions(province).filter((o) => o.value)]}
                 value={district}
@@ -159,11 +157,6 @@ export default function PersonsPage() {
                 options={artisanOptions}
                 value={hasArtisanCard}
                 onChange={(e) => { setHasArtisanCard(e.target.value); setPage(1); }}
-              />
-              <Select
-                options={seedCapitalOptions}
-                value={seedCapital}
-                onChange={(e) => { setSeedCapital(e.target.value); setPage(1); }}
               />
             </div>
           )}
@@ -209,6 +202,7 @@ export default function PersonsPage() {
               <TableBody>
                 {persons.map((item) => {
                   const p = item.person;
+                  const email = item.contacts?.find((c) => c.contactType === 'EMAIL');
                   const phone = item.contacts?.find(
                     (c) => c.contactType === 'PHONE' || c.contactType === 'MOBILE'
                   );
@@ -233,8 +227,9 @@ export default function PersonsPage() {
                       </TableCell>
                       <TableCell>
                         <div className="space-y-0.5">
+                          {email && <p className="text-xs text-gray-600">{email.contactValue}</p>}
                           {phone && <p className="text-xs text-gray-500">{phone.contactValue}</p>}
-                          {!phone && <span className="text-xs text-gray-400">—</span>}
+                          {!email && !phone && <span className="text-xs text-gray-400">—</span>}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -245,34 +240,20 @@ export default function PersonsPage() {
                         </Badge>
                       </TableCell>
                       <TableCell align="right">
-                        <div className="flex items-center justify-end gap-1">
+                        <div className="flex items-center justify-end gap-2">
                           <Link href={`/dashboard/persons/${item.id}`}>
-                            <Button variant="ghost" size="sm" title="Ver detalle">
-                              <Eye className="h-4 w-4" />
+                            <Button variant="ghost" size="sm">
+                              Ver
                             </Button>
                           </Link>
                           {!readOnly && (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                title="Editar"
-                                onClick={() => openEdit(item.id)}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                title="Eliminar"
-                                className="text-red-500 hover:text-red-700"
-                                onClick={() =>
-                                  handleDelete(item.id, `${p?.firstName} ${p?.lastName}`)
-                                }
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEdit(item.id)}
+                            >
+                              Editar
+                            </Button>
                           )}
                         </div>
                       </TableCell>

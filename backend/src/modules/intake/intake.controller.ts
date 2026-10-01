@@ -130,7 +130,7 @@ export const intakeController = {
   /** DELETE /intake/sessions/:id — elimina sesión temporal. */
   async remove(req: Request, res: Response): Promise<void> {
     const id = req.params.id as string;
-    await intakeService.deleteSession(id, req.user?.id);
+    await intakeService.deleteSession(id);
     intakeWs.notifyExpired(id);
     sendSuccess(res, { sessionId: id, deleted: true });
   },

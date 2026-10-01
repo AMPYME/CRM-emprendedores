@@ -2,12 +2,13 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ClipboardCheck, Unlock } from 'lucide-react';
+import { ClipboardCheck, Trash2, Unlock } from 'lucide-react';
 import {
   useVerifications,
   useClaimVerification,
   useReleaseVerification,
   useReleaseAllVerifications,
+  useDeleteVerification,
 } from '@/hooks/use-verifications';
 import { useVerificationQueueStream } from '@/hooks/use-verification-queue-stream';
 import { usePagination } from '@/hooks/use-pagination';
@@ -114,10 +115,12 @@ export function VerificationQueuePanel() {
   const [districtId, setDistrictId] = useState('');
   const [corregimientoId, setCorregimientoId] = useState('');
   const [releaseAllOpen, setReleaseAllOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<VerificationListItem | null>(null);
 
   const claimMutation = useClaimVerification();
   const releaseMutation = useReleaseVerification();
   const releaseAllMutation = useReleaseAllVerifications();
+  const deleteMutation = useDeleteVerification();
 
   useVerificationQueueStream(true);
 
@@ -160,6 +163,16 @@ export function VerificationQueuePanel() {
   const handleRelease = async (item: VerificationListItem) => {
     if (!window.confirm('¿Liberar esta asignación para que otro funcionario pueda tomarla?')) return;
     await releaseMutation.mutateAsync(item.id);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteMutation.mutateAsync(deleteTarget.id);
+      setDeleteTarget(null);
+    } catch {
+      setDeleteTarget(null);
+    }
   };
 
   const provinciaOpts = [{ value: '', label: 'Todas las provincias' }, ...getProvinciaOptions().filter((o) => o.value)];
@@ -310,6 +323,16 @@ export function VerificationQueuePanel() {
                               </Button>
                             )
                           )}
+                          {item.status !== 'VALIDATED' && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              title="Eliminar de la cola"
+                              className="text-red-600"
+                              onClick={() => setDeleteTarget(item)}
+                              icon={<Trash2 className="h-4 w-4" />}
+                            />
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -337,6 +360,17 @@ export function VerificationQueuePanel() {
         message="Todos los registros en verificación volverán a la cola sin asignar. Las sesiones de intake abiertas se cerrarán."
         confirmLabel="Liberar todas"
         variant="danger"
+      />
+
+      <ConfirmDialog
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="Eliminar de la cola"
+        message={`Se eliminará "${deleteTarget?.displayName || 'este registro'}" de la cola de verificación. Esta acción no borra datos ya validados en el padrón.`}
+        confirmLabel="Eliminar"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
       />
     </div>
   );

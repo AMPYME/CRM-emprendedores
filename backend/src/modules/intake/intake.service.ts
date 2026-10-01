@@ -11,7 +11,6 @@ import {
   GoneError,
 } from '../../shared/errors/app-error';
 import { prisma } from '../../config/database';
-import { callProcedure } from '../../shared/db/procedures';
 import { config } from '../../config/environment';
 import { titleCase } from '../../shared/utils/string.utils';
 import { intakeRepository } from './intake.repository';
@@ -38,6 +37,7 @@ import {
 } from './intake.writer';
 import { auditService } from '../audit/audit.service';
 import { persistableLocationCodes } from '../../shared/utils/entity-location';
+import { intakeWs } from './intake.ws';
 
 const DUPLICATE_MSG = 'Este usuario ya está creado en el sistema.';
 
@@ -69,7 +69,7 @@ export const intakeService = {
     };
   },
 
-  async listCreators(): Promise<Array<{ id: string; username: string | null }>> {
+  async listCreators(): Promise<string[]> {
     return intakeRepository.listCreators();
   },
 
@@ -163,10 +163,24 @@ export const intakeService = {
     return updated;
   },
 
-  async deleteSession(sessionId: string, deletedById?: string | null): Promise<void> {
+  async deleteSession(sessionId: string): Promise<void> {
     const session = await intakeRepository.getSession(sessionId);
     if (!session) throw new NotFoundError('Sesión de intake', sessionId);
-    await intakeRepository.deleteSession(sessionId, undefined, deletedById);
+
+    // Si hay ítem de verificación ligado, eliminarlo también (cola de verificación).
+    const linked = await prisma.verificationItem.findFirst({
+      where: { intakeSessionId: sessionId },
+      select: { id: true, status: true },
+    });
+    if (linked && linked.status !== 'VALIDATED') {
+      await prisma.verificationItem.update({
+        where: { id: linked.id },
+        data: { deletedAt: new Date(), intakeSessionId: null },
+      });
+    }
+
+    await intakeRepository.deleteSession(sessionId);
+    intakeWs.notifyQueueChanged('deleted');
   },
 
   async validateAndMigrate(
@@ -220,10 +234,7 @@ export const intakeService = {
             .join(' ');
 
           if (existing && onDuplicate === 'update') {
-            await callProcedure(tx, 'sp_soft_delete_entity_contacts', [
-              { value: existing.id, cast: 'text' },
-              { value: createdById ?? null, cast: 'text' },
-            ]);
+            await tx.entityContact.deleteMany({ where: { entityId: existing.id } });
             const entity = await tx.entity.update({
               where: { id: existing.id },
               data: {
@@ -244,8 +255,6 @@ export const intakeService = {
                     nationalityCode: input.nationalityCode,
                     educationLevel: input.educationLevel,
                     hasArtisanCard: input.hasArtisanCard,
-                    seedCapital: input.seedCapital,
-                    seedCapitalDate: input.seedCapital === 1 ? input.seedCapitalDate ?? null : null,
                   },
                 },
                 contacts: input.contacts?.length
@@ -278,8 +287,6 @@ export const intakeService = {
                     nationalityCode: input.nationalityCode,
                     educationLevel: input.educationLevel,
                     hasArtisanCard: input.hasArtisanCard,
-                    seedCapital: input.seedCapital,
-                    seedCapitalDate: input.seedCapital === 1 ? input.seedCapitalDate ?? null : null,
                   },
                 },
                 contacts: input.contacts?.length
@@ -324,10 +331,7 @@ export const intakeService = {
             : input.legalName;
 
           if (existing && onDuplicate === 'update') {
-            await callProcedure(tx, 'sp_soft_delete_entity_contacts', [
-              { value: existing.id, cast: 'text' },
-              { value: createdById ?? null, cast: 'text' },
-            ]);
+            await tx.entityContact.deleteMany({ where: { entityId: existing.id } });
             const entity = await tx.entity.update({
               where: { id: existing.id },
               data: {
@@ -418,7 +422,7 @@ export const intakeService = {
           where: { intakeSessionId: sessionId },
           data: { intakeSessionId: null },
         });
-        await intakeRepository.deleteSession(sessionId, tx, createdById);
+        await intakeRepository.deleteSession(sessionId, tx);
         return entities;
       });
 

@@ -7,6 +7,7 @@ import { CreateContactInput, UpdateContactInput } from './contact.validator';
 import { NotFoundError } from '../../shared/errors/app-error';
 import { auditService, AuditActor } from '../audit/audit.service';
 import { actorContext, cambios } from '../audit/audit-snapshot';
+import { personChangeService } from '../person-changes/person-change.service';
 
 export const contactService = {
   /**
@@ -28,6 +29,7 @@ export const contactService = {
     if (!exists) {
       throw new NotFoundError('Entidad', entityId);
     }
+    await personChangeService.assertNoPendingForEntity(entityId);
 
     const contact = await contactRepository.create(entityId, {
       contactType: input.contactType as any,
@@ -67,6 +69,7 @@ export const contactService = {
     if (!contact) {
       throw new NotFoundError('Contacto', contactId);
     }
+    await personChangeService.assertNoPendingForEntity(contact.entityId);
 
     const updateData: Record<string, unknown> = {};
     if (input.contactType !== undefined) updateData.contactType = input.contactType;
@@ -106,6 +109,7 @@ export const contactService = {
     if (!contact) {
       throw new NotFoundError('Contacto', contactId);
     }
+    await personChangeService.assertNoPendingForEntity(contact.entityId);
     const removed = await contactRepository.remove(contactId, actor?.userId ?? null);
     const quien = await actorContext(actor);
     await auditService.log({

@@ -1,13 +1,9 @@
 /** @type {import('next').NextConfig} */
-function asHttp(url) {
-  return url.replace(/^https:\/\//i, 'http://').replace(/\/$/, '');
-}
-
-const apiProxyTarget = asHttp(
+const apiProxyTarget = (
   process.env.API_PROXY_TARGET ||
-    process.env.NEXT_PUBLIC_API_URL ||
-    'http://api-emprendedores.ampyme.local/api/v1'
-);
+  process.env.NEXT_PUBLIC_API_URL ||
+  'http://192.168.99.60:4000/api/v1'
+).replace(/\/$/, '');
 
 const nextConfig = {
   output: 'standalone',

@@ -1,0 +1,6 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# next/image y tooling ligero; alpine ya trae lo necesario para next dev
+RUN apk add --no-cache libc6-compat

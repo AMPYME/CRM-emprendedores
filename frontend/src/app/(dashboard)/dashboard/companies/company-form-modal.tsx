@@ -21,9 +21,9 @@ import {
 
 const companySchema = z.object({
   legalName: z.string().min(2, 'La razón social es requerida'),
-  tradeName: z.string().optional(),
-  ruc: z.string().optional(),
-  dv: z.string().optional(),
+  tradeName: z.string().min(1, 'El nombre comercial es requerido'),
+  ruc: z.string().min(1, 'El RUC es requerido'),
+  dv: z.string().min(1, 'El DV es requerido'),
   companyType: z.string().optional(),
   companySizeClass: z.string().optional(),
   foundedDate: z.string().optional(),
@@ -172,9 +172,9 @@ export function CompanyFormModal({ isOpen, onClose, editId }: CompanyFormModalPr
       ) : (
         <form className="grid grid-cols-1 gap-4 sm:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
           <Input label="Razón Social *" error={errors.legalName?.message} {...register('legalName')} />
-          <Input label="Nombre comercial" {...register('tradeName')} />
-          <Input label="RUC" {...register('ruc')} />
-          <Input label="DV" {...register('dv')} className="max-w-[100px]" />
+          <Input label="Nombre comercial *" error={errors.tradeName?.message} {...register('tradeName')} />
+          <Input label="RUC *" error={errors.ruc?.message} {...register('ruc')} />
+          <Input label="DV *" error={errors.dv?.message} {...register('dv')} className="max-w-[100px]" />
           <Select label="Tipo de Sociedad" options={companyTypeOptions} {...register('companyType')} />
           <Select
             label="Clasificación por tamaño"

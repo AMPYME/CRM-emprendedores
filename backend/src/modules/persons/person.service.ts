@@ -4,14 +4,14 @@
  */
 import { Prisma } from '@prisma/client';
 import { personRepository } from './person.repository';
-import { PersonQueryInput, CreatePersonInput, UpdatePersonInput } from './person.validator';
-import { NotFoundError, ConflictError } from '../../shared/errors/app-error';
+import { PersonQueryInput, CreatePersonInput, UpdatePersonInput, resolveDocumentFields } from './person.validator';
+import { NotFoundError, ConflictError, BadRequestError } from '../../shared/errors/app-error';
 import { PaginationMeta } from '../../shared/types/api-response.types';
 import { titleCase } from '../../shared/utils/string.utils';
 import { persistableLocationCodes } from '../../shared/utils/entity-location';
 import { DEFAULT_NATIONALITY_CODE } from '../../shared/utils/nationality';
+import { validateDocumentNumber } from '../../shared/utils/document.utils';
 import { auditService, AuditActor } from '../audit/audit.service';
-import { actorContext, cambios } from '../audit/audit-snapshot';
 
 function buildDisplayName(firstName: string, lastName: string, secondLastName?: string): string {
   const parts = [titleCase(firstName), titleCase(lastName)];
@@ -33,18 +33,6 @@ export const personService = {
     };
   },
 
-  async findByCedula(cedula: string) {
-    const normalized = cedula.trim();
-    if (!normalized) {
-      throw new NotFoundError('Persona', cedula);
-    }
-    const entity = await personRepository.findByCedula(normalized);
-    if (!entity) {
-      throw new NotFoundError('Persona', normalized);
-    }
-    return entity;
-  },
-
   async getById(entityId: string) {
     const entity = await personRepository.findById(entityId);
     if (!entity) {
@@ -54,11 +42,15 @@ export const personService = {
   },
 
   async create(input: CreatePersonInput, actor?: AuditActor) {
-    if (input.cedula) {
-      const existing = await personRepository.findByCedula(input.cedula);
+    const docs = resolveDocumentFields(input);
+    const docErr = validateDocumentNumber(docs.documentType, docs.documentNumber, { required: true });
+    if (docErr) throw new BadRequestError(docErr);
+
+    if (docs.cedula) {
+      const existing = await personRepository.findByCedula(docs.cedula);
       if (existing) {
         throw new ConflictError(
-          `Ya existe una persona con cédula '${input.cedula}'`,
+          `Ya existe una persona con documento '${docs.cedula}'`,
           { existingEntityId: existing.id, existingName: existing.displayName }
         );
       }
@@ -80,7 +72,9 @@ export const personService = {
         firstName: input.firstName,
         lastName: input.lastName,
         secondLastName: input.secondLastName,
-        cedula: input.cedula,
+        cedula: docs.cedula,
+        documentType: docs.documentType,
+        documentNumber: docs.documentNumber,
         gender: input.gender as Prisma.PersonCreateWithoutEntityInput['gender'],
         birthDate: input.birthDate ? new Date(input.birthDate) : undefined,
         nationalityCode: input.nationalityCode ?? DEFAULT_NATIONALITY_CODE,
@@ -89,13 +83,10 @@ export const personService = {
         businessName: input.businessName,
         economicActivity: input.economicActivity,
         hasArtisanCard: input.hasArtisanCard,
-        seedCapital: input.seedCapital,
-        seedCapitalDate: input.seedCapital === 1 ? input.seedCapitalDate : null,
       },
       contacts: input.contacts,
     });
 
-    const quien = await actorContext(actor);
     await auditService.log({
       action: 'CREATE',
       entityType: 'PERSON',
@@ -103,20 +94,6 @@ export const personService = {
       entityLabel: entity.displayName,
       userId: actor?.userId,
       userEmail: actor?.userEmail,
-      metadata: {
-        ...quien,
-        anterior: null,
-        nuevo: {
-          firstName: input.firstName,
-          lastName: input.lastName,
-          secondLastName: input.secondLastName ?? null,
-          cedula: input.cedula ?? null,
-          gender: input.gender ?? null,
-          province: loc.province ?? null,
-          district: loc.district ?? null,
-          corregimiento: loc.corregimiento ?? null,
-        },
-      },
     });
 
     return entity;
@@ -126,16 +103,6 @@ export const personService = {
     const current = await personRepository.findById(entityId);
     if (!current) {
       throw new NotFoundError('Persona', entityId);
-    }
-
-    if (input.cedula && input.cedula !== current.person?.cedula) {
-      const existing = await personRepository.findByCedula(input.cedula);
-      if (existing && existing.id !== entityId) {
-        throw new ConflictError(
-          `Ya existe una persona con cédula '${input.cedula}'`,
-          { existingEntityId: existing.id, existingName: existing.displayName }
-        );
-      }
     }
 
     const entityData: Prisma.EntityUncheckedUpdateInput = {};
@@ -160,7 +127,6 @@ export const personService = {
     if (input.firstName !== undefined) personData.firstName = input.firstName;
     if (input.lastName !== undefined) personData.lastName = input.lastName;
     if (input.secondLastName !== undefined) personData.secondLastName = input.secondLastName;
-    if (input.cedula !== undefined) personData.cedula = input.cedula;
     if (input.gender !== undefined) personData.gender = input.gender as Prisma.PersonUpdateWithoutEntityInput['gender'];
     if (input.birthDate !== undefined) personData.birthDate = new Date(input.birthDate);
     if (input.nationalityCode !== undefined) personData.nationalityCode = input.nationalityCode;
@@ -169,11 +135,33 @@ export const personService = {
     if (input.businessName !== undefined) personData.businessName = input.businessName;
     if (input.economicActivity !== undefined) personData.economicActivity = input.economicActivity;
     if (input.hasArtisanCard !== undefined) personData.hasArtisanCard = input.hasArtisanCard;
-    if (input.seedCapital !== undefined) {
-      personData.seedCapital = input.seedCapital;
-      personData.seedCapitalDate = input.seedCapital === 1 ? input.seedCapitalDate ?? null : null;
-    } else if (input.seedCapitalDate !== undefined) {
-      personData.seedCapitalDate = input.seedCapitalDate || null;
+
+    if (input.cedula !== undefined || input.documentNumber !== undefined || input.documentType !== undefined) {
+      const docs = resolveDocumentFields({
+        documentType:
+          input.documentType ??
+          (current.person?.documentType as CreatePersonInput['documentType']) ??
+          undefined,
+        documentNumber: input.documentNumber ?? input.cedula ?? current.person?.documentNumber ?? undefined,
+        cedula: input.cedula,
+      });
+      const docErr = validateDocumentNumber(docs.documentType, docs.documentNumber);
+      if (docErr) throw new BadRequestError(docErr);
+
+      if (docs.cedula && docs.cedula !== current.person?.cedula) {
+        const existing = await personRepository.findByCedula(docs.cedula);
+        if (existing && existing.id !== entityId) {
+          throw new ConflictError(
+            `Ya existe una persona con documento '${docs.cedula}'`,
+            { existingEntityId: existing.id, existingName: existing.displayName }
+          );
+        }
+      }
+      if (docs.documentType !== undefined) personData.documentType = docs.documentType;
+      if (docs.documentNumber !== undefined) {
+        personData.documentNumber = docs.documentNumber;
+        personData.cedula = docs.documentNumber;
+      }
     }
 
     if (input.firstName !== undefined || input.lastName !== undefined || input.secondLastName !== undefined) {
@@ -184,31 +172,6 @@ export const personService = {
     }
 
     const entity = await personRepository.update(entityId, entityData, personData);
-    const quien = await actorContext(actor);
-    const { anterior, nuevo } = cambios(
-      {
-        province: current.province,
-        district: current.district,
-        corregimiento: current.corregimiento,
-        address: current.address,
-        notes: current.notes,
-        firstName: current.person?.firstName,
-        lastName: current.person?.lastName,
-        secondLastName: current.person?.secondLastName,
-        cedula: current.person?.cedula,
-        gender: current.person?.gender,
-        birthDate: current.person?.birthDate,
-        nationalityCode: current.person?.nationalityCode,
-        educationLevel: current.person?.educationLevel,
-        occupation: current.person?.occupation,
-        businessName: current.person?.businessName,
-        economicActivity: current.person?.economicActivity,
-        hasArtisanCard: current.person?.hasArtisanCard,
-        seedCapital: current.person?.seedCapital,
-        seedCapitalDate: current.person?.seedCapitalDate,
-      },
-      input as Record<string, unknown>,
-    );
 
     await auditService.log({
       action: 'UPDATE',
@@ -217,7 +180,7 @@ export const personService = {
       entityLabel: entity.displayName,
       userId: actor?.userId,
       userEmail: actor?.userEmail,
-      metadata: { ...quien, anterior, nuevo },
+      metadata: { fields: Object.keys(input) },
     });
 
     return entity;
@@ -230,7 +193,6 @@ export const personService = {
     }
     const result = await personRepository.softDelete(entityId);
 
-    const quien = await actorContext(actor);
     await auditService.log({
       action: 'DELETE',
       entityType: 'PERSON',
@@ -238,11 +200,6 @@ export const personService = {
       entityLabel: entity.displayName,
       userId: actor?.userId,
       userEmail: actor?.userEmail,
-      metadata: {
-        ...quien,
-        anterior: { status: entity.status },
-        nuevo: { status: 'INACTIVE' },
-      },
     });
 
     return result;

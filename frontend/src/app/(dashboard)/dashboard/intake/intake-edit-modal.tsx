@@ -21,18 +21,18 @@ import {
   toDistritoCode,
   toCorregimientoCode,
 } from '@/lib/division-politica';
+import {
+  DOCUMENT_TYPE_OPTIONS,
+  DocumentTypeValue,
+  inferDocumentType,
+  validateDocumentNumber,
+} from '@/lib/document';
 
 const genderOptions = [
   { value: '', label: 'Seleccionar' },
   { value: 'MALE', label: 'Masculino' },
   { value: 'FEMALE', label: 'Femenino' },
   { value: 'OTHER', label: 'Otro' },
-];
-
-const seedCapitalOptions = [
-  { value: '', label: 'Seleccionar' },
-  { value: '1', label: 'Sí' },
-  { value: '0', label: 'No' },
 ];
 
 const yesNoOptions = [
@@ -82,19 +82,19 @@ function snapshotToForm(s: IntakeSnapshot): FormValues {
   };
   const p = s.person;
   const c = s.company;
+  const documentNumber = p?.cedula ?? '';
   return {
     ...base,
+    documentType: inferDocumentType(documentNumber) ?? '',
+    documentNumber,
     firstName: p?.first_name ?? '',
     lastName: p?.last_name ?? '',
     secondLastName: p?.second_last_name ?? '',
-    cedula: p?.cedula ?? '',
     gender: p?.gender ?? '',
     birthDate: p?.birth_date?.split('T')[0] ?? p?.birth_date ?? '',
     nationalityCode: p?.nationality_code ?? DEFAULT_NATIONALITY_CODE,
     hasArtisanCard:
       p?.has_artisan_card === true ? 'true' : p?.has_artisan_card === false ? 'false' : '',
-    seedCapital: p?.seed_capital === 1 ? '1' : p?.seed_capital === 0 ? '0' : '',
-    seedCapitalDate: p?.seed_capital_date ?? '',
     legalName: c?.legal_name ?? '',
     tradeName: c?.trade_name ?? '',
     ruc: c?.ruc ?? '',
@@ -133,14 +133,14 @@ function formToPayload(snapshot: IntakeSnapshot, v: FormValues): IntakeUpdateInp
       firstName: v.firstName,
       lastName: v.lastName,
       secondLastName: v.secondLastName,
-      cedula: v.cedula,
+      documentType: v.documentType,
+      documentNumber: v.documentNumber,
+      cedula: v.documentNumber,
       gender: v.gender,
       birthDate: v.birthDate,
       nationalityCode: v.nationalityCode,
       hasArtisanCard:
         v.hasArtisanCard === 'true' ? true : v.hasArtisanCard === 'false' ? false : undefined,
-      seedCapital: v.seedCapital === '1' ? 1 : v.seedCapital === '0' ? 0 : undefined,
-      seedCapitalDate: v.seedCapital === '1' ? v.seedCapitalDate : undefined,
     };
   }
   if (showCompany || v.legalName?.trim()) {
@@ -159,14 +159,50 @@ function formToPayload(snapshot: IntakeSnapshot, v: FormValues): IntakeUpdateInp
 
 export function IntakeEditModal({ isOpen, onClose, sessionId, snapshot, accessCode, onSaved }: Props) {
   const updateMutation = useUpdateIntakeSession();
-  const { register, handleSubmit, reset, watch, setValue } = useForm<FormValues>();
-  const seedCapital = watch('seedCapital');
+  const {
+    register,
+    handleSubmit,
+    reset,
+    watch,
+    setValue,
+    formState: { errors },
+    setError,
+  } = useForm<FormValues>();
 
   useEffect(() => {
     if (isOpen && snapshot) reset(snapshotToForm(snapshot));
   }, [isOpen, snapshot, reset]);
 
+  const documentType = watch('documentType');
+  const showPerson = !!snapshot.person || snapshot.entityType === 'PERSON';
+  const showCompany = !!snapshot.company || snapshot.entityType === 'COMPANY';
+
   const onSubmit = async (values: FormValues) => {
+    if (showPerson) {
+      const docErr = validateDocumentNumber(
+        (values.documentType || undefined) as DocumentTypeValue | undefined,
+        values.documentNumber,
+        { required: true }
+      );
+      if (docErr) {
+        setError(docErr.includes('tipo') ? 'documentType' : 'documentNumber', { message: docErr });
+        return;
+      }
+    }
+    if (showCompany) {
+      if (!values.tradeName?.trim()) {
+        setError('tradeName', { message: 'El nombre comercial es requerido' });
+        return;
+      }
+      if (!values.ruc?.trim()) {
+        setError('ruc', { message: 'El RUC es requerido' });
+        return;
+      }
+      if (!values.dv?.trim()) {
+        setError('dv', { message: 'El DV es requerido' });
+        return;
+      }
+    }
     try {
       await updateMutation.mutateAsync({
         id: sessionId,
@@ -179,10 +215,6 @@ export function IntakeEditModal({ isOpen, onClose, sessionId, snapshot, accessCo
       /* toast en hook */
     }
   };
-
-  const type = snapshot.entityType;
-  const showPerson = !!snapshot.person || type === 'PERSON';
-  const showCompany = !!snapshot.company || type === 'COMPANY';
 
   return (
     <Modal
@@ -205,10 +237,30 @@ export function IntakeEditModal({ isOpen, onClose, sessionId, snapshot, accessCo
       <form className="grid grid-cols-1 gap-4 sm:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
         {showPerson && (
           <>
+            <Select
+              label="Tipo de Documento *"
+              options={DOCUMENT_TYPE_OPTIONS}
+              error={errors.documentType?.message}
+              {...register('documentType', {
+                required: 'Seleccione el tipo de documento',
+                onChange: () => setValue('documentNumber', ''),
+              })}
+            />
+            <Input
+              label="Número de documento *"
+              placeholder={
+                documentType === 'PASAPORTE'
+                  ? 'Solo A-Z y 0-9'
+                  : documentType === 'CEDULA_LETRA'
+                    ? 'E-8-866-5775'
+                    : '8-554-6674'
+              }
+              error={errors.documentNumber?.message}
+              {...register('documentNumber', { required: 'Ingrese el número de documento' })}
+            />
             <Input label="Nombre *" {...register('firstName', { required: showPerson && !showCompany })} />
             <Input label="Primer apellido" {...register('lastName')} />
             <Input label="Segundo apellido" {...register('secondLastName')} />
-            <Input label="Cédula" placeholder="X-XXXX-XXXXX" {...register('cedula')} />
             <Select label="Género" options={genderOptions} {...register('gender')} />
             <Input label="Fecha de nacimiento" type="date" {...register('birthDate')} />
             <Select
@@ -217,17 +269,6 @@ export function IntakeEditModal({ isOpen, onClose, sessionId, snapshot, accessCo
               {...register('nationalityCode')}
             />
             <Select label="Carnet de artesano" options={yesNoOptions} {...register('hasArtisanCard')} />
-            <Select label="Capital semilla" options={seedCapitalOptions} {...register('seedCapital')} />
-            {seedCapital === '1' && (
-              <Input
-                label="Fecha de capital semilla *"
-                placeholder="MM/AAAA"
-                {...register('seedCapitalDate', {
-                  required: 'Obligatorio. Use el formato MM/AAAA',
-                  pattern: { value: /^(0[1-9]|1[0-2])\/\d{4}$/, message: 'Use el formato MM/AAAA' },
-                })}
-              />
-            )}
           </>
         )}
         {showCompany && (
@@ -236,9 +277,21 @@ export function IntakeEditModal({ isOpen, onClose, sessionId, snapshot, accessCo
               label={showPerson ? 'Empresa / Razón Social' : 'Razón Social *'}
               {...register('legalName', { required: showCompany && !showPerson })}
             />
-            <Input label="Nombre comercial" {...register('tradeName')} />
-            <Input label="RUC" {...register('ruc')} />
-            <Input label="DV" {...register('dv')} />
+            <Input
+              label="Nombre comercial *"
+              error={errors.tradeName?.message}
+              {...register('tradeName', { required: 'El nombre comercial es requerido' })}
+            />
+            <Input
+              label="RUC *"
+              error={errors.ruc?.message}
+              {...register('ruc', { required: 'El RUC es requerido' })}
+            />
+            <Input
+              label="DV *"
+              error={errors.dv?.message}
+              {...register('dv', { required: 'El DV es requerido' })}
+            />
             <Select label="Tipo de Sociedad" options={companyTypeOptions} {...register('companyType')} />
             <Select
               label="Clasificación por tamaño"

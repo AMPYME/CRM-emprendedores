@@ -16,6 +16,12 @@ import {
   getDistritoOptions,
   getProvinciaOptions,
 } from '@/lib/division-politica';
+import {
+  DOCUMENT_TYPE_OPTIONS,
+  DocumentTypeValue,
+  inferDocumentType,
+  validateDocumentNumber,
+} from '@/lib/document';
 import { intakeAccessCodeKey } from '@/services/intake.service';
 import {
   PublicIntakeError,
@@ -54,10 +60,11 @@ type View = 'loading' | 'code' | 'form' | 'done' | 'gate';
 type SaveState = '' | 'saving' | 'saved' | 'error';
 
 interface FormState {
+  documentType: string;
+  documentNumber: string;
   firstName: string;
   lastName: string;
   secondLastName: string;
-  cedula: string;
   gender: string;
   birthDate: string;
   nationalityCode: string;
@@ -79,10 +86,11 @@ interface FormState {
 }
 
 const emptyForm = (): FormState => ({
+  documentType: '',
+  documentNumber: '',
   firstName: '',
   lastName: '',
   secondLastName: '',
-  cedula: '',
   gender: '',
   birthDate: '',
   nationalityCode: DEFAULT_NATIONALITY_CODE,
@@ -108,10 +116,11 @@ function snapshotToForm(snapshot: IntakeSnapshot | null): FormState {
   if (!snapshot) return next;
   const p = snapshot.person;
   if (p) {
+    next.documentNumber = p.cedula ?? '';
+    next.documentType = inferDocumentType(next.documentNumber) ?? '';
     next.firstName = p.first_name ?? '';
     next.lastName = p.last_name ?? '';
     next.secondLastName = p.second_last_name ?? '';
-    next.cedula = p.cedula ?? '';
     next.gender = p.gender ?? '';
     next.birthDate = p.birth_date?.split('T')[0] ?? '';
     next.nationalityCode = p.nationality_code || DEFAULT_NATIONALITY_CODE;
@@ -164,7 +173,9 @@ function collectPayload(entityType: IntakeEntityType, form: FormState): IntakeUp
         firstName: form.firstName,
         lastName: form.lastName,
         secondLastName: form.secondLastName,
-        cedula: form.cedula,
+        documentType: form.documentType,
+        documentNumber: form.documentNumber,
+        cedula: form.documentNumber,
         gender: form.gender,
         birthDate: form.birthDate,
         nationalityCode: form.nationalityCode,
@@ -479,10 +490,23 @@ export function PublicIntakeForm() {
     e.preventDefault();
     const nextInvalid: Record<string, boolean> = {};
     if (entityType === 'PERSON') {
+      if (!form.documentType.trim()) nextInvalid.documentType = true;
+      if (
+        validateDocumentNumber(
+          (form.documentType || undefined) as DocumentTypeValue | undefined,
+          form.documentNumber,
+          { required: true }
+        )
+      ) {
+        nextInvalid.documentNumber = true;
+      }
       if (!form.firstName.trim()) nextInvalid.firstName = true;
       if (!form.lastName.trim()) nextInvalid.lastName = true;
-    } else if (!form.legalName.trim()) {
-      nextInvalid.legalName = true;
+    } else {
+      if (!form.legalName.trim()) nextInvalid.legalName = true;
+      if (!form.tradeName.trim()) nextInvalid.tradeName = true;
+      if (!form.ruc.trim()) nextInvalid.ruc = true;
+      if (!form.dv.trim()) nextInvalid.dv = true;
     }
     if (form.email.trim() && !isValidEmail(form.email.trim())) nextInvalid.email = true;
     setInvalid(nextInvalid);
@@ -619,6 +643,31 @@ export function PublicIntakeForm() {
                 <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
                   <h2 className="mb-4 text-base font-bold">Datos personales</h2>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Select
+                      label="Tipo de Documento"
+                      required
+                      options={DOCUMENT_TYPE_OPTIONS}
+                      value={form.documentType}
+                      error={invalid.documentType ? 'Requerido' : undefined}
+                      onChange={(e) => {
+                        updateField('documentType', e.target.value, true);
+                        updateField('documentNumber', '', true);
+                      }}
+                    />
+                    <Input
+                      label="Número de documento"
+                      required
+                      placeholder={
+                        form.documentType === 'PASAPORTE'
+                          ? 'Solo A-Z y 0-9'
+                          : form.documentType === 'CEDULA_LETRA'
+                            ? 'E-8-866-5775'
+                            : '8-554-6674'
+                      }
+                      value={form.documentNumber}
+                      error={invalid.documentNumber ? 'Requerido o formato inválido' : undefined}
+                      onChange={(e) => updateField('documentNumber', e.target.value)}
+                    />
                     <Input
                       label="Nombre"
                       required
@@ -637,12 +686,6 @@ export function PublicIntakeForm() {
                       label="Segundo apellido"
                       value={form.secondLastName}
                       onChange={(e) => updateField('secondLastName', e.target.value)}
-                    />
-                    <Input
-                      label="Cédula"
-                      placeholder="X-XXXX-XXXXX"
-                      value={form.cedula}
-                      onChange={(e) => updateField('cedula', e.target.value)}
                     />
                     <Select
                       label="Género"
@@ -685,18 +728,24 @@ export function PublicIntakeForm() {
                     />
                     <Input
                       label="Nombre comercial"
+                      required
                       value={form.tradeName}
+                      error={invalid.tradeName ? 'Requerido' : undefined}
                       onChange={(e) => updateField('tradeName', e.target.value)}
                     />
                     <Input
                       label="RUC"
+                      required
                       value={form.ruc}
+                      error={invalid.ruc ? 'Requerido' : undefined}
                       onChange={(e) => updateField('ruc', e.target.value)}
                     />
                     <Input
                       label="DV"
+                      required
                       value={form.dv}
                       className="max-w-[100px]"
+                      error={invalid.dv ? 'Requerido' : undefined}
                       onChange={(e) => updateField('dv', e.target.value)}
                     />
                     <Select

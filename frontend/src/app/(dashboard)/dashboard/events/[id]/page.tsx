@@ -198,6 +198,7 @@ export default function EventDetailPage() {
                       <TableCell>
                         <div className="space-y-1">
                           <p className="text-sm text-gray-900">{person.telefono || '—'}</p>
+                          <p className="text-xs text-gray-500 break-all">{person.email || '—'}</p>
                         </div>
                       </TableCell>
                     </TableRow>

@@ -9,7 +9,7 @@ import { NotFoundError, ConflictError } from '../../shared/errors/app-error';
 import { PaginationMeta } from '../../shared/types/api-response.types';
 import { persistableLocationCodes } from '../../shared/utils/entity-location';
 import { auditService, AuditActor } from '../audit/audit.service';
-import { actorContext, cambios } from '../audit/audit-snapshot';
+import { personChangeService } from '../person-changes/person-change.service';
 
 function buildDisplayName(legalName: string, tradeName?: string): string {
   return tradeName ? `${tradeName} (${legalName})` : legalName;
@@ -72,7 +72,6 @@ export const companyService = {
       contacts: input.contacts,
     });
 
-    const quien = await actorContext(actor);
     await auditService.log({
       action: 'CREATE',
       entityType: 'COMPANY',
@@ -80,24 +79,13 @@ export const companyService = {
       entityLabel: entity.displayName,
       userId: actor?.userId,
       userEmail: actor?.userEmail,
-      metadata: {
-        ...quien,
-        anterior: null,
-        nuevo: {
-          legalName: input.legalName,
-          tradeName: input.tradeName ?? null,
-          ruc: input.ruc ?? null,
-          province: loc.province ?? null,
-          district: loc.district ?? null,
-          corregimiento: loc.corregimiento ?? null,
-        },
-      },
     });
 
     return entity;
   },
 
   async update(entityId: string, input: UpdateCompanyInput, actor?: AuditActor) {
+    await personChangeService.assertNoPendingForEntity(entityId);
     const current = await companyRepository.findById(entityId);
     if (!current) {
       throw new NotFoundError('Empresa', entityId);
@@ -149,24 +137,6 @@ export const companyService = {
     }
 
     const entity = await companyRepository.update(entityId, entityData, companyData);
-    const quien = await actorContext(actor);
-    const { anterior, nuevo } = cambios(
-      {
-        province: current.province,
-        district: current.district,
-        corregimiento: current.corregimiento,
-        address: current.address,
-        notes: current.notes,
-        legalName: current.company?.legalName,
-        tradeName: current.company?.tradeName,
-        ruc: current.company?.ruc,
-        dv: current.company?.dv,
-        companyType: current.company?.companyType,
-        companySizeClass: current.company?.companySizeClass,
-        foundedDate: current.company?.foundedDate,
-      },
-      input as Record<string, unknown>,
-    );
 
     await auditService.log({
       action: 'UPDATE',
@@ -175,20 +145,20 @@ export const companyService = {
       entityLabel: entity.displayName,
       userId: actor?.userId,
       userEmail: actor?.userEmail,
-      metadata: { ...quien, anterior, nuevo },
+      metadata: { fields: Object.keys(input) },
     });
 
     return entity;
   },
 
   async remove(entityId: string, actor?: AuditActor) {
+    await personChangeService.assertNoPendingForEntity(entityId);
     const entity = await companyRepository.findById(entityId);
     if (!entity) {
       throw new NotFoundError('Empresa', entityId);
     }
     const result = await companyRepository.softDelete(entityId);
 
-    const quien = await actorContext(actor);
     await auditService.log({
       action: 'DELETE',
       entityType: 'COMPANY',
@@ -196,11 +166,6 @@ export const companyService = {
       entityLabel: entity.displayName,
       userId: actor?.userId,
       userEmail: actor?.userEmail,
-      metadata: {
-        ...quien,
-        anterior: { status: entity.status },
-        nuevo: { status: 'INACTIVE' },
-      },
     });
 
     return result;

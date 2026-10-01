@@ -165,9 +165,7 @@ export const importController = {
    * Cancelar un lote de importacion.
    */
   async cancel(req: Request, res: Response): Promise<void> {
-    const batch = await importService.cancelBatch(req.params.id as string, req.user
-      ? { userId: req.user.id, userEmail: req.user.email }
-      : undefined);
+    const batch = await importService.cancelBatch(req.params.id as string);
     sendSuccess(res, batch);
   },
 
@@ -176,7 +174,7 @@ export const importController = {
    * Eliminar un lote (solo si PENDING, CANCELLED o FAILED).
    */
   async delete(req: Request, res: Response): Promise<void> {
-    await importService.deleteBatch(req.params.id as string, req.user?.id);
+    await importService.deleteBatch(req.params.id as string);
     sendNoContent(res);
   },
 

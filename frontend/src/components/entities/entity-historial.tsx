@@ -68,6 +68,25 @@ interface Presentacion {
 }
 
 function presentar(evento: EntityHistorialEvento): Presentacion {
+  if (evento.confirmacion === 'CONFIRMED') {
+    return {
+      tipo: 'Confirmación',
+      tono: 'creacion',
+      titulo: evento.summary || 'Cambio confirmado',
+      descripcion: 'El cambio pendiente fue confirmado y aplicado.',
+      modo: 'cambios',
+    };
+  }
+  if (evento.confirmacion === 'CANCELLED') {
+    return {
+      tipo: 'Cancelación',
+      tono: 'alta',
+      titulo: evento.summary || 'Cambio cancelado',
+      descripcion: 'El cambio pendiente fue cancelado y no se aplicó.',
+      modo: 'cambios',
+    };
+  }
+
   const contacto = evento.entityType === 'CONTACT';
   const relacion = evento.entityType === 'RELATIONSHIP';
   const seguimiento = evento.entityType === 'PORTFOLIO' || evento.entityType === 'PORTFOLIO_ACTION';
@@ -328,13 +347,21 @@ function RealizadoPor({
   usuario,
   sede,
   departamento,
+  confirmacion,
 }: {
   usuario: string | null;
   sede: string | null;
   departamento: string | null;
+  confirmacion?: 'CONFIRMED' | 'CANCELLED' | null;
 }) {
+  const etiquetaUsuario =
+    confirmacion === 'CONFIRMED'
+      ? 'Confirmado por'
+      : confirmacion === 'CANCELLED'
+        ? 'Cancelado por'
+        : 'Usuario';
   const datos = [
-    { etiqueta: 'Usuario', valor: usuario },
+    { etiqueta: etiquetaUsuario, valor: usuario },
     { etiqueta: 'Sede', valor: sede },
     { etiqueta: 'Departamento', valor: departamento },
   ];
@@ -520,6 +547,7 @@ export function EntityHistorialPanel({
                     usuario={evento.usuario}
                     sede={evento.sede}
                     departamento={evento.departamento}
+                    confirmacion={evento.confirmacion}
                   />
                 </article>
               </li>

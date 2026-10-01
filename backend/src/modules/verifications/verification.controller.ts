@@ -66,4 +66,10 @@ export const verificationController = {
     );
     res.json({ data: result });
   },
+
+  async remove(req: Request, res: Response) {
+    const id = String(req.params.id);
+    const result = await verificationService.remove(id, req.user!.id, req.user!.email);
+    res.json({ data: result });
+  },
 };

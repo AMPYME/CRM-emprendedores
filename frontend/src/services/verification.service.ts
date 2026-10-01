@@ -86,4 +86,9 @@ export const verificationService = {
     const res = await apiClient.post<ApiResponse<{ released: number }>>('/verifications/release-all');
     return res.data.data;
   },
+
+  async remove(id: string) {
+    const res = await apiClient.delete<ApiResponse<{ deleted: boolean }>>(`/verifications/${id}`);
+    return res.data.data;
+  },
 };

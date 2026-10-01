@@ -14,25 +14,8 @@ import { errorHandler } from './shared/middlewares/error-handler.middleware';
 import { notFoundHandler } from './shared/middlewares/not-found.middleware';
 import { apiRouter } from './routes';
 
-/** En desarrollo acepta localhost y redes privadas (otros PC en la LAN / WSL). */
-function isPrivateDevOrigin(origin: string): boolean {
-  try {
-    const url = new URL(origin);
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
-    const host = url.hostname;
-    if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return true;
-    if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host)) return true;
-    if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(host)) return true;
-    if (/^172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}$/.test(host)) return true;
-    return false;
-  } catch {
-    return false;
-  }
-}
-
 export function createApp(): Application {
   const app = express();
-  app.set('etag', false);
 
   // Detrás de reverse proxy (Dokploy/Traefik) para rate-limit por IP real
   app.set('trust proxy', 1);
@@ -48,7 +31,6 @@ export function createApp(): Application {
   const originAllowed = (origin: string | undefined): boolean => {
     if (!origin) return true;
     if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) return true;
-    if (config.nodeEnv !== 'production' && isPrivateDevOrigin(origin)) return true;
     const alt = origin.startsWith('https://')
       ? `http://${origin.slice('https://'.length)}`
       : origin.startsWith('http://')

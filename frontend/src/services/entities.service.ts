@@ -28,8 +28,14 @@ export const entitiesService = {
     return res.data.data;
   },
 
-  async setRegistroEmpresarial(id: string, fecha: string | null): Promise<EntityListItem> {
-    const res = await apiClient.patch<ApiResponse<EntityListItem>>(`/entities/${id}/registro-empresarial`, { fecha });
+  async setRegistroEmpresarial(
+    id: string,
+    fecha: string | null
+  ): Promise<{ queued: boolean; message?: string }> {
+    const res = await apiClient.patch<ApiResponse<{ queued: boolean; message?: string }>>(
+      `/entities/${id}/registro-empresarial`,
+      { fecha }
+    );
     return res.data.data;
   },
 
@@ -67,6 +73,8 @@ export interface EntityHistorialEvento {
   anterior: Record<string, unknown> | null;
   nuevo: Record<string, unknown> | null;
   campos: string[] | null;
+  confirmacion?: 'CONFIRMED' | 'CANCELLED' | null;
+  summary?: string | null;
 }
 
 export interface EntityHistorial {

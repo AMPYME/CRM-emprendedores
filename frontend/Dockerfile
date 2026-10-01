@@ -9,10 +9,9 @@
 #   Root Directory / Base Path: vacío
 #
 # Build args (obligatorios en producción; Next los incrusta en el JS).
-# La API en Dokploy solo tiene ruta HTTP. El navegador, en el front HTTPS,
-# llama a /backend-api y Next reenvía a esta URL.
-#   NEXT_PUBLIC_API_URL=http://api-emprendedores.ampyme.local/api/v1
-#   NEXT_PUBLIC_WS_URL=ws://api-emprendedores.ampyme.local/ws/intake
+# Si el front se sirve por HTTPS, use https/wss (si no, el navegador bloquea mixed content):
+#   NEXT_PUBLIC_API_URL=https://api-emprendedores.ampyme.local/api/v1
+#   NEXT_PUBLIC_WS_URL=wss://api-emprendedores.ampyme.local/ws/intake
 #   NEXT_PUBLIC_INTAKE_FORM_URL=https://emprendedores.ampyme.local/emprendedores/
 
 FROM node:20-bookworm-slim AS build
@@ -26,8 +25,8 @@ COPY frontend/postcss.config.js frontend/tailwind.config.ts ./
 COPY frontend/public ./public
 COPY frontend/src ./src
 
-ARG NEXT_PUBLIC_API_URL=http://api-emprendedores.ampyme.local/api/v1
-ARG NEXT_PUBLIC_WS_URL=ws://api-emprendedores.ampyme.local/ws/intake
+ARG NEXT_PUBLIC_API_URL=https://api-emprendedores.ampyme.local/api/v1
+ARG NEXT_PUBLIC_WS_URL=wss://api-emprendedores.ampyme.local/ws/intake
 ARG NEXT_PUBLIC_INTAKE_FORM_URL=https://emprendedores.ampyme.local/emprendedores/
 
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
@@ -53,11 +52,6 @@ COPY --from=build --chown=nextjs:nodejs /app/public ./public
 COPY --from=build --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=build --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-USER root
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends libcap2-bin \
-  && rm -rf /var/lib/apt/lists/* \
-  && setcap 'cap_net_bind_service=+ep' "$(readlink -f "$(command -v node)")"
 USER nextjs
 EXPOSE 80
 

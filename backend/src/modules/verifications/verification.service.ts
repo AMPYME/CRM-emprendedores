@@ -366,7 +366,7 @@ export const verificationService = {
     }
 
     if (item.intakeSessionId) {
-      await intakeRepository.deleteSession(item.intakeSessionId, undefined, userId).catch(() => undefined);
+      await intakeRepository.deleteSession(item.intakeSessionId).catch(() => undefined);
     }
 
     await auditService.log({
@@ -391,7 +391,7 @@ export const verificationService = {
       .filter((id): id is string => !!id);
 
     if (sessionIds.length > 0) {
-      await intakeRepository.deleteSessions(sessionIds, userId);
+      await prisma.intakeSession.deleteMany({ where: { id: { in: sessionIds } } });
     }
 
     const result = await verificationRepository.releaseAllAssigned();
@@ -519,7 +519,7 @@ export const verificationService = {
     });
 
     if (item.intakeSessionId) {
-      await intakeRepository.deleteSession(item.intakeSessionId, undefined, userId).catch(() => undefined);
+      await intakeRepository.deleteSession(item.intakeSessionId).catch(() => undefined);
     }
 
     await auditService.log({
@@ -535,6 +535,37 @@ export const verificationService = {
     intakeWs.notifyQueueChanged('rejected');
 
     return { rejected: true };
+  },
+
+  async remove(id: string, userId: string, userEmail?: string) {
+    const item = await verificationRepository.findById(id);
+    if (!item) throw new NotFoundError('Registro de verificación', id);
+
+    if (item.status === 'VALIDATED') {
+      throw new BadRequestError('No se puede eliminar un registro ya validado');
+    }
+
+    const result = await verificationRepository.softDelete(id, userId);
+    if (!result || result.blocked) {
+      throw new BadRequestError('No se pudo eliminar el registro');
+    }
+
+    if (item.intakeSessionId) {
+      await intakeRepository.deleteSession(item.intakeSessionId).catch(() => undefined);
+    }
+
+    await auditService.log({
+      action: 'DELETE',
+      entityType: 'VERIFICATION',
+      entityId: id,
+      entityLabel: item.displayName ?? undefined,
+      userId,
+      userEmail,
+      metadata: { importBatchId: item.importBatchId, source: item.source },
+    });
+
+    intakeWs.notifyQueueChanged('deleted');
+    return { deleted: true };
   },
 
   /** Crea registro FIELD al abrir captura en campo. */

@@ -11,6 +11,10 @@ import {
   distritoNombre,
   corregimientoNombre,
 } from '@/lib/division-politica';
+import {
+  DOCUMENT_TYPE_OPTIONS,
+  inferDocumentType,
+} from '@/lib/document';
 
 const genderOptions = [
   { value: 'MALE', label: 'Masculino' },
@@ -58,12 +62,14 @@ function snapshotToForm(s: IntakeSnapshot): FormValues {
 
   const p = s.person;
   const c = s.company;
+  const documentNumber = p?.cedula ?? '';
   return {
     ...base,
+    documentType: inferDocumentType(documentNumber) ?? '',
+    documentNumber,
     firstName: p?.first_name ?? '',
     lastName: p?.last_name ?? '',
     secondLastName: p?.second_last_name ?? '',
-    cedula: p?.cedula ?? '',
     gender: p?.gender ?? '',
     birthDate: p?.birth_date?.split('T')[0] ?? p?.birth_date ?? '',
     nationalityCode: p?.nationality_code ?? '',
@@ -102,10 +108,14 @@ function ReadOnlyField({
 function PersonFields({ v }: { v: FormValues }) {
   return (
     <>
+      <ReadOnlyField
+        label="Tipo de Documento *"
+        value={optionLabel(DOCUMENT_TYPE_OPTIONS, v.documentType)}
+      />
+      <ReadOnlyField label="Número de documento *" value={v.documentNumber} />
       <ReadOnlyField label="Nombre *" value={v.firstName} />
       <ReadOnlyField label="Primer apellido *" value={v.lastName} />
       <ReadOnlyField label="Segundo apellido" value={v.secondLastName} />
-      <ReadOnlyField label="Cédula" value={v.cedula} />
       <ReadOnlyField label="Género" value={optionLabel(genderOptions, v.gender)} />
       <ReadOnlyField label="Fecha de nacimiento" value={v.birthDate} />
       <ReadOnlyField label="Nacionalidad" value={nationalityLabel(v.nationalityCode)} />
@@ -126,9 +136,9 @@ function CompanyFields({ v }: { v: FormValues }) {
   return (
     <>
       <ReadOnlyField label="Razón Social *" value={v.legalName} />
-      <ReadOnlyField label="Nombre comercial" value={v.tradeName} />
-      <ReadOnlyField label="RUC" value={v.ruc} />
-      <ReadOnlyField label="DV" value={v.dv} className="max-w-[100px]" />
+      <ReadOnlyField label="Nombre comercial *" value={v.tradeName} />
+      <ReadOnlyField label="RUC *" value={v.ruc} />
+      <ReadOnlyField label="DV *" value={v.dv} className="max-w-[100px]" />
       <ReadOnlyField label="Tipo de Sociedad" value={companyTypeLabel(v.companyType) || optionLabel(companyTypeOptions, v.companyType)} />
       <ReadOnlyField label="Clasificación por tamaño" value={companySizeClassLabel(v.companySizeClass)} />
       <ReadOnlyField label="Fecha de Inscripción" value={v.foundedDate} />

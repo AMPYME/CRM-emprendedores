@@ -8,7 +8,6 @@ import {
   ArrowLeft, User, Building, Mail, Phone, Globe,
   FolderKanban, Link2, Plus, Trash2, CheckCircle, ArrowRight, Eye, Sprout,
 } from 'lucide-react';
-import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -54,6 +53,9 @@ import { useAuthStore } from '@/stores/auth.store';
 import { getApiErrorMessage } from '@/services/api-client';
 import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import { personChangesService } from '@/services/person-changes.service';
+import { useDeletePerson } from '@/hooks/use-persons';
+import { useDeleteCompany } from '@/hooks/use-companies';
 
 /* ──────────────────────────────────────────────── */
 /* Types                                            */
@@ -149,6 +151,15 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
     queryFn: () => personsService.listCapitalSemilla(entityId),
     enabled: entityType === 'PERSON',
   });
+  const pendingQuery = useQuery({
+    queryKey: ['person-change-pending', entityId],
+    queryFn: () => personChangesService.hasPending(entityId),
+    enabled: !!entityId,
+  });
+  const hasPending = Boolean(pendingQuery.data);
+  const deletePersonMutation = useDeletePerson();
+  const deleteCompanyMutation = useDeleteCompany();
+  const editBlocked = readOnly || hasPending;
 
   // State
   const [activeTab, setActiveTab] = useState('info');
@@ -192,6 +203,10 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
 
   const saveSeed = async () => {
     if (!seedEditor) return;
+    if (hasPending) {
+      toast.error('Hay cambios pendientes de confirmación. Confírmelos o cancele antes de editar.');
+      return;
+    }
     setSavingSeed(true);
     try {
       await personsService.saveCapitalSemilla(entityId, seedEditor);
@@ -207,6 +222,10 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
 
   // ── Handlers ─────────────────────────────────
   const handleAddContact = async () => {
+    if (hasPending) {
+      toast.error('Hay cambios pendientes de confirmación. Confírmelos o cancele antes de editar.');
+      return;
+    }
     if (!contactForm.contactValue.trim()) return;
     setSavingContact(true);
     try {
@@ -227,6 +246,10 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
   };
 
   const handleAddRelationship = async () => {
+    if (hasPending) {
+      toast.error('Hay cambios pendientes de confirmación. Confírmelos o cancele antes de editar.');
+      return;
+    }
     if (!selectedEntity) return;
     setSavingRelationship(true);
     try {
@@ -253,6 +276,10 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
   };
 
   const handleDeleteRelationship = async (rel: EntityRelationship) => {
+    if (hasPending) {
+      toast.error('Hay cambios pendientes de confirmación. Confírmelos o cancele antes de editar.');
+      return;
+    }
     if (!window.confirm('¿Eliminar (desactivar) esta relación?')) return;
     try {
       const { relationshipsService } = await import('@/services/relationships.service');
@@ -269,6 +296,10 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
   };
 
   const handleDeleteContact = async (contactId: string) => {
+    if (hasPending) {
+      toast.error('Hay cambios pendientes de confirmación. Confírmelos o cancele antes de editar.');
+      return;
+    }
     if (!window.confirm('¿Eliminar este contacto?')) return;
     try {
       await contactsService.remove(contactId);
@@ -301,6 +332,35 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
   const person = (entity as any).person;
   const company = (entity as any).company;
 
+  const handleDeleteEntity = () => {
+    if (hasPending) {
+      toast.error('Hay cambios pendientes de confirmación. Confírmelos o cancele antes de eliminar.');
+      return;
+    }
+    if (entityType === 'PERSON') {
+      if (
+        !window.confirm(
+          `¿Encolar eliminación de "${entity.displayName}"? Deberá confirmarla en Confirmación antes de aplicarse.`
+        )
+      ) {
+        return;
+      }
+      deletePersonMutation.mutate(entityId, {
+        onSuccess: () => {
+          qc.invalidateQueries({ queryKey: ['person-change-pending', entityId] });
+          router.push(backHref);
+        },
+      });
+      return;
+    }
+    if (!window.confirm(`¿Estás seguro de eliminar "${entity.displayName}"?`)) return;
+    deleteCompanyMutation.mutate(entityId, {
+      onSuccess: () => {
+        router.push(backHref);
+      },
+    });
+  };
+
   // ── Tabs ──────────────────────────────────────
   const tabs = [
     { id: 'info', label: 'Información' },
@@ -325,14 +385,32 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1 min-w-0">
-          <div>
-            <h1 className="truncate text-2xl font-bold text-[#0F172A]">{entity.displayName}</h1>
-            <p className="mt-1 text-sm text-[#64748B]">
-              Estado: {statusLabel[entity.status] || entity.status}
-            </p>
-            <p className="text-sm text-[#64748B]">
-              Creado el {formatDate(entity.createdAt)}
-            </p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <h1 className="truncate text-2xl font-bold text-[#0F172A]">{entity.displayName}</h1>
+              <p className="mt-1 text-sm text-[#64748B]">
+                Estado: {statusLabel[entity.status] || entity.status}
+              </p>
+              <p className="text-sm text-[#64748B]">
+                Creado el {formatDate(entity.createdAt)}
+              </p>
+              {hasPending && (
+                <p className="mt-2 text-sm font-medium text-amber-700">
+                  Hay cambios pendientes de confirmación. No se puede editar hasta confirmar o cancelar.
+                </p>
+              )}
+            </div>
+            {!readOnly && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                disabled={hasPending || deletePersonMutation.isPending || deleteCompanyMutation.isPending}
+                onClick={handleDeleteEntity}
+              >
+                Eliminar
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -349,8 +427,35 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
               {entityType === 'PERSON' && person && (
                 <>
                   <InfoRow label="Nombre" value={`${person.firstName} ${person.lastName}${person.secondLastName ? ' ' + person.secondLastName : ''}`} />
-                  <InfoRow label="Cédula" value={person.cedula} mono />
-                  <InfoRow label="Género" value={person.gender === 'MALE' ? 'Masculino' : person.gender === 'FEMALE' ? 'Femenino' : person.gender} />
+                  <InfoRow
+                    label="Tipo de documento"
+                    value={
+                      person.documentType === 'CEDULA_NUMERO'
+                        ? 'Cédula Número'
+                        : person.documentType === 'CEDULA_LETRA'
+                          ? 'Cédula Letra'
+                          : person.documentType === 'PASAPORTE'
+                            ? 'Pasaporte'
+                            : null
+                    }
+                  />
+                  <InfoRow
+                    label="Número de documento"
+                    value={person.documentNumber || person.cedula}
+                    mono
+                  />
+                  <InfoRow
+                    label="Género"
+                    value={
+                      person.gender === 'MALE'
+                        ? 'Masculino'
+                        : person.gender === 'FEMALE'
+                          ? 'Femenino'
+                          : person.gender === 'OTHER'
+                            ? 'Otro'
+                            : null
+                    }
+                  />
                   <InfoRow label="Fecha de nacimiento" value={person.birthDate ? formatDateShort(person.birthDate) : null} />
                   <InfoRow label="Nacionalidad" value={nationalityLabel(person.nationalityCode)} />
                   <InfoRow label="Nivel educativo" value={person.educationLevel} />
@@ -358,11 +463,6 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                     label="Carnet de artesano"
                     value={person.hasArtisanCard === true ? 'Sí' : person.hasArtisanCard === false ? 'No' : null}
                   />
-                  <InfoRow
-                    label="Capital semilla"
-                    value={person.seedCapital === 1 ? 'Sí' : person.seedCapital === 0 ? 'No' : null}
-                  />
-                  <InfoRow label="Fecha de capital semilla" value={person.seedCapitalDate} />
                   <InfoRow label="Registro empresarial" value={registroEmpresarialTexto(entity.registroEmpresarialFecha)} span2 />
                 </>
               )}
@@ -434,7 +534,7 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                 title="Sin registros"
                 description={`No hay capital semilla vinculado a la cédula ${capitalSemilla.data.cedula}.`}
               />
-              {!readOnly && !seedEditor && (
+              {!editBlocked && !seedEditor && (
                 <div className="flex justify-center">
                   <Button size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => openSeedEditor()}>
                     Agregar capital semilla
@@ -452,7 +552,7 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                   <TableHeaderCell>Nombre del negocio</TableHeaderCell>
                   <TableHeaderCell>No. de acta</TableHeaderCell>
                   <TableHeaderCell>Monto</TableHeaderCell>
-                  {!readOnly && <TableHeaderCell align="right">Acciones</TableHeaderCell>}
+                  {!editBlocked && <TableHeaderCell align="right">Acciones</TableHeaderCell>}
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -468,7 +568,7 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                         ? `B/. ${Number(row.amount).toLocaleString('es-PA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                         : '—'}
                     </TableCell>
-                    {!readOnly && (
+                    {!editBlocked && (
                       <TableCell align="right">
                         <Button variant="ghost" size="sm" onClick={() => openSeedEditor(row)}>
                           Editar
@@ -480,7 +580,7 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
               </TableBody>
             </Table>
           )}
-          {seedEditor && !readOnly && (
+          {seedEditor && !editBlocked && (
             <div className="mt-6 grid gap-3 border-t pt-4 sm:grid-cols-2">
               <Input
                 label="Provincia"
@@ -521,11 +621,13 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
           title="Contactos"
           description="Información de contacto de la entidad"
         >
-          <div className="mb-4 flex justify-end">
-            <Button size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => setAddContactOpen(true)}>
-              Agregar contacto
-            </Button>
-          </div>
+          {!editBlocked && (
+            <div className="mb-4 flex justify-end">
+              <Button size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => setAddContactOpen(true)}>
+                Agregar contacto
+              </Button>
+            </div>
+          )}
 
           {contacts.isLoading ? (
             <LoadingSpinner text="Cargando contactos..." />
@@ -534,7 +636,11 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
               icon={Mail}
               title="Sin contactos"
               description="Agrega un contacto para esta entidad."
-              action={<Button size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => setAddContactOpen(true)}>Agregar</Button>}
+              action={
+                !editBlocked ? (
+                  <Button size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => setAddContactOpen(true)}>Agregar</Button>
+                ) : undefined
+              }
             />
           ) : (
             <div className="space-y-2">
@@ -560,12 +666,14 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                         </div>
                       </div>
                     </div>
-                    <Button
-                      variant="ghost" size="sm" className="text-red-500 hover:text-red-700"
-                      onClick={() => handleDeleteContact(c.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {!editBlocked && (
+                      <Button
+                        variant="ghost" size="sm" className="text-red-500 hover:text-red-700"
+                        onClick={() => handleDeleteContact(c.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 );
               })}
@@ -669,15 +777,17 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
           title="Relaciones"
           description="Vinculaciones de esta entidad con otras (personas, empresas)"
         >
-          <div className="mb-4 flex justify-end">
-            <Button
-              size="sm"
-              icon={<Plus className="h-4 w-4" />}
-              onClick={() => setAddRelationshipOpen(true)}
-            >
-              Agregar relación
-            </Button>
-          </div>
+          {!editBlocked && (
+            <div className="mb-4 flex justify-end">
+              <Button
+                size="sm"
+                icon={<Plus className="h-4 w-4" />}
+                onClick={() => setAddRelationshipOpen(true)}
+              >
+                Agregar relación
+              </Button>
+            </div>
+          )}
 
           {relationships.isLoading ? (
             <LoadingSpinner text="Cargando relaciones..." />
@@ -687,13 +797,15 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
               title="Sin relaciones"
               description="No hay relaciones registradas para esta entidad."
               action={
-                <Button
-                  size="sm"
-                  icon={<Plus className="h-4 w-4" />}
-                  onClick={() => setAddRelationshipOpen(true)}
-                >
-                  Agregar relación
-                </Button>
+                !editBlocked ? (
+                  <Button
+                    size="sm"
+                    icon={<Plus className="h-4 w-4" />}
+                    onClick={() => setAddRelationshipOpen(true)}
+                  >
+                    Agregar relación
+                  </Button>
+                ) : undefined
               }
             />
           ) : (
@@ -759,14 +871,16 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                         </div>
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-red-500 hover:text-red-700 shrink-0 ml-2"
-                      onClick={() => handleDeleteRelationship(rel)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {!editBlocked && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-500 hover:text-red-700 shrink-0 ml-2"
+                        onClick={() => handleDeleteRelationship(rel)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 );
               })}

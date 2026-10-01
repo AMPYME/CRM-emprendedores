@@ -33,10 +33,10 @@ import { auditRoutes } from './modules/audit/audit.routes';
 import { verificationRoutes } from './modules/verifications/verification.routes';
 
 import { authRoutes } from './modules/auth/auth.routes';
-import { sedeRoutes } from './modules/sedes/sede.routes';
-import { departamentoRoutes } from './modules/departamentos/departamento.routes';
-import { userAdminRoutes } from './modules/users/user.routes';
 import { ampymeFormsRoutes } from './modules/forms/forms.routes';
+import { capitalSemillaRoutes } from './modules/capital-semilla/capital-semilla.routes';
+import { personChangeRoutes } from './modules/person-changes/person-change.routes';
+import { siepRoutes } from './modules/siep/siep.routes';
 
 export const apiRouter = Router();
 
@@ -47,6 +47,9 @@ apiRouter.use('/health', healthRoutes);
 apiRouter.use('/entities', entityRoutes);
 apiRouter.use('/persons', personRoutes);
 apiRouter.use('/companies', companyRoutes);
+apiRouter.use('/capital-semilla', capitalSemillaRoutes);
+apiRouter.use('/person-change-requests', personChangeRoutes);
+apiRouter.use('/siep', siepRoutes);
 
 // Contactos: rutas anidadas bajo entidad + rutas directas
 apiRouter.use('/entities/:entityId/contacts', entityContactRoutes);
@@ -78,9 +81,6 @@ apiRouter.use('/verifications', verificationRoutes);
 
 // ── Autenticación y autorización (FASE 8) ───────────────────────
 apiRouter.use('/auth', authRoutes);
-apiRouter.use('/sedes', sedeRoutes);
-apiRouter.use('/departamentos', departamentoRoutes);
-apiRouter.use('/users', userAdminRoutes);
 
 // ── Formularios AMPYME (proxy admin vía token AD) ───────────────
 apiRouter.use('/ampyme-forms', ampymeFormsRoutes);

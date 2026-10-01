@@ -150,6 +150,26 @@ enum Gender {
   OTHER
 }
 
+enum DocumentType {
+  CEDULA_NUMERO
+  CEDULA_LETRA
+  PASAPORTE
+}
+
+enum PersonChangeAction {
+  CREATE
+  UPDATE
+  DELETE
+  REGISTRO_EMPRESARIAL
+  CAPITAL_SEMILLA
+}
+
+enum PersonChangeStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
 enum UserRole {
   SUPER_ADMIN
   ADMIN
@@ -191,6 +211,7 @@ model User {
   registrationsDeleted      EventRegistration[] @relation("RegistrationDeletedBy")
   importsDeleted            ImportBatch[]      @relation("ImportDeletedBy")
   intakeSessionsDeleted     IntakeSession[]    @relation("IntakeDeletedBy")
+  personChangeRequests      PersonChangeRequest[] @relation("PersonChangeRequestedBy")
 
   @@index([username])
   @@map("users")
@@ -239,6 +260,8 @@ model Entity {
   // Trazabilidad
   notes           String?
   registroEmpresarialFecha DateTime? @map("registro_empresarial_fecha") @db.Date
+  /// Referencia estable a empresa/persona en API SIEP (publicId), nunca FK a BD SIEP
+  siepPublicId    String?      @map("siep_public_id")
   sourceOrigin    String?      @map("source_origin")  // Ej: "IMPORTACION_DIRECTORIO_2024", "EVENTO_CUMBRE_2024", "MANUAL"
   importBatchId   String?      @map("import_batch_id")
   mergedIntoId    String?      @map("merged_into_id")  // Si fue fusionada con otra entidad
@@ -270,6 +293,7 @@ model Entity {
   @@index([province])
   @@index([sourceOrigin])
   @@index([importBatchId])
+  @@index([siepPublicId])
   @@map("entities")
 }
 
@@ -277,7 +301,9 @@ model Entity {
 model Person {
   id              String    @id @default(uuid())
   entityId        String    @unique @map("entity_id")
-  cedula          String?   // Cédula panameña — puede no estar disponible
+  cedula          String?   // Cédula / documento (sincronizado con documentNumber)
+  documentType    DocumentType? @map("document_type")
+  documentNumber  String?   @map("document_number")
   firstName       String    @map("first_name")
   lastName        String    @map("last_name")
   secondLastName  String?   @map("second_last_name")
@@ -299,6 +325,7 @@ model Person {
   capitalSemilla  CapitalSemilla?
 
   @@index([cedula])
+  @@index([documentNumber])
   @@index([firstName, lastName])
   @@index([lastName])
   @@map("persons")
@@ -930,19 +957,44 @@ model VerificationItem {
 
 /// Registro histórico de Capital Semilla, vinculado a la persona por cédula.
 model CapitalSemilla {
-  id           String   @id @default(uuid())
-  externalId   Int?     @map("external_id")
+  id           String    @id @default(uuid())
+  externalId   Int?      @map("external_id")
   cedula       String
-  cedulaKey    String   @map("cedula_key")
+  cedulaKey    String    @map("cedula_key")
   province     String?
-  businessName String?  @map("business_name")
-  actaNumber   String?  @map("acta_number")
-  amount       Decimal? @db.Decimal(12, 2)
-  personId     String?  @unique @map("person_id")
-  createdAt    DateTime @default(now()) @map("created_at")
+  businessName String?   @map("business_name")
+  actaNumber   String?   @map("acta_number")
+  amount       Decimal?  @db.Decimal(12, 2)
+  personId     String?   @unique @map("person_id")
+  linkedAt     DateTime? @map("linked_at") @db.Date
+  createdAt    DateTime  @default(now()) @map("created_at")
 
-  person       Person?  @relation(fields: [personId], references: [id], onDelete: SetNull)
+  person       Person?   @relation(fields: [personId], references: [id], onDelete: SetNull)
 
   @@index([cedulaKey])
+  @@index([linkedAt])
   @@map("capital_semilla")
+}
+
+/// Cambios de persona pendientes de confirmación por el mismo usuario.
+model PersonChangeRequest {
+  id            String             @id @default(uuid())
+  action        PersonChangeAction
+  status        PersonChangeStatus @default(PENDING)
+  entityId      String?            @map("entity_id")
+  personId      String?            @map("person_id")
+  payload       Json?
+  summary       String?
+  requestedById String             @map("requested_by_id")
+  confirmedAt   DateTime?          @map("confirmed_at")
+  cancelledAt   DateTime?          @map("cancelled_at")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  requestedBy   User               @relation("PersonChangeRequestedBy", fields: [requestedById], references: [id], onDelete: Cascade)
+
+  @@index([requestedById, status])
+  @@index([status])
+  @@index([entityId])
+  @@map("person_change_requests")
 }

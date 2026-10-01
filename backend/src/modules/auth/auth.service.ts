@@ -10,7 +10,6 @@ import { authRepository, SafeUser } from './auth.repository';
 import { adLogin, adGetMe } from './ad-user-api.client';
 import {
   resolveEmailForLocalUser,
-  resolveUsername,
   namesFromAdProfile,
   hasAnyRequiredAdRole,
   mapAdRolesToCrmRole,
@@ -27,7 +26,6 @@ import {
 import {
   AuthUser,
   AuthTokenResponse,
-  PublicAuthUser,
   JwtPayload,
   JwtRefreshPayload,
 } from './auth.types';
@@ -105,6 +103,10 @@ function verifyToken<T>(token: string): T {
 }
 
 function toAuthUser(user: SafeUser): AuthUser {
+  const sede =
+    user.sede && !user.sede.deletedAt
+      ? { id: user.sede.id, name: user.sede.name }
+      : null;
   return {
     id: user.id,
     email: user.email,
@@ -115,18 +117,8 @@ function toAuthUser(user: SafeUser): AuthUser {
     isActive: user.isActive,
     lastLoginAt: user.lastLoginAt,
     createdAt: user.createdAt,
-    sede: user.sede && !user.sede.deletedAt
-      ? { id: user.sede.id, name: user.sede.name }
-      : null,
-    departamento: user.departamento && !user.departamento.deletedAt
-      ? { id: user.departamento.id, name: user.departamento.name }
-      : null,
+    sede,
   };
-}
-
-function toClientUser(user: SafeUser): PublicAuthUser {
-  const { email: _email, ...client } = toAuthUser(user);
-  return client;
 }
 
 // ── Servicio exportado ──────────────────────────────────────────
@@ -207,7 +199,6 @@ export const authService = {
         );
       }
       const { firstName, lastName } = namesFromAdProfile(me);
-      const username = resolveUsername(me, identifier);
       const placeholderHash = await bcrypt.hash(randomUUID(), 12);
       const crmRole = mapAdRolesToCrmRole(adRoles);
       const created = await authRepository.create({
@@ -215,7 +206,6 @@ export const authService = {
         passwordHash: placeholderHash,
         firstName,
         lastName,
-        username,
         role: crmRole,
       });
       const safe = await authRepository.updateLastLogin(created.id);
@@ -227,7 +217,7 @@ export const authService = {
       });
       await logLogin(safe);
       return {
-        user: toClientUser(safe),
+        user: toAuthUser(safe),
         accessToken,
         refreshToken,
         adAccessToken: adTokens.accessToken,
@@ -239,13 +229,13 @@ export const authService = {
     }
 
     const roleSync = resolveAdRoleSync(adRoles, user.role);
-    const safeUser = await authRepository.updateLastLogin(user.id, roleSync, resolveUsername(me, identifier));
+    const safeUser = await authRepository.updateLastLogin(user.id, roleSync);
     const accessToken = generateAccessToken(safeUser);
     const refreshToken = generateRefreshToken(safeUser);
     logger.info('Login exitoso (AD)', { userId: user.id, email: user.email });
     await logLogin(safeUser);
     return {
-      user: toClientUser(safeUser),
+      user: toAuthUser(safeUser),
       accessToken,
       refreshToken,
       adAccessToken: adTokens.accessToken,
@@ -287,7 +277,7 @@ export const authService = {
     logger.debug('Token renovado', { userId: user.id });
 
     return {
-      user: toClientUser(user),
+      user: toAuthUser(user),
       accessToken,
       refreshToken,
     };
@@ -296,12 +286,12 @@ export const authService = {
   /**
    * Obtener perfil del usuario autenticado.
    */
-  async getProfile(userId: string): Promise<PublicAuthUser> {
+  async getProfile(userId: string): Promise<AuthUser> {
     const user = await authRepository.findByIdSafe(userId);
     if (!user) {
       throw new NotFoundError('Usuario', userId);
     }
-    return toClientUser(user);
+    return toAuthUser(user);
   },
 
   /**
@@ -316,7 +306,7 @@ export const authService = {
   /**
    * Actualizar perfil del usuario autenticado.
    */
-  async updateProfile(userId: string, input: UpdateProfileInput): Promise<PublicAuthUser> {
+  async updateProfile(userId: string, input: UpdateProfileInput): Promise<AuthUser> {
     const user = await authRepository.findByIdSafe(userId);
     if (!user) {
       throw new NotFoundError('Usuario', userId);
@@ -324,7 +314,7 @@ export const authService = {
 
     const updated = await authRepository.updateProfile(userId, input);
     logger.info('Perfil actualizado', { userId });
-    return toClientUser(updated);
+    return toAuthUser(updated);
   },
 
   /**

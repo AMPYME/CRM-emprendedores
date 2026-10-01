@@ -1,7 +1,7 @@
 /**
  * Servicio del intake de emprendedores (REST + helpers de WebSocket / enlace).
  */
-import { apiHttpUrl, devBrowserApiPort, devBrowserServiceUrl, toPageProtocol } from '@/lib/public-urls';
+import { toPageProtocol } from '@/lib/public-urls';
 import { apiClient } from './api-client';
 import type { ApiResponse } from '@/types/api.types';
 import type {
@@ -14,7 +14,7 @@ import type {
 } from '@/types/intake.types';
 
 export interface IntakeUpdateInput {
-  person?: Record<string, string | boolean | number | undefined>;
+  person?: Record<string, string | boolean | undefined>;
   company?: Record<string, string | undefined>;
   location?: { province?: string; district?: string; corregimiento?: string; address?: string };
   contacts?: Array<{
@@ -83,16 +83,13 @@ export const intakeService = {
 };
 
 function intakeWsBase(): string {
-  const lan = devBrowserServiceUrl(devBrowserApiPort(), 'ws');
-  if (lan) return `${lan}/ws/intake`;
-
   const explicit = process.env.NEXT_PUBLIC_WS_URL;
   const raw = explicit
     ? explicit.replace(/\/$/, '')
     : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1')
-        .replace(/\/api\/v1\/?$/, '') + '/ws/intake';
-  const httpUrl = apiHttpUrl(raw.replace(/^wss:/i, 'https:'));
-  return httpUrl.replace(/^http/i, 'ws');
+        .replace(/\/api\/v1\/?$/, '')
+        .replace(/^http/, 'ws') + '/ws/intake';
+  return toPageProtocol(raw);
 }
 
 /** URL del WebSocket de intake para operadores (JWT como query param). */

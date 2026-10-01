@@ -5,11 +5,19 @@
 import { Request, Response } from 'express';
 import { entityService } from './entity.service';
 import { sendSuccess, sendPaginated } from '../../shared/utils/response.utils';
+import { UnauthorizedError } from '../../shared/errors/app-error';
 import { AuditActor } from '../audit/audit.service';
+import { personChangeService } from '../person-changes/person-change.service';
 
 function getActor(req: Request): AuditActor | undefined {
   if (!req.user?.id || !req.user?.email) return undefined;
   return { userId: req.user.id, userEmail: req.user.email };
+}
+
+function requireActor(req: Request): AuditActor {
+  const actor = getActor(req);
+  if (!actor) throw new UnauthorizedError('Usuario no autenticado');
+  return actor;
 }
 
 export const entityController = {
@@ -33,15 +41,15 @@ export const entityController = {
 
   /**
    * PATCH /api/v1/entities/:id/registro-empresarial
-   * Guarda la fecha del registro. fecha null = nunca ha tenido.
+   * Encola el cambio de fecha (confirmación requerida).
    */
   async setRegistroEmpresarial(req: Request, res: Response): Promise<void> {
-    const entity = await entityService.setRegistroEmpresarialFecha(
+    const queued = await personChangeService.enqueueRegistroEmpresarial(
       req.params.id as string,
-      req.body,
-      getActor(req)
+      req.body.fecha ?? null,
+      requireActor(req)
     );
-    sendSuccess(res, entity);
+    res.status(202).json({ success: true, data: queued });
   },
 
   async verificar(req: Request, res: Response): Promise<void> {

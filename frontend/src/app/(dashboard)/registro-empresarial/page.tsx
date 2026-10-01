@@ -65,12 +65,11 @@ export default function RegistroEmpresarialPage() {
     if (!entidad) return;
     setGuardando(true);
     try {
-      const actualizada = await entitiesService.setRegistroEmpresarial(entidad.id, siguiente);
-      const valor = actualizada.registroEmpresarialFecha?.slice(0, 10) ?? '';
-      setFecha(valor);
-      setFechaGuardada(valor || null);
-      setEntidad({ ...entidad, registroEmpresarialFecha: valor || null });
-      toast.success(registroEmpresarialTexto(valor || null));
+      await entitiesService.setRegistroEmpresarial(entidad.id, siguiente);
+      toast.success('Cambio pendiente de confirmación. Revise Confirmación.');
+      setFecha(siguiente ?? '');
+      setFechaGuardada(siguiente);
+      setEntidad({ ...entidad, registroEmpresarialFecha: siguiente });
     } catch (error) {
       toast.error(getApiErrorMessage(error));
     } finally {

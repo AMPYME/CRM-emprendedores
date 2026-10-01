@@ -20,35 +20,46 @@ import {
   toDistritoCode,
   toCorregimientoCode,
 } from '@/lib/division-politica';
+import {
+  DOCUMENT_TYPE_OPTIONS,
+  DocumentTypeValue,
+  validateDocumentNumber,
+} from '@/lib/document';
 
-const personSchema = z.object({
-  firstName: z.string().min(2, 'El nombre es requerido'),
-  lastName: z.string().min(2, 'El apellido es requerido'),
-  secondLastName: z.string().optional(),
-  cedula: z.string().optional(),
-  gender: z.string().optional(),
-  birthDate: z.string().optional(),
-  nationalityCode: z.string().length(3, 'Seleccione la nacionalidad'),
-  hasArtisanCard: z.string().optional(),
-  seedCapital: z.string().optional(),
-  seedCapitalDate: z.string().optional(),
-  province: z.string().optional(),
-  district: z.string().optional(),
-  corregimiento: z.string().optional(),
-  address: z.string().optional(),
-  notes: z.string().optional(),
-  email: z.string().email('Correo inválido').optional().or(z.literal('')),
-  phone: z.string().optional(),
-}).superRefine((data, ctx) => {
-  if (data.seedCapital !== '1') return;
-  if (!/^(0[1-9]|1[0-2])\/\d{4}$/.test(data.seedCapitalDate ?? '')) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['seedCapitalDate'],
-      message: 'Obligatorio. Use el formato MM/AAAA',
-    });
-  }
-});
+const personSchema = z
+  .object({
+    firstName: z.string().min(2, 'El nombre es requerido'),
+    lastName: z.string().min(2, 'El apellido es requerido'),
+    secondLastName: z.string().optional(),
+    gender: z.string().optional(),
+    documentType: z.string().min(1, 'Seleccione el tipo de documento'),
+    documentNumber: z.string().min(1, 'Ingrese el número de documento'),
+    birthDate: z.string().optional(),
+    nationalityCode: z.string().length(3, 'Seleccione la nacionalidad'),
+    hasArtisanCard: z.string().optional(),
+    province: z.string().optional(),
+    district: z.string().optional(),
+    corregimiento: z.string().optional(),
+    address: z.string().optional(),
+    notes: z.string().optional(),
+    email: z.string().email('Correo inválido').optional().or(z.literal('')),
+    phone: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    const err = validateDocumentNumber(
+      (data.documentType || undefined) as DocumentTypeValue | undefined,
+      data.documentNumber,
+      { required: true }
+    );
+    if (err) {
+      const path = err.includes('tipo') ? ['documentType'] : ['documentNumber'];
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path,
+        message: err,
+      });
+    }
+  });
 
 type PersonForm = z.infer<typeof personSchema>;
 
@@ -71,12 +82,6 @@ const yesNoOptions = [
   { value: 'false', label: 'No' },
 ];
 
-const seedCapitalOptions = [
-  { value: '', label: 'Seleccionar' },
-  { value: '1', label: 'Sí' },
-  { value: '0', label: 'No' },
-];
-
 export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProps) {
   const isEdit = !!editId;
   const personQuery = usePerson(editId ?? undefined);
@@ -96,13 +101,12 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
       firstName: '',
       lastName: '',
       secondLastName: '',
-      cedula: '',
       gender: '',
+      documentType: '',
+      documentNumber: '',
       birthDate: '',
       nationalityCode: DEFAULT_NATIONALITY_CODE,
       hasArtisanCard: '',
-      seedCapital: '',
-      seedCapitalDate: '',
       province: '',
       district: '',
       corregimiento: '',
@@ -128,14 +132,13 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
         firstName: p?.firstName || '',
         lastName: p?.lastName || '',
         secondLastName: p?.secondLastName || '',
-        cedula: p?.cedula || '',
         gender: p?.gender || '',
+        documentType: p?.documentType || '',
+        documentNumber: p?.documentNumber || p?.cedula || '',
         birthDate: p?.birthDate?.split('T')[0] || '',
         nationalityCode: p?.nationalityCode || DEFAULT_NATIONALITY_CODE,
         hasArtisanCard:
           p?.hasArtisanCard === true ? 'true' : p?.hasArtisanCard === false ? 'false' : '',
-        seedCapital: p?.seedCapital === 1 ? '1' : p?.seedCapital === 0 ? '0' : '',
-        seedCapitalDate: p?.seedCapitalDate || '',
         province: provinceCode,
         district: districtCode,
         corregimiento: corregimientoCode,
@@ -165,8 +168,9 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
       firstName: formData.firstName,
       lastName: formData.lastName,
       secondLastName: formData.secondLastName || undefined,
-      cedula: formData.cedula || undefined,
       gender: formData.gender || undefined,
+      documentType: (formData.documentType || undefined) as DocumentTypeValue | undefined,
+      documentNumber: formData.documentNumber || undefined,
       birthDate: formData.birthDate || undefined,
       nationalityCode: formData.nationalityCode,
       hasArtisanCard:
@@ -175,8 +179,6 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
           : formData.hasArtisanCard === 'false'
             ? false
             : undefined,
-      seedCapital: (formData.seedCapital === '1' ? 1 : formData.seedCapital === '0' ? 0 : undefined) as 0 | 1 | undefined,
-      seedCapitalDate: formData.seedCapital === '1' ? formData.seedCapitalDate : undefined,
       province: formData.province || undefined,
       district: formData.district || undefined,
       corregimiento: formData.corregimiento || undefined,
@@ -198,7 +200,7 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
   };
 
   const isBusy = createMutation.isPending || updateMutation.isPending;
-  const seedCapital = watch('seedCapital');
+  const documentType = watch('documentType');
 
   return (
     <Modal
@@ -224,10 +226,29 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
         </div>
       ) : (
         <form className="grid grid-cols-1 gap-4 sm:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
+          <Select
+            label="Tipo de Documento *"
+            options={DOCUMENT_TYPE_OPTIONS}
+            error={errors.documentType?.message}
+            {...register('documentType', {
+              onChange: () => setValue('documentNumber', ''),
+            })}
+          />
+          <Input
+            label="Número de documento *"
+            placeholder={
+              documentType === 'PASAPORTE'
+                ? 'Solo A-Z y 0-9'
+                : documentType === 'CEDULA_LETRA'
+                  ? 'E-8-866-5775'
+                  : '8-554-6674'
+            }
+            error={errors.documentNumber?.message}
+            {...register('documentNumber')}
+          />
           <Input label="Nombre *" error={errors.firstName?.message} {...register('firstName')} />
           <Input label="Primer apellido *" error={errors.lastName?.message} {...register('lastName')} />
           <Input label="Segundo apellido" {...register('secondLastName')} />
-          <Input label="Cédula" placeholder="X-XXXX-XXXXX" {...register('cedula')} />
           <Select label="Género" options={genderOptions} {...register('gender')} />
           <Input label="Fecha de nacimiento" type="date" {...register('birthDate')} />
           <Select
@@ -237,15 +258,6 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
             {...register('nationalityCode')}
           />
           <Select label="Carnet de artesano" options={yesNoOptions} {...register('hasArtisanCard')} />
-          <Select label="Capital semilla" options={seedCapitalOptions} {...register('seedCapital')} />
-          {seedCapital === '1' && (
-            <Input
-              label="Fecha de capital semilla *"
-              placeholder="MM/AAAA"
-              error={errors.seedCapitalDate?.message}
-              {...register('seedCapitalDate')}
-            />
-          )}
           <LocationCascadeFields register={register} watch={watch} setValue={setValue} />
           <Input
             label="Correo electrónico"

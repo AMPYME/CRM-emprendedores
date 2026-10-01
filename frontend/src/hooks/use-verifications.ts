@@ -89,6 +89,21 @@ export function useReleaseAllVerifications() {
   });
 }
 
+export function useDeleteVerification() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => verificationService.remove(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['verifications'] });
+      qc.invalidateQueries({ queryKey: ['intake-sessions'] });
+      toast.success('Registro eliminado de la cola');
+    },
+    onError: (err) => {
+      toast.error(getApiErrorMessage(err));
+    },
+  });
+}
+
 export function useSendImportToVerification() {
   const qc = useQueryClient();
   return useMutation({

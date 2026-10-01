@@ -34,3 +34,5 @@ verificationRoutes.post(
   validate(rejectVerificationSchema, 'body'),
   asyncHandler(verificationController.reject)
 );
+
+verificationRoutes.delete('/:id', asyncHandler(verificationController.remove));

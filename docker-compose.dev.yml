@@ -8,8 +8,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: emprendedores_db
     ports:
-      # Solo esta máquina. El frontend y el backend sí quedan en la LAN.
-      - '127.0.0.1:5432:5432'
+      - '5432:5432'
     volumes:
       - postgres_data_dev:/var/lib/postgresql/data
     healthcheck:
@@ -32,8 +31,6 @@ services:
       - ./backend/.env
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    dns_search:
-      - ampyme.local
     environment:
       # Sobrescribe .env si hace falta; DATABASE_URL debe usar host postgres en la red compose
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/emprendedores_db?schema=public
@@ -42,21 +39,22 @@ services:
       FORMS_MYSQL_HOST: 192.168.2.184
       FORMS_MYSQL_PORT: '3306'
       FORMS_MYSQL_DATABASE: forms_ampyme
+      SIEP_API_URL: http://host.docker.internal:4100/api/v1
+      SIEP_CLIENT_ID: crm-emprendedores
+      SIEP_CLIENT_SECRET: crm-emprendedores-dev-secret
       CHOKIDAR_USEPOLLING: 'true'
       CHOKIDAR_INTERVAL: 1000
-      # El .env fija solo localhost. En dev se acepta cualquier origen de la LAN.
-      CORS_ORIGIN: '*'
     command: sh scripts/dev-entrypoint.sh
     volumes:
       - ./backend:/app
       - backend_node_modules:/app/node_modules
     ports:
-      # 4000: acceso directo en WSL. 8000: portproxy de Windows (192.168.2.112:8000 → WSL:8000).
-      - '0.0.0.0:4000:4000'
-      - '0.0.0.0:8000:4000'
+      - '4000:4000'
 
   frontend:
-    image: node:20-alpine
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
     container_name: emprendedores-frontend-dev
     restart: unless-stopped
     working_dir: /app
@@ -64,22 +62,25 @@ services:
       - backend
     environment:
       NODE_ENV: development
-      # SSR dentro de Docker habla con el servicio backend (nombre de red).
-      # El navegador entra por el puerto 80 y llama al API en el 8000 del mismo host.
-      NEXT_PUBLIC_API_URL: http://backend:4000/api/v1
-      API_PROXY_TARGET: http://backend:4000/api/v1
-      NEXT_PUBLIC_WS_URL: ws://backend:4000/ws/intake
-      NEXT_PUBLIC_LAN_API_PORT: '8000'
-      NEXT_PUBLIC_DIRECT_API_PORT: '4000'
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api/v1
+      NEXT_PUBLIC_WS_URL: ws://localhost:4000/ws/intake
+      NEXT_PUBLIC_INTAKE_FORM_URL: http://localhost:3000/emprendedores/
       WATCHPACK_POLLING: 'true'
       CHOKIDAR_USEPOLLING: 'true'
-    command: sh -c "npm install && npm run dev -- --hostname 0.0.0.0 --port 3000"
+      CHOKIDAR_INTERVAL: '1000'
+      PORT: '3000'
+    command: sh scripts/dev-entrypoint.sh
     volumes:
       - ./frontend:/app
       - frontend_node_modules:/app/node_modules
     ports:
-      # El host publica el frontend en el puerto 80. Next sigue escuchando en el 3000 del contenedor.
-      - '0.0.0.0:80:3000'
+      - '3000:3000'
+    # journald a veces oculta stdout de npm/next; json-file facilita `podman logs`
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
 
 volumes:
   postgres_data_dev:

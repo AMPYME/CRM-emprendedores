@@ -94,6 +94,10 @@ export const auditService = {
         const sedeMeta = typeof metadata.sede === 'string' ? metadata.sede : null;
         const departamentoMeta = typeof metadata.departamento === 'string' ? metadata.departamento : null;
         const nuevoGuardado = metadata.nuevo ?? nuevoDesdeMetadataPlana(metadata);
+        const confirmacion =
+          metadata.confirmacion === 'CONFIRMED' || metadata.confirmacion === 'CANCELLED'
+            ? metadata.confirmacion
+            : null;
         return {
           id: row.id,
           action: row.action,
@@ -105,6 +109,8 @@ export const auditService = {
           anterior: metadata.anterior ?? null,
           nuevo: nuevoGuardado,
           campos: Array.isArray(metadata.fields) ? metadata.fields : null,
+          confirmacion,
+          summary: typeof metadata.summary === 'string' ? metadata.summary : null,
         };
       }),
       meta: buildPaginationMeta(result.total, result.page, result.limit),

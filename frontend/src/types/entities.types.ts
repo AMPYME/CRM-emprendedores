@@ -52,6 +52,8 @@ export interface Person {
   id: string;
   entityId: string;
   cedula: string | null;
+  documentType: 'CEDULA_NUMERO' | 'CEDULA_LETRA' | 'PASAPORTE' | null;
+  documentNumber: string | null;
   firstName: string;
   lastName: string;
   secondLastName: string | null;

@@ -3,14 +3,23 @@
  */
 import { Request, Response } from 'express';
 import { personService } from './person.service';
+import { personRepository } from './person.repository';
 import { capitalSemillaService } from '../capital-semilla/capital-semilla.service';
+import { personChangeService } from '../person-changes/person-change.service';
 import { SaveCapitalSemillaInput } from '../capital-semilla/capital-semilla.validator';
-import { sendSuccess, sendCreated, sendPaginated } from '../../shared/utils/response.utils';
+import { sendSuccess, sendPaginated } from '../../shared/utils/response.utils';
+import { UnauthorizedError, NotFoundError } from '../../shared/errors/app-error';
 import { AuditActor } from '../audit/audit.service';
 
 function getActor(req: Request): AuditActor | undefined {
   if (!req.user?.id || !req.user?.email) return undefined;
   return { userId: req.user.id, userEmail: req.user.email };
+}
+
+function requireActor(req: Request): AuditActor {
+  const actor = getActor(req);
+  if (!actor) throw new UnauthorizedError('Usuario no autenticado');
+  return actor;
 }
 
 export const personController = {
@@ -20,7 +29,8 @@ export const personController = {
   },
 
   async lookupByCedula(req: Request, res: Response): Promise<void> {
-    const entity = await personService.findByCedula(String(req.query.cedula ?? ''));
+    const entity = await personRepository.findByCedula(String(req.query.cedula ?? ''));
+    if (!entity) throw new NotFoundError('Persona', String(req.query.cedula ?? ''));
     sendSuccess(res, entity);
   },
 
@@ -44,17 +54,24 @@ export const personController = {
   },
 
   async create(req: Request, res: Response): Promise<void> {
-    const person = await personService.create(req.body, getActor(req));
-    sendCreated(res, person);
+    const queued = await personChangeService.enqueueCreate(req.body, requireActor(req));
+    res.status(202).json({ success: true, data: queued });
   },
 
   async update(req: Request, res: Response): Promise<void> {
-    const person = await personService.update(req.params.id as string, req.body, getActor(req));
-    sendSuccess(res, person);
+    const queued = await personChangeService.enqueueUpdate(
+      req.params.id as string,
+      req.body,
+      requireActor(req)
+    );
+    res.status(202).json({ success: true, data: queued });
   },
 
   async remove(req: Request, res: Response): Promise<void> {
-    const result = await personService.remove(req.params.id as string, getActor(req));
-    sendSuccess(res, result);
+    const queued = await personChangeService.enqueueDelete(
+      req.params.id as string,
+      requireActor(req)
+    );
+    res.status(202).json({ success: true, data: queued });
   },
 };
