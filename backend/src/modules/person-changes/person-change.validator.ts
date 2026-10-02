@@ -13,6 +13,11 @@ export const changeRequestIdParamSchema = z.object({
 
 export const listMyChangeRequestsSchema = z.object({
   status: z.enum(['PENDING', 'CONFIRMED', 'CANCELLED', 'ALL']).default('PENDING'),
+  /** Solo solicitudes abiertas/creadas por el usuario autenticado */
+  mineOnly: z
+    .union([z.boolean(), z.enum(['true', 'false', '1', '0'])])
+    .optional()
+    .transform((v) => v === true || v === 'true' || v === '1'),
   documento: z.string().trim().min(1).max(80).optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(50).default(20),

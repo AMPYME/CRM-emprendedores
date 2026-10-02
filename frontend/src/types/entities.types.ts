@@ -38,6 +38,7 @@ export interface Entity {
   address: string | null;
   notes: string | null;
   registroEmpresarialFecha: string | null;
+  actEc?: string | null;
   sourceOrigin: string | null;
   importBatchId: string | null;
   createdAt: string;
@@ -61,6 +62,7 @@ export interface Person {
   birthDate: string | null;
   nationalityCode: string;
   educationLevel: string | null;
+  economicActivity: string | null;
   hasArtisanCard: boolean | null;
   seedCapital: number | null;
   seedCapitalDate: string | null;

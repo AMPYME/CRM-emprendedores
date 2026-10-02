@@ -8,6 +8,15 @@ const SOFT_DELETE_MODELS = new Set([
   'StagingRow',
   'IntakeSession',
   'IntakeEntity',
+  'Entity',
+  'Person',
+  'Company',
+  'User',
+  'EntityRelationship',
+  'PortfolioRecord',
+  'CapitalSemilla',
+  'Sede',
+  'Departamento',
 ]);
 
 const FILTERED_READS = new Set([

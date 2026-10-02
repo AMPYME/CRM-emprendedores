@@ -16,15 +16,24 @@ export interface PersonChangeRequest {
   confirmedAt: string | null;
   cancelledAt: string | null;
   createdAt: string;
+  requestedBy?: {
+    id: string;
+    username: string | null;
+    email: string;
+    displayName: string;
+  } | null;
 }
+
+export type PersonChangeListMeta = PaginationMeta;
 
 export const personChangesService = {
   async listMine(params: {
     status?: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'ALL';
     documento?: string;
+    mineOnly?: boolean;
     page?: number;
     limit?: number;
-  } = {}): Promise<{ data: PersonChangeRequest[]; meta: PaginationMeta }> {
+  } = {}): Promise<{ data: PersonChangeRequest[]; meta: PersonChangeListMeta }> {
     const res = await apiClient.get<ApiResponse<PersonChangeRequest[]>>('/person-change-requests', {
       params,
     });

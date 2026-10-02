@@ -68,6 +68,16 @@ interface Presentacion {
 }
 
 function presentar(evento: EntityHistorialEvento): Presentacion {
+  if (evento.confirmacion === 'CONFIRMED' && evento.action === 'CREATE') {
+    return {
+      tipo: 'Alta',
+      tono: 'alta',
+      titulo: evento.summary || 'Alta en el sistema',
+      descripcion: 'Se registró al emprendedor en el sistema y fue confirmado.',
+      modo: 'registro',
+    };
+  }
+
   if (evento.confirmacion === 'CONFIRMED') {
     return {
       tipo: 'Confirmación',
@@ -547,7 +557,15 @@ export function EntityHistorialPanel({
                     usuario={evento.usuario}
                     sede={evento.sede}
                     departamento={evento.departamento}
-                    confirmacion={evento.confirmacion}
+                    confirmacion={
+                      evento.confirmacion ??
+                      (evento.action === 'CREATE' &&
+                      (evento.entityType === 'PERSON' ||
+                        evento.entityType === 'COMPANY' ||
+                        evento.entityType == null)
+                        ? 'CONFIRMED'
+                        : null)
+                    }
                   />
                 </article>
               </li>

@@ -1,17 +1,18 @@
 /**
  * Service del módulo de personas.
- * Lógica de negocio para CRUD de personas.
+ * Escrituras vía api.* (infrastructure/database); lecturas legacy + api.
  */
 import { Prisma } from '@prisma/client';
 import { personRepository } from './person.repository';
+import { personApiRepository } from '../../infrastructure/database';
 import { PersonQueryInput, CreatePersonInput, UpdatePersonInput, resolveDocumentFields } from './person.validator';
 import { NotFoundError, ConflictError, BadRequestError } from '../../shared/errors/app-error';
 import { PaginationMeta } from '../../shared/types/api-response.types';
 import { titleCase } from '../../shared/utils/string.utils';
 import { persistableLocationCodes } from '../../shared/utils/entity-location';
-import { DEFAULT_NATIONALITY_CODE } from '../../shared/utils/nationality';
 import { validateDocumentNumber } from '../../shared/utils/document.utils';
-import { auditService, AuditActor } from '../audit/audit.service';
+import { AuditActor } from '../audit/audit.service';
+import { contactApiRepository } from '../../infrastructure/database';
 
 function buildDisplayName(firstName: string, lastName: string, secondLastName?: string): string {
   const parts = [titleCase(firstName), titleCase(lastName)];
@@ -22,6 +23,14 @@ function buildDisplayName(firstName: string, lastName: string, secondLastName?: 
 function buildPaginationMeta(total: number, page: number, limit: number): PaginationMeta {
   const totalPages = Math.ceil(total / limit);
   return { page, limit, total, totalPages, hasNextPage: page < totalPages, hasPrevPage: page > 1 };
+}
+
+function politicalCodeFromLoc(loc: {
+  province?: string | null;
+  district?: string | null;
+  corregimiento?: string | null;
+}): string | null {
+  return loc.corregimiento || loc.district || loc.province || null;
 }
 
 export const personService = {
@@ -56,46 +65,44 @@ export const personService = {
       }
     }
 
-    const displayName = buildDisplayName(input.firstName, input.lastName, input.secondLastName);
     const loc = await persistableLocationCodes(input);
+    const actorId = actor?.userId || null;
 
-    const entity = await personRepository.create({
-      displayName,
-      province: loc.province,
-      district: loc.district,
-      corregimiento: loc.corregimiento,
-      address: input.address,
-      notes: input.notes,
-      sourceOrigin: input.sourceOrigin || 'MANUAL',
-      createdById: actor?.userId,
-      person: {
-        firstName: input.firstName,
-        lastName: input.lastName,
-        secondLastName: input.secondLastName,
-        cedula: docs.cedula,
-        documentType: docs.documentType,
-        documentNumber: docs.documentNumber,
-        gender: input.gender as Prisma.PersonCreateWithoutEntityInput['gender'],
-        birthDate: input.birthDate ? new Date(input.birthDate) : undefined,
-        nationalityCode: input.nationalityCode ?? DEFAULT_NATIONALITY_CODE,
-        educationLevel: input.educationLevel,
-        occupation: input.occupation,
-        businessName: input.businessName,
-        economicActivity: input.economicActivity,
-        hasArtisanCard: input.hasArtisanCard,
-      },
-      contacts: input.contacts,
-    });
+    let entityId: string;
+    try {
+      entityId = await personApiRepository.create(actorId, {
+        firstName: titleCase(input.firstName),
+        lastName: titleCase(input.lastName),
+        secondLastName: input.secondLastName ? titleCase(input.secondLastName) : null,
+        documentType: docs.documentType ?? null,
+        documentNumber: docs.documentNumber ?? null,
+        gender: input.gender ?? null,
+        politicalDivisionCode: politicalCodeFromLoc(loc),
+        addressLine: input.address ?? null,
+        sourceOrigin: input.sourceOrigin || 'MANUAL',
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('Documento ya registrado') || msg.includes('23505')) {
+        throw new ConflictError(`Ya existe una persona con documento '${docs.cedula}'`);
+      }
+      throw err;
+    }
 
-    await auditService.log({
-      action: 'CREATE',
-      entityType: 'PERSON',
-      entityId: entity.id,
-      entityLabel: entity.displayName,
-      userId: actor?.userId,
-      userEmail: actor?.userEmail,
-    });
+    if (input.contacts?.length) {
+      for (const c of input.contacts) {
+        await contactApiRepository.add(actorId, {
+          entityId,
+          contactType: c.contactType,
+          contactValue: c.contactValue,
+          label: c.label,
+          isPrimary: c.isPrimary,
+        });
+      }
+    }
 
+    const entity = await personRepository.findById(entityId);
+    if (!entity) throw new NotFoundError('Persona', entityId);
     return entity;
   },
 
@@ -105,37 +112,19 @@ export const personService = {
       throw new NotFoundError('Persona', entityId);
     }
 
-    const entityData: Prisma.EntityUncheckedUpdateInput = {};
-    if (
+    const loc =
       input.province !== undefined ||
       input.district !== undefined ||
       input.corregimiento !== undefined
-    ) {
-      const loc = await persistableLocationCodes({
-        province: input.province ?? current.province,
-        district: input.district ?? current.district,
-        corregimiento: input.corregimiento ?? current.corregimiento,
-      });
-      if (input.province !== undefined) entityData.province = loc.province ?? null;
-      if (input.district !== undefined) entityData.district = loc.district ?? null;
-      if (input.corregimiento !== undefined) entityData.corregimiento = loc.corregimiento ?? null;
-    }
-    if (input.address !== undefined) entityData.address = input.address;
-    if (input.notes !== undefined) entityData.notes = input.notes;
+        ? await persistableLocationCodes({
+            province: input.province ?? current.province,
+            district: input.district ?? current.district,
+            corregimiento: input.corregimiento ?? current.corregimiento,
+          })
+        : null;
 
-    const personData: Prisma.PersonUpdateWithoutEntityInput = {};
-    if (input.firstName !== undefined) personData.firstName = input.firstName;
-    if (input.lastName !== undefined) personData.lastName = input.lastName;
-    if (input.secondLastName !== undefined) personData.secondLastName = input.secondLastName;
-    if (input.gender !== undefined) personData.gender = input.gender as Prisma.PersonUpdateWithoutEntityInput['gender'];
-    if (input.birthDate !== undefined) personData.birthDate = new Date(input.birthDate);
-    if (input.nationalityCode !== undefined) personData.nationalityCode = input.nationalityCode;
-    if (input.educationLevel !== undefined) personData.educationLevel = input.educationLevel;
-    if (input.occupation !== undefined) personData.occupation = input.occupation;
-    if (input.businessName !== undefined) personData.businessName = input.businessName;
-    if (input.economicActivity !== undefined) personData.economicActivity = input.economicActivity;
-    if (input.hasArtisanCard !== undefined) personData.hasArtisanCard = input.hasArtisanCard;
-
+    let documentType: string | null | undefined;
+    let documentNumber: string | null | undefined;
     if (input.cedula !== undefined || input.documentNumber !== undefined || input.documentType !== undefined) {
       const docs = resolveDocumentFields({
         documentType:
@@ -147,42 +136,57 @@ export const personService = {
       });
       const docErr = validateDocumentNumber(docs.documentType, docs.documentNumber);
       if (docErr) throw new BadRequestError(docErr);
-
-      if (docs.cedula && docs.cedula !== current.person?.cedula) {
-        const existing = await personRepository.findByCedula(docs.cedula);
-        if (existing && existing.id !== entityId) {
-          throw new ConflictError(
-            `Ya existe una persona con documento '${docs.cedula}'`,
-            { existingEntityId: existing.id, existingName: existing.displayName }
-          );
-        }
-      }
-      if (docs.documentType !== undefined) personData.documentType = docs.documentType;
-      if (docs.documentNumber !== undefined) {
-        personData.documentNumber = docs.documentNumber;
-        personData.cedula = docs.documentNumber;
-      }
+      documentType = docs.documentType ?? null;
+      documentNumber = docs.documentNumber ?? null;
     }
 
-    if (input.firstName !== undefined || input.lastName !== undefined || input.secondLastName !== undefined) {
-      const firstName = input.firstName ?? current.person!.firstName;
-      const lastName = input.lastName ?? current.person!.lastName;
-      const secondLastName = input.secondLastName ?? current.person?.secondLastName ?? undefined;
-      entityData.displayName = buildDisplayName(firstName, lastName, secondLastName);
-    }
-
-    const entity = await personRepository.update(entityId, entityData, personData);
-
-    await auditService.log({
-      action: 'UPDATE',
-      entityType: 'PERSON',
-      entityId: entity.id,
-      entityLabel: entity.displayName,
-      userId: actor?.userId,
-      userEmail: actor?.userEmail,
-      metadata: { fields: Object.keys(input) },
+    const actorId = actor?.userId || null;
+    await personApiRepository.update(actorId, entityId, {
+      firstName: input.firstName !== undefined ? titleCase(input.firstName) : undefined,
+      lastName: input.lastName !== undefined ? titleCase(input.lastName) : undefined,
+      secondLastName:
+        input.secondLastName !== undefined
+          ? input.secondLastName
+            ? titleCase(input.secondLastName)
+            : null
+          : undefined,
+      documentType,
+      documentNumber,
+      politicalDivisionCode: loc ? politicalCodeFromLoc(loc) : undefined,
+      addressLine: input.address !== undefined ? input.address : undefined,
     });
 
+    // Campos aún no cubiertos por sp_update_person (notes, economicActivity, etc.)
+    const personData: Prisma.PersonUpdateWithoutEntityInput = {};
+    const entityData: Prisma.EntityUncheckedUpdateInput = {};
+    if (input.notes !== undefined) entityData.notes = input.notes;
+    if (input.economicActivity !== undefined) {
+      entityData.actEc = input.economicActivity?.trim() || null;
+      personData.economicActivity = input.economicActivity;
+    }
+    if (input.gender !== undefined) personData.gender = input.gender as Prisma.PersonUpdateWithoutEntityInput['gender'];
+    if (input.birthDate !== undefined) personData.birthDate = new Date(input.birthDate);
+    if (input.nationalityCode !== undefined) personData.nationalityCode = input.nationalityCode;
+    if (input.educationLevel !== undefined) personData.educationLevel = input.educationLevel;
+    if (input.occupation !== undefined) personData.occupation = input.occupation;
+    if (input.businessName !== undefined) {
+      personData.businessName = input.businessName;
+      personData.legacyBusinessName = input.businessName;
+    }
+    if (input.hasArtisanCard !== undefined) personData.hasArtisanCard = input.hasArtisanCard;
+    if (loc) {
+      entityData.province = loc.province ?? null;
+      entityData.district = loc.district ?? null;
+      entityData.corregimiento = loc.corregimiento ?? null;
+    }
+
+    if (Object.keys(personData).length || Object.keys(entityData).length) {
+      await personRepository.update(entityId, entityData, personData);
+    }
+
+    void buildDisplayName;
+    const entity = await personRepository.findById(entityId);
+    if (!entity) throw new NotFoundError('Persona', entityId);
     return entity;
   },
 
@@ -191,17 +195,7 @@ export const personService = {
     if (!entity) {
       throw new NotFoundError('Persona', entityId);
     }
-    const result = await personRepository.softDelete(entityId);
-
-    await auditService.log({
-      action: 'DELETE',
-      entityType: 'PERSON',
-      entityId: entity.id,
-      entityLabel: entity.displayName,
-      userId: actor?.userId,
-      userEmail: actor?.userEmail,
-    });
-
-    return result;
+    await personApiRepository.softDelete(actor?.userId || null, entityId);
+    return entity;
   },
 };

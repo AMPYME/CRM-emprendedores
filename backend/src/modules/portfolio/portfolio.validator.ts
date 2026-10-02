@@ -54,7 +54,14 @@ export const portfolioQuerySchema = z.object({
   sortBy: z.enum(['createdAt', 'updatedAt', 'nextFollowUpDate', 'priority', 'status']).optional(),
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
   search: z.string().trim().min(1).optional(),
+  /** Cédula o RUC de la entidad vinculada */
+  documento: z.string().trim().min(1).max(80).optional(),
   status: z.enum(['NEW', 'IN_PROGRESS', 'WAITING', 'RESOLVED', 'CLOSED']).optional(),
+  /** Si true y no hay status, excluye RESOLVED */
+  excludeResolved: z
+    .union([z.boolean(), z.enum(['true', 'false', '1', '0'])])
+    .optional()
+    .transform((v) => v === true || v === 'true' || v === '1'),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
   assignedToId: z.string().uuid().optional(),
   sedeId: z.string().uuid().optional(),

@@ -28,10 +28,11 @@ export function useCreateCompany() {
     mutationFn: (data: CreateCompanyInput) => companiesService.create(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [COMPANIES_KEY] });
-      toast.success('Empresa creada exitosamente');
+      qc.invalidateQueries({ queryKey: ['person-change-requests'] });
+      toast.success('Cambio pendiente de confirmación. Revise Confirmación.');
     },
     onError: (err) => {
-      toast.error(getApiErrorMessage(err) || 'Error al crear la empresa');
+      toast.error(getApiErrorMessage(err) || 'Error al encolar la creación');
     },
   });
 }
@@ -43,10 +44,11 @@ export function useUpdateCompany() {
       companiesService.update(id, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [COMPANIES_KEY] });
-      toast.success('Empresa actualizada exitosamente');
+      qc.invalidateQueries({ queryKey: ['person-change-requests'] });
+      toast.success('Cambio pendiente de confirmación. Revise Confirmación.');
     },
     onError: (err) => {
-      toast.error(getApiErrorMessage(err) || 'Error al actualizar la empresa');
+      toast.error(getApiErrorMessage(err) || 'Error al encolar la actualización');
     },
   });
 }
@@ -57,10 +59,11 @@ export function useDeleteCompany() {
     mutationFn: (id: string) => companiesService.remove(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [COMPANIES_KEY] });
-      toast.success('Empresa eliminada');
+      qc.invalidateQueries({ queryKey: ['person-change-requests'] });
+      toast.success('Eliminación pendiente de confirmación. Revise Confirmación.');
     },
     onError: () => {
-      toast.error('Error al eliminar la empresa');
+      toast.error('Error al encolar la eliminación');
     },
   });
 }

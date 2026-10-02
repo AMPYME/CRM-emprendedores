@@ -88,6 +88,7 @@ export default function ConfirmacionPage() {
     onSuccess: () => {
       toast.success('Cambio confirmado y aplicado');
       qc.invalidateQueries({ queryKey: ['person-change-requests'] });
+      qc.invalidateQueries({ queryKey: ['person-change-pending'] });
       qc.invalidateQueries({ queryKey: ['persons'] });
       qc.invalidateQueries({ queryKey: ['companies'] });
       qc.invalidateQueries({ queryKey: ['entity'] });
@@ -101,12 +102,13 @@ export default function ConfirmacionPage() {
     onSuccess: () => {
       toast.success('Solicitud cancelada');
       qc.invalidateQueries({ queryKey: ['person-change-requests'] });
+      qc.invalidateQueries({ queryKey: ['person-change-pending'] });
       qc.invalidateQueries({ queryKey: ['entity-historial'] });
     },
     onError: (err) => toast.error(getApiErrorMessage(err) || 'No se pudo cancelar'),
   });
 
-  function verificar() {
+  function buscar() {
     const value = documento.trim();
     if (!value) {
       toast.error('Indique una cédula o un RUC.');
@@ -120,15 +122,15 @@ export default function ConfirmacionPage() {
     <div className="space-y-6">
       <PageHeader
         title="Confirmación"
-        description="Busque por cédula o RUC para ver solo los cambios pendientes de aprobar de ese documento."
+        description="Busque por cédula o RUC. Cualquier administrador u operador puede confirmar o cancelar. Mientras haya un pendiente activo, la entidad no se puede editar."
       />
 
-      <Card title="Verificar documento">
+      <Card title="Buscar documento">
         <form
           className="flex flex-col gap-3 sm:flex-row sm:items-end"
           onSubmit={(event) => {
             event.preventDefault();
-            verificar();
+            buscar();
           }}
         >
           <div className="flex-1">
@@ -141,14 +143,14 @@ export default function ConfirmacionPage() {
             />
           </div>
           <Button type="submit" isLoading={listQuery.isFetching && Boolean(documentoBuscado)}>
-            Verificar
+            Buscar
           </Button>
         </form>
       </Card>
 
       {!documentoBuscado ? (
         <p className="text-sm text-slate-500">
-          Escriba una cédula o un RUC y verifique para listar los cambios pendientes.
+          Escriba una cédula o un RUC y pulse Buscar para listar los cambios pendientes.
         </p>
       ) : listQuery.isLoading ? (
         <div className="flex justify-center py-12">
@@ -160,6 +162,7 @@ export default function ConfirmacionPage() {
             <TableHead>
               <TableRow>
                 <TableHeaderCell>Resumen</TableHeaderCell>
+                <TableHeaderCell>Solicitado por</TableHeaderCell>
                 <TableHeaderCell>Fecha</TableHeaderCell>
                 <TableHeaderCell>Detalle</TableHeaderCell>
                 <TableHeaderCell>Operaciones</TableHeaderCell>
@@ -168,16 +171,25 @@ export default function ConfirmacionPage() {
             <TableBody>
               {(listQuery.data?.data ?? []).length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4}>
-                    <span className="text-sm text-slate-500">
+                  <TableCell colSpan={5}>
+                    <p className="text-sm text-slate-500">
                       No hay cambios pendientes por aprobar para ese documento.
-                    </span>
+                    </p>
                   </TableCell>
                 </TableRow>
               ) : (
                 (listQuery.data?.data ?? []).map((row) => (
                   <TableRow key={row.id}>
                     <TableCell>{row.summary || '—'}</TableCell>
+                    <TableCell>
+                      <span className="text-sm text-slate-700">
+                        {row.requestedBy?.username
+                          ? row.requestedBy.username.includes('@')
+                            ? row.requestedBy.username.split('@')[0]
+                            : row.requestedBy.username
+                          : row.requestedBy?.displayName || '—'}
+                      </span>
+                    </TableCell>
                     <TableCell>{new Date(row.createdAt).toLocaleString()}</TableCell>
                     <TableCell>
                       <ChangeDetail payload={row.payload} action={row.action} />

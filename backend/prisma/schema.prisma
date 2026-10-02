@@ -185,7 +185,7 @@ enum UserRole {
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
-  passwordHash String   @map("password_hash")
+  passwordHash String?  @map("password_hash")
   firstName    String   @map("first_name")
   lastName     String   @map("last_name")
   username     String?
@@ -194,12 +194,15 @@ model User {
   sedeId          String?  @map("sede_id")
   departamentoId  String?  @map("departamento_id")
   lastLoginAt  DateTime? @map("last_login_at")
+  disabledAt   DateTime? @map("disabled_at")
+  deletedAt    DateTime? @map("deleted_at")
+  deletedById  String?   @map("deleted_by_id")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   // Relaciones
-  sede                     Sede?             @relation(fields: [sedeId], references: [id], onDelete: SetNull)
-  departamento             Departamento?     @relation(fields: [departamentoId], references: [id], onDelete: SetNull)
+  sede                     Sede?             @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  departamento             Departamento?     @relation(fields: [departamentoId], references: [id], onDelete: Restrict)
   portfolioRecordsAssigned PortfolioRecord[] @relation("AssignedTo")
   portfolioActions         PortfolioAction[] @relation("ActionPerformedBy")
   importBatches            ImportBatch[]     @relation("ImportedBy")
@@ -214,6 +217,7 @@ model User {
   personChangeRequests      PersonChangeRequest[] @relation("PersonChangeRequestedBy")
 
   @@index([username])
+  @@index([deletedAt])
   @@map("users")
 }
 
@@ -245,27 +249,40 @@ model AuditLog {
 
 /// Tabla maestra de entidades. Cada registro es una persona o empresa.
 /// Los datos específicos van en la tabla hija correspondiente.
+/// Escrituras de producción: api.sp_* (crm_api no tiene DML directo).
 model Entity {
   id              String       @id @default(uuid())
   entityType      EntityType   @map("entity_type")
   status          EntityStatus @default(ACTIVE)
   displayName     String       @map("display_name")
 
-  // Ubicación geográfica — códigos FK al catálogo (codProv 2, codDist 4, codCorr 6)
+  // Legacy geo (expand-contract; preferir politicalDivisionCode)
   province        String?   @db.Char(2)  @map("cod_prov")
   district        String?   @db.Char(4)  @map("cod_dist")
   corregimiento   String?   @db.Char(6)  @map("cod_corr")
   address         String?
+  /// Código canónico jerárquico (2/4/6) → catalog.political_divisions
+  politicalDivisionCode String? @map("political_division_code") @db.VarChar(6)
+  addressLine     String?   @map("address_line")
+
+  /// Actividad económica (texto libre legacy; canónico = entity_economic_activities)
+  actEc           String?   @map("act_ec") @db.VarChar(128)
 
   // Trazabilidad
   notes           String?
   registroEmpresarialFecha DateTime? @map("registro_empresarial_fecha") @db.Date
   /// Referencia estable a empresa/persona en API SIEP (publicId), nunca FK a BD SIEP
   siepPublicId    String?      @map("siep_public_id")
-  sourceOrigin    String?      @map("source_origin")  // Ej: "IMPORTACION_DIRECTORIO_2024", "EVENTO_CUMBRE_2024", "MANUAL"
+  sourceOrigin    String?      @map("source_origin")
   importBatchId   String?      @map("import_batch_id")
-  mergedIntoId    String?      @map("merged_into_id")  // Si fue fusionada con otra entidad
+  mergedIntoId    String?      @map("merged_into_id")
   createdById     String?      @map("created_by_id")
+  deletedAt       DateTime?    @map("deleted_at")
+  deletedById     String?      @map("deleted_by_id")
+  deleteReason    String?      @map("delete_reason")
+  restoredAt      DateTime?    @map("restored_at")
+  restoredById    String?      @map("restored_by_id")
+  dataSourceId    String?      @map("data_source_id")
 
   createdAt       DateTime     @default(now()) @map("created_at")
   updatedAt       DateTime     @updatedAt @map("updated_at")
@@ -283,9 +300,9 @@ model Entity {
   mergedFrom      Entity[]       @relation("MergedEntity")
   createdBy       User?          @relation("CreatedBy", fields: [createdById], references: [id])
   stagingRows     StagingRow[]   @relation("MatchedEntity")
-  provinciaCatalog     Provincia?     @relation("EntityProvincia", fields: [province], references: [codProv], onDelete: SetNull)
-  distritoCatalog      Distrito?      @relation("EntityDistrito", fields: [district], references: [codDist], onDelete: SetNull)
-  corregimientoCatalog Corregimiento? @relation("EntityCorregimiento", fields: [corregimiento], references: [codCorr], onDelete: SetNull)
+  provinciaCatalog     Provincia?     @relation("EntityProvincia", fields: [province], references: [codProv], onDelete: Restrict)
+  distritoCatalog      Distrito?      @relation("EntityDistrito", fields: [district], references: [codDist], onDelete: Restrict)
+  corregimientoCatalog Corregimiento? @relation("EntityCorregimiento", fields: [corregimiento], references: [codCorr], onDelete: Restrict)
 
   @@index([entityType])
   @@index([status])
@@ -294,6 +311,8 @@ model Entity {
   @@index([sourceOrigin])
   @@index([importBatchId])
   @@index([siepPublicId])
+  @@index([politicalDivisionCode])
+  @@index([deletedAt])
   @@map("entities")
 }
 
@@ -301,9 +320,11 @@ model Entity {
 model Person {
   id              String    @id @default(uuid())
   entityId        String    @unique @map("entity_id")
-  cedula          String?   // Cédula / documento (sincronizado con documentNumber)
+  /// Legacy; preferir documentNumber (sincronizado en procedures)
+  cedula          String?
   documentType    DocumentType? @map("document_type")
   documentNumber  String?   @map("document_number")
+  documentNumberNormalized String? @map("document_number_normalized") @db.VarChar(40)
   firstName       String    @map("first_name")
   lastName        String    @map("last_name")
   secondLastName  String?   @map("second_last_name")
@@ -312,22 +333,27 @@ model Person {
   nationalityCode String    @default("PAN") @map("nationality_code") @db.Char(3)
   educationLevel  String?   @map("education_level")
 
-  // Datos laborales/emprendimiento (opcionales, útil para CRM)
   occupation      String?
-  businessName    String?   @map("business_name")   // Nombre del negocio si lo tiene
-  economicActivity String?  @map("economic_activity")
+  /// Legacy import; negocio canónico = Company + relationship
+  businessName    String?   @map("business_name")
+  legacyBusinessName String? @map("legacy_business_name") @db.VarChar(200)
+  economicActivity String?  @map("economic_activity") @db.VarChar(128)
   hasArtisanCard   Boolean?  @map("has_artisan_card")
+  /// Legacy; canónico = capital_semilla 1:N
   seedCapital      Int?      @map("seed_capital")
   seedCapitalDate  String?   @map("seed_capital_date") @db.VarChar(7)
+  deletedAt        DateTime? @map("deleted_at")
+  deletedById      String?   @map("deleted_by_id")
 
-  // Relación
-  entity          Entity    @relation(fields: [entityId], references: [id], onDelete: Cascade)
-  capitalSemilla  CapitalSemilla?
+  entity          Entity    @relation(fields: [entityId], references: [id], onDelete: Restrict)
+  capitalSemilla  CapitalSemilla[]
 
   @@index([cedula])
   @@index([documentNumber])
+  @@index([documentNumberNormalized])
   @@index([firstName, lastName])
   @@index([lastName])
+  @@index([deletedAt])
   @@map("persons")
 }
 
@@ -335,22 +361,27 @@ model Person {
 model Company {
   id               String    @id @default(uuid())
   entityId         String    @unique @map("entity_id")
-  ruc              String?   // RUC — puede no estar disponible
-  dv               String?   // Dígito verificador
+  ruc              String?
+  dv               String?
+  rucNormalized    String?   @map("ruc_normalized") @db.VarChar(40)
   legalName        String    @map("legal_name")
   tradeName        String?   @map("trade_name")
-  companyType      String?           @map("company_type")      // S.A., S.EP., INC., Corp., S. de R.L.
+  companyType      String?           @map("company_type")
+  companyTypeId    String?           @map("company_type_id")
   companySizeClass CompanySizeClass? @map("company_size_class")
-  economicActivity String?           @map("economic_activity")
+  economicActivity String?           @map("economic_activity") @db.VarChar(128)
   foundedDate      DateTime?         @map("founded_date")
   employeeCount    Int?              @map("employee_count")
+  deletedAt        DateTime?         @map("deleted_at")
+  deletedById      String?           @map("deleted_by_id")
 
-  // Relación
-  entity           Entity    @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  entity           Entity    @relation(fields: [entityId], references: [id], onDelete: Restrict)
 
   @@index([ruc])
+  @@index([rucNormalized])
   @@index([legalName])
   @@index([tradeName])
+  @@index([deletedAt])
   @@map("companies")
 }
 
@@ -365,7 +396,8 @@ model EntityContact {
   entityId      String      @map("entity_id")
   contactType   ContactType @map("contact_type")
   contactValue  String      @map("contact_value")
-  label         String?     // Ej: "Personal", "Trabajo", "WhatsApp negocio"
+  normalizedValue String?   @map("normalized_value") @db.VarChar(255)
+  label         String?
   isPrimary     Boolean     @default(false) @map("is_primary")
   isVerified    Boolean     @default(false) @map("is_verified")
   deletedAt     DateTime?   @map("deleted_at")
@@ -375,7 +407,7 @@ model EntityContact {
   updatedAt     DateTime    @updatedAt @map("updated_at")
 
   // Relación
-  entity        Entity      @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  entity        Entity      @relation(fields: [entityId], references: [id], onDelete: Restrict)
   deletedBy     User?       @relation("ContactDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
 
   @@index([entityId])
@@ -386,32 +418,29 @@ model EntityContact {
   @@map("entity_contacts")
 }
 
-/// Relaciones dirigidas entre entidades polimórficas (`entities`).
-/// Unicidad en DB: una fila por par lógico, sin importar si se intenta A→B o B→A.
-/// El índice funcional `entity_relationships_unordered_pair_key` se define en
-/// la migración porque Prisma no representa índices sobre LEAST/GREATEST.
-/// Cada entidad puede tener múltiples vínculos con destinos distintos.
+/// Relaciones dirigidas. Unicidad activa: (from, to, type) — ver índice parcial SQL.
 model EntityRelationship {
   id               String           @id @default(uuid())
   fromEntityId     String           @map("from_entity_id")
   toEntityId       String           @map("to_entity_id")
   relationshipType RelationshipType @map("relationship_type")
-  role             String?          // Rol específico: "Gerente", "Contador", "Sucursal Norte"
+  role             String?
   startDate        DateTime?        @map("start_date")
   endDate          DateTime?        @map("end_date")
   isActive         Boolean          @default(true) @map("is_active")
+  deletedAt        DateTime?        @map("deleted_at")
+  deletedById      String?          @map("deleted_by_id")
 
   createdAt        DateTime         @default(now()) @map("created_at")
   updatedAt        DateTime         @updatedAt @map("updated_at")
 
-  // Relaciones
-  fromEntity       Entity           @relation("RelationFrom", fields: [fromEntityId], references: [id], onDelete: Cascade)
-  toEntity         Entity           @relation("RelationTo", fields: [toEntityId], references: [id], onDelete: Cascade)
+  fromEntity       Entity           @relation("RelationFrom", fields: [fromEntityId], references: [id], onDelete: Restrict)
+  toEntity         Entity           @relation("RelationTo", fields: [toEntityId], references: [id], onDelete: Restrict)
 
-  @@unique([fromEntityId, toEntityId])
   @@index([fromEntityId])
   @@index([toEntityId])
   @@index([relationshipType])
+  @@index([deletedAt])
   @@map("entity_relationships")
 }
 
@@ -469,8 +498,8 @@ model EventRegistration {
   updatedAt          DateTime           @updatedAt @map("updated_at")
 
   // Relaciones
-  event              Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  entity             Entity             @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  event              Event              @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  entity             Entity             @relation(fields: [entityId], references: [id], onDelete: Restrict)
   answers            EventRegistrationAnswer[]
   importBatch        ImportBatch?        @relation(fields: [importBatchId], references: [id])
   deletedBy          User?               @relation("RegistrationDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
@@ -523,16 +552,19 @@ model PortfolioRecord {
   closedReason     String?          @map("closed_reason")
   sedeId           String?          @map("sede_id")
   departamentoId   String?          @map("departamento_id")
+  deletedAt        DateTime?        @map("deleted_at")
+  deletedById      String?          @map("deleted_by_id")
 
   createdAt        DateTime         @default(now()) @map("created_at")
   updatedAt        DateTime         @updatedAt @map("updated_at")
 
   // Relaciones
-  entity           Entity           @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  entity           Entity           @relation(fields: [entityId], references: [id], onDelete: Restrict)
   assignedTo       User?            @relation("AssignedTo", fields: [assignedToId], references: [id])
-  sede             Sede?            @relation(fields: [sedeId], references: [id], onDelete: SetNull)
-  departamento     Departamento?    @relation(fields: [departamentoId], references: [id], onDelete: SetNull)
+  sede             Sede?            @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  departamento     Departamento?    @relation(fields: [departamentoId], references: [id], onDelete: Restrict)
   actions          PortfolioAction[]
+  statusHistory    PortfolioStatusHistory[]
 
   @@index([entityId])
   @@index([assignedToId])
@@ -541,7 +573,24 @@ model PortfolioRecord {
   @@index([nextFollowUpDate])
   @@index([sedeId])
   @@index([departamentoId])
+  @@index([deletedAt])
   @@map("portfolio_records")
+}
+
+/// Historial de transiciones de estado de cartera.
+model PortfolioStatusHistory {
+  id              String   @id @default(uuid())
+  portfolioId     String   @map("portfolio_id")
+  previousStatus  String?  @map("previous_status")
+  newStatus       String   @map("new_status")
+  changedById     String?  @map("changed_by_id")
+  changedAt       DateTime @default(now()) @map("changed_at")
+  reason          String?
+
+  portfolio       PortfolioRecord @relation(fields: [portfolioId], references: [id], onDelete: Restrict)
+
+  @@index([portfolioId])
+  @@map("portfolio_status_history")
 }
 
 /// Sede institucional. El borrado es lógico (`deleted_at`).
@@ -592,10 +641,10 @@ model PortfolioAction {
   createdAt       DateTime        @default(now()) @map("created_at")
 
   // Relaciones
-  portfolio       PortfolioRecord @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  portfolio       PortfolioRecord @relation(fields: [portfolioId], references: [id], onDelete: Restrict)
   performedBy     User?           @relation("ActionPerformedBy", fields: [performedById], references: [id])
-  sede            Sede?           @relation(fields: [sedeId], references: [id], onDelete: SetNull)
-  departamento    Departamento?   @relation(fields: [departamentoId], references: [id], onDelete: SetNull)
+  sede            Sede?           @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  departamento    Departamento?   @relation(fields: [departamentoId], references: [id], onDelete: Restrict)
 
   @@index([portfolioId])
   @@index([performedById])
@@ -624,10 +673,15 @@ model ImportBatch {
   importedRows     Int          @default(0) @map("imported_rows")
   skippedRows      Int          @default(0) @map("skipped_rows")
   errorLog         Json?        @map("error_log")
-  columnMapping    Json?        @map("column_mapping")    // Mapeo de columnas Excel → campos del sistema
+  columnMapping    Json?        @map("column_mapping")
   importedById     String?      @map("imported_by_id")
   deletedAt        DateTime?    @map("deleted_at")
   deletedById      String?      @map("deleted_by_id")
+  currentStage     String?      @map("current_stage") @db.VarChar(64)
+  progressPercent  Int?         @default(0) @map("progress_percent")
+  progressMessage  String?      @map("progress_message")
+  processedRows    Int?         @default(0) @map("processed_rows")
+  lastHeartbeatAt  DateTime?    @map("last_heartbeat_at")
 
   startedAt        DateTime?    @map("started_at")
   completedAt      DateTime?    @map("completed_at")
@@ -955,28 +1009,36 @@ model VerificationItem {
   @@map("verification_items")
 }
 
-/// Registro histórico de Capital Semilla, vinculado a la persona por cédula.
+/// Registro histórico de Capital Semilla (1:N por persona).
 model CapitalSemilla {
-  id           String    @id @default(uuid())
-  externalId   Int?      @map("external_id")
-  cedula       String
-  cedulaKey    String    @map("cedula_key")
-  province     String?
-  businessName String?   @map("business_name")
-  actaNumber   String?   @map("acta_number")
-  amount       Decimal?  @db.Decimal(12, 2)
-  personId     String?   @unique @map("person_id")
-  linkedAt     DateTime? @map("linked_at") @db.Date
-  createdAt    DateTime  @default(now()) @map("created_at")
+  id             String    @id @default(uuid())
+  externalId     Int?      @map("external_id")
+  cedula         String
+  cedulaKey      String    @map("cedula_key")
+  province       String?
+  businessName   String?   @map("business_name")
+  actaNumber     String?   @map("acta_number")
+  amount         Decimal?  @db.Decimal(14, 2)
+  personId       String?   @map("person_id")
+  personEntityId String?   @map("person_entity_id")
+  program        String?   @db.VarChar(120)
+  callYear       Int?      @map("call_year")
+  awardedAt      DateTime? @map("awarded_at") @db.Date
+  linkedAt       DateTime? @map("linked_at") @db.Date
+  deletedAt      DateTime? @map("deleted_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
 
-  person       Person?   @relation(fields: [personId], references: [id], onDelete: SetNull)
+  person         Person?   @relation(fields: [personId], references: [id], onDelete: Restrict)
 
   @@index([cedulaKey])
   @@index([linkedAt])
+  @@index([personId])
+  @@index([personEntityId])
+  @@index([deletedAt])
   @@map("capital_semilla")
 }
 
-/// Cambios de persona pendientes de confirmación por el mismo usuario.
+/// Cola de confirmación de cambios (workflow; no es auditoría).
 model PersonChangeRequest {
   id            String             @id @default(uuid())
   action        PersonChangeAction
@@ -991,7 +1053,7 @@ model PersonChangeRequest {
   createdAt     DateTime           @default(now()) @map("created_at")
   updatedAt     DateTime           @updatedAt @map("updated_at")
 
-  requestedBy   User               @relation("PersonChangeRequestedBy", fields: [requestedById], references: [id], onDelete: Cascade)
+  requestedBy   User               @relation("PersonChangeRequestedBy", fields: [requestedById], references: [id], onDelete: Restrict)
 
   @@index([requestedById, status])
   @@index([status])

@@ -37,6 +37,7 @@ export interface CreateCompanyInput {
   corregimiento?: string;
   address?: string;
   notes?: string;
+  economicActivity?: string;
   contacts?: Array<{
     contactType: string;
     contactValue: string;
@@ -58,17 +59,26 @@ export const companiesService = {
     return res.data.data;
   },
 
-  async create(data: CreateCompanyInput): Promise<CompanyListItem> {
-    const res = await apiClient.post<ApiResponse<CompanyListItem>>('/companies', data);
+  async create(data: CreateCompanyInput): Promise<{ queued: boolean; id: string; message?: string }> {
+    const res = await apiClient.post<ApiResponse<{ queued: boolean; id: string; message?: string }>>(
+      '/companies',
+      data
+    );
     return res.data.data;
   },
 
-  async update(id: string, data: UpdateCompanyInput): Promise<CompanyListItem> {
-    const res = await apiClient.put<ApiResponse<CompanyListItem>>(`/companies/${id}`, data);
+  async update(id: string, data: UpdateCompanyInput): Promise<{ queued: boolean; id: string; message?: string }> {
+    const res = await apiClient.put<ApiResponse<{ queued: boolean; id: string; message?: string }>>(
+      `/companies/${id}`,
+      data
+    );
     return res.data.data;
   },
 
-  async remove(id: string): Promise<void> {
-    await apiClient.delete(`/companies/${id}`);
+  async remove(id: string): Promise<{ queued: boolean; id: string; message?: string }> {
+    const res = await apiClient.delete<ApiResponse<{ queued: boolean; id: string; message?: string }>>(
+      `/companies/${id}`
+    );
+    return res.data.data;
   },
 };

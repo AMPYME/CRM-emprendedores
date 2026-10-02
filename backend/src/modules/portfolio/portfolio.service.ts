@@ -98,36 +98,22 @@ export const portfolioService = {
     if (owner?.sedeId && !owner.sede?.deletedAt) sedeId = owner.sedeId;
     if (owner?.departamentoId && !owner.departamento?.deletedAt) departamentoId = owner.departamentoId;
 
-    const data: Prisma.PortfolioRecordCreateInput = {
-      entity: { connect: { id: input.entityId } },
-      assignedTo: { connect: { id: assignedToId } },
-      sede: sedeId ? { connect: { id: sedeId } } : undefined,
-      departamento: departamentoId ? { connect: { id: departamentoId } } : undefined,
-      status: input.status || 'NEW',
-      priority: input.priority || 'MEDIUM',
-      category: input.category,
+    const { portfolioApiRepository } = await import('../../infrastructure/database');
+    const portfolioId = await portfolioApiRepository.create(actor.userId, {
+      entityId: input.entityId,
       subject: input.subject,
       description: input.description,
-      nextFollowUpDate: input.nextFollowUpDate
-        ? new Date(input.nextFollowUpDate)
-        : undefined,
-    };
-
-    const record = await portfolioRepository.create(data);
-    const quien = await actorContext(actor);
-    await auditService.log({
-      action: 'CREATE',
-      entityType: 'PORTFOLIO',
-      entityId: input.entityId,
-      entityLabel: record.subject,
-      userId: actor.userId,
-      userEmail: actor.userEmail,
-      metadata: {
-        ...quien,
-        anterior: null,
-        nuevo: vistaCartera(record),
-      },
+      priority: input.priority || 'MEDIUM',
+      category: input.category,
+      assignedToId,
+      sedeId,
+      departamentoId,
     });
+    if (input.status && input.status !== 'NEW') {
+      await portfolioApiRepository.changeStatus(actor.userId, portfolioId, input.status);
+    }
+    const record = await portfolioRepository.findById(portfolioId);
+    if (!record) throw new NotFoundError('Registro de cartera', portfolioId);
     return record;
   },
 
@@ -140,6 +126,16 @@ export const portfolioService = {
       throw new NotFoundError('Registro de cartera', id);
     }
 
+    if (input.status !== undefined && input.status !== current.status) {
+      const { portfolioApiRepository } = await import('../../infrastructure/database');
+      await portfolioApiRepository.changeStatus(
+        actor?.userId ?? 'system',
+        id,
+        input.status,
+        input.closedReason
+      );
+    }
+
     // Si se asigna un nuevo responsable, verificar que exista
     if (input.assignedToId) {
       const userExists = await portfolioRepository.userExists(input.assignedToId);
@@ -149,7 +145,7 @@ export const portfolioService = {
     }
 
     const data: Prisma.PortfolioRecordUpdateInput = {};
-    if (input.status !== undefined) data.status = input.status;
+    // status ya aplicado vía procedure
     if (input.priority !== undefined) data.priority = input.priority;
     if (input.category !== undefined) data.category = input.category;
     if (input.subject !== undefined) data.subject = input.subject;

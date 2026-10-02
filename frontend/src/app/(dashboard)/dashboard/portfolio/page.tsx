@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { FolderKanban, Plus, Eye, AlertTriangle } from 'lucide-react';
@@ -9,7 +9,6 @@ import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { SearchBar } from '@/components/ui/search-bar';
 import { Select } from '@/components/ui/select';
 import { EmptyState } from '@/components/ui/empty-state';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
@@ -25,9 +24,10 @@ import { adminService } from '@/services/admin.service';
 import { usePagination } from '@/hooks/use-pagination';
 import { formatDateShort } from '@/lib/utils';
 import { portfolioCategoryOptions } from '@/lib/portfolio.constants';
+import { useAuthStore } from '@/stores/auth.store';
 
 const statusOptions = [
-  { value: '', label: 'Todos los estados' },
+  { value: '', label: 'Activos (no resueltos)' },
   { value: 'NEW', label: 'Nuevo' },
   { value: 'IN_PROGRESS', label: 'En progreso' },
   { value: 'WAITING', label: 'En espera' },
@@ -77,12 +77,29 @@ interface CreatePortfolioForm {
   nextFollowUpDate: string;
 }
 
+function actEcDeEntidad(entity?: {
+  actEc?: string | null;
+  person?: { economicActivity?: string | null } | null;
+  company?: { economicActivity?: string | null } | null;
+} | null): string {
+  return (
+    entity?.actEc ||
+    entity?.person?.economicActivity ||
+    entity?.company?.economicActivity ||
+    ''
+  );
+}
+
 export default function PortfolioPage() {
   const router = useRouter();
-  const { page, limit, setPage, searchQuery, setSearchQuery } = usePagination();
+  const user = useAuthStore((s) => s.user);
+  const { page, limit, setPage } = usePagination();
+  const [documento, setDocumento] = useState('');
+  const [documentoBuscado, setDocumentoBuscado] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [sedeFilter, setSedeFilter] = useState('');
+  const [sedeReady, setSedeReady] = useState(false);
   const [departamentoFilter, setDepartamentoFilter] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [cedula, setCedula] = useState('');
@@ -91,10 +108,19 @@ export default function PortfolioPage() {
   const [verifyMessage, setVerifyMessage] = useState('');
   const [verifying, setVerifying] = useState(false);
 
+  useEffect(() => {
+    if (user?.sede?.id) {
+      setSedeFilter(user.sede.id);
+    }
+    setSedeReady(true);
+  }, [user?.sede?.id]);
+
   const { data, isLoading, error } = usePortfolios({
-    page, limit,
-    search: searchQuery || undefined,
+    page,
+    limit,
+    documento: documentoBuscado || undefined,
     status: statusFilter || undefined,
+    excludeResolved: !statusFilter ? true : undefined,
     priority: priorityFilter || undefined,
     sedeId: sedeFilter || undefined,
     departamentoId: departamentoFilter || undefined,
@@ -131,10 +157,11 @@ export default function PortfolioPage() {
     },
   });
 
-  const handleSearch = useCallback((q: string) => {
-    setSearchQuery(q);
+  const handleBuscarDocumento = useCallback(() => {
+    const value = documento.trim();
     setPage(1);
-  }, [setSearchQuery, setPage]);
+    setDocumentoBuscado(value || null);
+  }, [documento, setPage]);
 
   const openCreate = () => {
     reset();
@@ -189,6 +216,7 @@ export default function PortfolioPage() {
 
   const records = data?.data ?? [];
   const meta = data?.meta;
+  const listLoading = isLoading || !sedeReady;
 
   return (
     <div className="space-y-6">
@@ -202,7 +230,6 @@ export default function PortfolioPage() {
         }
       />
 
-      {/* Quick stats */}
       {stats.data && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Card className="text-center">
@@ -224,30 +251,45 @@ export default function PortfolioPage() {
         </div>
       )}
 
-      {/* Filters */}
       <Card>
-        <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
-          <div className="min-w-[16rem] flex-1">
-            <SearchBar placeholder="Buscar por asunto, entidad..." onSearch={handleSearch} initialQuery={searchQuery} />
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            handleBuscarDocumento();
+          }}
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="min-w-[16rem] flex-1">
+              <Input
+                label="Cédula o RUC"
+                value={documento}
+                onChange={(e) => setDocumento(e.target.value)}
+                placeholder="8-123-456 o 155772663-2-2025"
+                autoComplete="off"
+              />
+            </div>
+            <Button type="submit">Buscar</Button>
           </div>
-          <div className="w-full sm:w-44">
-            <Select options={statusOptions} value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} />
+          <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
+            <div className="w-full sm:w-52">
+              <Select options={statusOptions} value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} />
+            </div>
+            <div className="w-full sm:w-44">
+              <Select options={priorityOptions} value={priorityFilter} onChange={(e) => { setPriorityFilter(e.target.value); setPage(1); }} />
+            </div>
+            <div className="w-full sm:w-52">
+              <Select options={sedeOptions} value={sedeFilter} onChange={(e) => { setSedeFilter(e.target.value); setPage(1); }} />
+            </div>
+            <div className="w-full sm:w-56">
+              <Select options={departamentoOptions} value={departamentoFilter} onChange={(e) => { setDepartamentoFilter(e.target.value); setPage(1); }} />
+            </div>
           </div>
-          <div className="w-full sm:w-44">
-            <Select options={priorityOptions} value={priorityFilter} onChange={(e) => { setPriorityFilter(e.target.value); setPage(1); }} />
-          </div>
-          <div className="w-full sm:w-52">
-            <Select options={sedeOptions} value={sedeFilter} onChange={(e) => { setSedeFilter(e.target.value); setPage(1); }} />
-          </div>
-          <div className="w-full sm:w-56">
-            <Select options={departamentoOptions} value={departamentoFilter} onChange={(e) => { setDepartamentoFilter(e.target.value); setPage(1); }} />
-          </div>
-        </div>
+        </form>
       </Card>
 
-      {/* Table */}
       <Card className="p-0">
-        {isLoading ? (
+        {listLoading ? (
           <div className="flex items-center justify-center py-16"><LoadingSpinner size="lg" text="Cargando seguimiento..." /></div>
         ) : error ? (
           <div className="py-16 text-center text-sm text-red-500">Error al cargar el seguimiento.</div>
@@ -255,12 +297,12 @@ export default function PortfolioPage() {
           <EmptyState
             icon={FolderKanban}
             title="No hay registros de seguimiento"
-            description={searchQuery ? 'No se encontraron resultados.' : 'Comienza creando un nuevo registro de seguimiento.'}
-            action={!searchQuery && (
+            description={documentoBuscado ? 'No se encontraron resultados para ese documento.' : 'No hay seguimientos activos en la sede seleccionada.'}
+            action={!documentoBuscado ? (
               <Button icon={<Plus className="h-4 w-4" />} onClick={openCreate}>
                 Nuevo registro
               </Button>
-            )}
+            ) : undefined}
           />
         ) : (
           <>
@@ -269,6 +311,7 @@ export default function PortfolioPage() {
                 <TableRow>
                   <TableHeaderCell>Asunto</TableHeaderCell>
                   <TableHeaderCell>Entidad</TableHeaderCell>
+                  <TableHeaderCell>Act. económica</TableHeaderCell>
                   <TableHeaderCell>Estado</TableHeaderCell>
                   <TableHeaderCell>Prioridad</TableHeaderCell>
                   <TableHeaderCell>Asignado a</TableHeaderCell>
@@ -279,6 +322,7 @@ export default function PortfolioPage() {
               <TableBody>
                 {records.map((record) => {
                   const isOverdue = record.nextFollowUpDate && new Date(record.nextFollowUpDate) < new Date();
+                  const actEc = actEcDeEntidad(record.entity as Parameters<typeof actEcDeEntidad>[0]);
                   return (
                     <TableRow key={record.id}>
                       <TableCell>
@@ -289,6 +333,11 @@ export default function PortfolioPage() {
                       </TableCell>
                       <TableCell>
                         <p className="text-sm">{record.entity?.displayName || '—'}</p>
+                      </TableCell>
+                      <TableCell>
+                        <p className="max-w-[12rem] truncate text-sm text-gray-700" title={actEc || undefined}>
+                          {actEc || '—'}
+                        </p>
                       </TableCell>
                       <TableCell>
                         <Badge variant={statusBadge[record.status] || 'default'}>

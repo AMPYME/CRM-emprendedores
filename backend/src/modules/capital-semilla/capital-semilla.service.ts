@@ -100,7 +100,7 @@ export const capitalSemillaService = {
       throw new BadRequestError('Fecha de vínculo inválida');
     }
 
-    const owned = await prisma.capitalSemilla.findUnique({ where: { personId: person.id } });
+    const owned = await prisma.capitalSemilla.findFirst({ where: { personId: person.id } });
     if (owned && owned.id !== recordId) {
       throw new ConflictError('Esa persona ya tiene otro registro de capital semilla vinculado');
     }
@@ -154,22 +154,23 @@ export const capitalSemillaService = {
         cedula: true,
         documentNumber: true,
         entity: { select: { id: true, displayName: true, entityType: true } },
-        capitalSemilla: { select: { id: true, linkedAt: true } },
+        capitalSemilla: { take: 1, select: { id: true, linkedAt: true } },
       },
       take: 10,
     });
 
-    return persons.map((p) => ({
-      id: p.entity.id,
-      personId: p.id,
-      displayName: p.entity.displayName,
-      entityType: 'PERSON' as const,
-      cedula: p.documentNumber || p.cedula,
-      linkedAt: p.capitalSemilla?.linkedAt
-        ? p.capitalSemilla.linkedAt.toISOString().slice(0, 10)
-        : null,
-      capitalSemillaId: p.capitalSemilla?.id ?? null,
-    }));
+    return persons.map((p) => {
+      const cs = Array.isArray(p.capitalSemilla) ? p.capitalSemilla[0] : p.capitalSemilla;
+      return {
+        id: p.entity.id,
+        personId: p.id,
+        displayName: p.entity.displayName,
+        entityType: 'PERSON' as const,
+        cedula: p.documentNumber || p.cedula,
+        linkedAt: cs?.linkedAt ? cs.linkedAt.toISOString().slice(0, 10) : null,
+        capitalSemillaId: cs?.id ?? null,
+      };
+    });
   },
 
   /**
@@ -181,7 +182,7 @@ export const capitalSemillaService = {
       where: { entityId },
       include: {
         entity: { select: { id: true, displayName: true, entityType: true, status: true } },
-        capitalSemilla: true,
+        capitalSemilla: { take: 1 },
       },
     });
     if (!person) throw new NotFoundError('Persona', entityId);
@@ -197,15 +198,16 @@ export const capitalSemillaService = {
       throw new BadRequestError('La persona necesita cédula para capital semilla');
     }
     const key = cedulaKey(doc);
-    const anterior = person.capitalSemilla?.linkedAt
-      ? person.capitalSemilla.linkedAt.toISOString().slice(0, 10)
-      : null;
+    const csRow = Array.isArray(person.capitalSemilla)
+      ? person.capitalSemilla[0]
+      : person.capitalSemilla;
+    const anterior = csRow?.linkedAt ? csRow.linkedAt.toISOString().slice(0, 10) : null;
 
     if (linkedAt === null) {
-      if (person.capitalSemilla) {
+      if (csRow?.id) {
         await prisma.capitalSemilla.update({
-          where: { id: person.capitalSemilla.id },
-          data: { personId: null, linkedAt: null },
+          where: { id: csRow.id },
+          data: { personId: null, personEntityId: null, linkedAt: null },
         });
       }
       const quien = await actorContext(actor);
@@ -236,13 +238,13 @@ export const capitalSemillaService = {
       throw new BadRequestError('Fecha de capital semilla inválida');
     }
 
-    let recordId = person.capitalSemilla?.id;
+    let recordId: string | undefined = csRow?.id;
     if (!recordId) {
       const byKey = await prisma.capitalSemilla.findFirst({
         where: { cedulaKey: key, personId: null },
         orderBy: { createdAt: 'asc' },
       });
-      recordId = byKey?.id;
+      recordId = byKey?.id ?? undefined;
     }
 
     let updated;
@@ -251,6 +253,7 @@ export const capitalSemillaService = {
         where: { id: recordId },
         data: {
           personId: person.id,
+          personEntityId: person.entityId,
           linkedAt: date,
           cedula: doc.trim(),
           cedulaKey: key,
@@ -262,6 +265,7 @@ export const capitalSemillaService = {
           cedula: doc.trim(),
           cedulaKey: key,
           personId: person.id,
+          personEntityId: person.entityId,
           linkedAt: date,
         },
       });
@@ -361,7 +365,7 @@ export const capitalSemillaService = {
       amount: parseAmount(input.amount),
     };
 
-    const owned = await prisma.capitalSemilla.findUnique({ where: { personId: person.id } });
+    const owned = await prisma.capitalSemilla.findFirst({ where: { personId: person.id } });
     const matches = await prisma.capitalSemilla.findMany({
       where: { cedulaKey: key },
       select: { id: true },

@@ -7,7 +7,6 @@ import {
   LayoutDashboard,
   Users,
   Building2,
-  Search,
   CalendarDays,
   Briefcase,
   FileSpreadsheet,
@@ -29,7 +28,6 @@ const STORAGE_KEY = 'sidebarCollapsed';
 
 const navigation = [
   { id: 'home', name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { id: 'search', name: 'Buscar', href: '/dashboard', icon: Search },
   { id: 'persons', name: 'Personas', href: '/dashboard/persons', icon: Users },
   { id: 'companies', name: 'Empresas', href: '/dashboard/companies', icon: Building2 },
   { id: 'siep', name: 'SIEP', href: '/dashboard/siep', icon: Database },
@@ -132,7 +130,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           'md:static md:z-auto md:translate-x-0',
           mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
           'w-[240px] md:transition-[width,padding] md:duration-200 md:ease-in-out',
-          compact ? 'md:w-[76px]' : 'md:w-[240px]'
+          compact ? 'md:w-[80px]' : 'md:w-[240px]'
         )}
         style={{
           background: 'linear-gradient(180deg, #1e3a8a 0%, #1d4ed8 100%)',
@@ -225,7 +223,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                     isActive ? 'bg-white/15 font-semibold' : 'font-medium hover:bg-white/10',
                     'flex min-h-11 items-center gap-3 px-3 py-2.5 text-sm',
                     compact &&
-                      'md:min-h-[52px] md:flex-col md:items-center md:justify-center md:gap-1 md:px-1 md:py-2 md:text-center'
+                      'md:min-h-[62px] md:flex-col md:items-center md:justify-center md:gap-1 md:px-1 md:py-2 md:text-center'
                   )}
                   style={
                     isActive

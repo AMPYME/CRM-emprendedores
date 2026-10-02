@@ -62,7 +62,7 @@ const personBodySchema = z.object({
   educationLevel: z.string().max(100).trim().optional(),
   occupation: z.string().max(100).trim().optional(),
   businessName: z.string().max(200).trim().optional(),
-  economicActivity: z.string().max(200).trim().optional(),
+  economicActivity: z.string().max(128).trim().optional(),
   hasArtisanCard: z.boolean().optional(),
 
   contacts: z.array(contactSchema).optional(),

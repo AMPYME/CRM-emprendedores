@@ -35,6 +35,7 @@ export interface IntakeCompany {
   trade_name: string | null;
   company_type: string | null;
   company_size_class: string | null;
+  economic_activity: string | null;
   founded_date: string | null;
 }
 

@@ -73,7 +73,7 @@ export function canAccessPath(
     if (path === '/confirmacion' || path.startsWith('/confirmacion/')) return true;
     if (path.startsWith('/dashboard/events')) return true;
     if (path === '/registro-empresarial' || path.startsWith('/registro-empresarial/')) return true;
-    if (path === '/settings') return true;
+    if (path === '/settings' || path.startsWith('/settings/confirmaciones')) return true;
     return false;
   }
 

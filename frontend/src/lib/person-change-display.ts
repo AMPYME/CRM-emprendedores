@@ -34,6 +34,13 @@ export const PERSON_FIELD_LABELS: Record<string, string> = {
   phone: 'Teléfono / Celular',
   registroEmpresarialFecha: 'Fecha de registro empresarial',
   linkedAt: 'Fecha de capital semilla',
+  legalName: 'Razón social',
+  tradeName: 'Nombre comercial',
+  ruc: 'RUC',
+  dv: 'DV',
+  companyType: 'Tipo de empresa',
+  companySizeClass: 'Tamaño',
+  foundedDate: 'Fecha de fundación',
 };
 
 export type ChangeDiffView = {

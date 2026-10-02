@@ -6,7 +6,10 @@ import type { ApiResponse, PaginationParams } from '@/types/api.types';
 import type { PortfolioRecord, PortfolioAction, PortfolioStats } from '@/types/entities.types';
 
 interface GetPortfolioParams extends PaginationParams {
+  search?: string;
+  documento?: string;
   status?: string;
+  excludeResolved?: boolean;
   priority?: string;
   assignedToId?: string;
   sedeId?: string;

@@ -69,7 +69,7 @@ export const intakeService = {
     };
   },
 
-  async listCreators(): Promise<string[]> {
+  async listCreators(): Promise<Array<{ id: string; username: string | null }>> {
     return intakeRepository.listCreators();
   },
 

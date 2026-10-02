@@ -61,9 +61,11 @@ export const relationshipRepository = {
     fromEntityId: string,
     toEntityId: string
   ): Promise<(EntityRelationship & { fromEntity: any; toEntity: any }) | null> {
-    return prisma.entityRelationship.findUnique({
+    return prisma.entityRelationship.findFirst({
       where: {
-        fromEntityId_toEntityId: { fromEntityId, toEntityId },
+        fromEntityId,
+        toEntityId,
+        deletedAt: null,
       },
       include: RELATION_INCLUDE,
     }) as any;

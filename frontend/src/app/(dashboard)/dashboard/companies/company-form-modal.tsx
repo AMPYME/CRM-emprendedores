@@ -34,6 +34,7 @@ const companySchema = z.object({
   notes: z.string().optional(),
   email: z.string().email('Correo inválido').optional().or(z.literal('')),
   phone: z.string().optional(),
+  economicActivity: z.string().max(128, 'Máximo 128 caracteres').optional(),
 });
 
 type CompanyForm = z.infer<typeof companySchema>;
@@ -91,6 +92,7 @@ export function CompanyFormModal({ isOpen, onClose, editId }: CompanyFormModalPr
         phone:
           data.contacts?.find((co) => co.contactType === 'PHONE' || co.contactType === 'MOBILE')
             ?.contactValue || '',
+        economicActivity: data.actEc || c?.economicActivity || '',
       });
     } else if (!isEdit) {
       reset({
@@ -108,6 +110,7 @@ export function CompanyFormModal({ isOpen, onClose, editId }: CompanyFormModalPr
         notes: '',
         email: '',
         phone: '',
+        economicActivity: '',
       });
     }
   }, [isEdit, companyQuery.data, reset]);
@@ -130,6 +133,7 @@ export function CompanyFormModal({ isOpen, onClose, editId }: CompanyFormModalPr
       corregimiento: formData.corregimiento || undefined,
       address: formData.address || undefined,
       notes: formData.notes || undefined,
+      economicActivity: formData.economicActivity?.trim() || undefined,
       contacts: contacts.length > 0 ? contacts : undefined,
     };
 
@@ -182,6 +186,13 @@ export function CompanyFormModal({ isOpen, onClose, editId }: CompanyFormModalPr
             {...register('companySizeClass')}
           />
           <Input label="Fecha de Inscripción" type="date" {...register('foundedDate')} />
+          <Input
+            label="Actividad económica"
+            maxLength={128}
+            error={errors.economicActivity?.message}
+            {...register('economicActivity')}
+            className="sm:col-span-2"
+          />
           <LocationCascadeFields register={register} watch={watch} setValue={setValue} />
           <Input label="Correo electrónico" type="email" error={errors.email?.message} {...register('email')} />
           <Input label="Teléfono" {...register('phone')} />

@@ -37,6 +37,9 @@ import { ampymeFormsRoutes } from './modules/forms/forms.routes';
 import { capitalSemillaRoutes } from './modules/capital-semilla/capital-semilla.routes';
 import { personChangeRoutes } from './modules/person-changes/person-change.routes';
 import { siepRoutes } from './modules/siep/siep.routes';
+import { sedeRoutes } from './modules/sedes/sede.routes';
+import { departamentoRoutes } from './modules/departamentos/departamento.routes';
+import { userAdminRoutes } from './modules/users/user.routes';
 
 export const apiRouter = Router();
 
@@ -50,6 +53,9 @@ apiRouter.use('/companies', companyRoutes);
 apiRouter.use('/capital-semilla', capitalSemillaRoutes);
 apiRouter.use('/person-change-requests', personChangeRoutes);
 apiRouter.use('/siep', siepRoutes);
+apiRouter.use('/sedes', sedeRoutes);
+apiRouter.use('/departamentos', departamentoRoutes);
+apiRouter.use('/users', userAdminRoutes);
 
 // Contactos: rutas anidadas bajo entidad + rutas directas
 apiRouter.use('/entities/:entityId/contacts', entityContactRoutes);

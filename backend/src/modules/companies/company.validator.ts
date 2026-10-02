@@ -28,6 +28,7 @@ export const createCompanySchema = z.object({
   dv: z.string().min(1, 'DV es requerido').max(5).trim(),
   companyType: z.string().max(50).trim().optional(),
   companySizeClass: z.enum(['MICRO', 'PEQUENA', 'MEDIANA']).optional(),
+  economicActivity: z.string().max(128).trim().optional(),
   foundedDate: z.string().optional(),
 
   // Contactos opcionales en creación

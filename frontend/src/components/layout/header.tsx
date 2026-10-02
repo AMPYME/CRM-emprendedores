@@ -15,6 +15,7 @@ const SECTION_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/registro-empresarial', title: 'Registro empresarial' },
   { prefix: '/dashboard/events', title: 'Eventos' },
   { prefix: '/dashboard/portfolio', title: 'Seguimiento' },
+  { prefix: '/settings/confirmaciones', title: 'Mis confirmaciones' },
   { prefix: '/settings/users', title: 'Usuarios' },
   { prefix: '/settings/sedes', title: 'Sedes' },
   { prefix: '/settings/departamento', title: 'Departamentos' },
@@ -84,7 +85,7 @@ export function Header({ onMenuClick }: HeaderProps) {
               </span>
               <span className="hidden text-left sm:block">
                 <span className="block text-sm font-medium leading-tight text-slate-900">
-                  {user.username || user.email}
+                  {user.email}
                 </span>
                 <span className="block max-w-[180px] truncate text-xs text-slate-500">
                   {user.sede?.name || 'Sin sede'}

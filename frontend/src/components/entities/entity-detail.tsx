@@ -464,6 +464,11 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                     value={person.hasArtisanCard === true ? 'Sí' : person.hasArtisanCard === false ? 'No' : null}
                   />
                   <InfoRow label="Registro empresarial" value={registroEmpresarialTexto(entity.registroEmpresarialFecha)} span2 />
+                  <InfoRow
+                    label="Actividad económica"
+                    value={entity.actEc || person?.economicActivity}
+                    span2
+                  />
                 </>
               )}
               {entityType === 'COMPANY' && company && (
@@ -476,6 +481,11 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                   <InfoRow label="Clasificación por tamaño" value={companySizeClassLabel(company.companySizeClass)} />
                   <InfoRow label="Fecha de Inscripción" value={company.foundedDate ? formatDateShort(company.foundedDate) : null} />
                   <InfoRow label="Registro empresarial" value={registroEmpresarialTexto(entity.registroEmpresarialFecha)} span2 />
+                  <InfoRow
+                    label="Actividad económica"
+                    value={entity.actEc || company?.economicActivity}
+                    span2
+                  />
                 </>
               )}
             </dl>

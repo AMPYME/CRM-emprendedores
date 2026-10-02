@@ -95,6 +95,7 @@ function snapshotToForm(s: IntakeSnapshot): FormValues {
     nationalityCode: p?.nationality_code ?? DEFAULT_NATIONALITY_CODE,
     hasArtisanCard:
       p?.has_artisan_card === true ? 'true' : p?.has_artisan_card === false ? 'false' : '',
+    economicActivity: p?.economic_activity ?? c?.economic_activity ?? '',
     legalName: c?.legal_name ?? '',
     tradeName: c?.trade_name ?? '',
     ruc: c?.ruc ?? '',
@@ -141,6 +142,7 @@ function formToPayload(snapshot: IntakeSnapshot, v: FormValues): IntakeUpdateInp
       nationalityCode: v.nationalityCode,
       hasArtisanCard:
         v.hasArtisanCard === 'true' ? true : v.hasArtisanCard === 'false' ? false : undefined,
+      economicActivity: v.economicActivity?.trim() || undefined,
     };
   }
   if (showCompany || v.legalName?.trim()) {
@@ -151,6 +153,7 @@ function formToPayload(snapshot: IntakeSnapshot, v: FormValues): IntakeUpdateInp
       dv: v.dv,
       companyType: v.companyType,
       companySizeClass: v.companySizeClass || undefined,
+      economicActivity: v.economicActivity?.trim() || undefined,
       foundedDate: v.foundedDate,
     };
   }
@@ -269,6 +272,12 @@ export function IntakeEditModal({ isOpen, onClose, sessionId, snapshot, accessCo
               {...register('nationalityCode')}
             />
             <Select label="Carnet de artesano" options={yesNoOptions} {...register('hasArtisanCard')} />
+            <Input
+              label="Actividad económica"
+              maxLength={128}
+              className="sm:col-span-2"
+              {...register('economicActivity')}
+            />
           </>
         )}
         {showCompany && (
@@ -299,6 +308,14 @@ export function IntakeEditModal({ isOpen, onClose, sessionId, snapshot, accessCo
               {...register('companySizeClass')}
             />
             <Input label="Fecha de Inscripción" type="date" {...register('foundedDate')} />
+            {!showPerson && (
+              <Input
+                label="Actividad económica"
+                maxLength={128}
+                className="sm:col-span-2"
+                {...register('economicActivity')}
+              />
+            )}
           </>
         )}
         <LocationCascadeFields register={register} watch={watch} setValue={setValue} />

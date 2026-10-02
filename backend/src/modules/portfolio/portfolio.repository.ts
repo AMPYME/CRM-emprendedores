@@ -16,6 +16,9 @@ const PORTFOLIO_LIST_INCLUDES = {
       displayName: true,
       entityType: true,
       status: true,
+      actEc: true,
+      person: { select: { cedula: true, documentNumber: true, economicActivity: true } },
+      company: { select: { ruc: true, economicActivity: true } },
     },
   },
   assignedTo: {
@@ -122,7 +125,11 @@ export const portfolioRepository = {
     const where: Prisma.PortfolioRecordWhereInput = {};
     const now = new Date();
 
-    if (filters.status) where.status = filters.status;
+    if (filters.status) {
+      where.status = filters.status;
+    } else if (filters.excludeResolved) {
+      where.status = { not: 'RESOLVED' };
+    }
     if (filters.priority) where.priority = filters.priority;
     if (filters.assignedToId) where.assignedToId = filters.assignedToId;
     if (filters.sedeId) where.sedeId = filters.sedeId;
@@ -146,12 +153,23 @@ export const portfolioRepository = {
       where.actions = { none: {} };
     }
 
-    if (filters.search) {
+    const documento = filters.documento?.trim();
+    if (documento) {
+      where.entity = {
+        OR: [
+          { person: { OR: [{ cedula: documento }, { documentNumber: documento }] } },
+          { company: { ruc: documento } },
+        ],
+      };
+    } else if (filters.search) {
       where.OR = [
         { subject: { contains: filters.search, mode: 'insensitive' } },
         { description: { contains: filters.search, mode: 'insensitive' } },
         { category: { contains: filters.search, mode: 'insensitive' } },
         { entity: { displayName: { contains: filters.search, mode: 'insensitive' } } },
+        { entity: { person: { cedula: { contains: filters.search } } } },
+        { entity: { person: { documentNumber: { contains: filters.search } } } },
+        { entity: { company: { ruc: { contains: filters.search } } } },
       ];
     }
 

@@ -116,6 +116,7 @@ export const companyRepository = {
     corregimiento?: string;
     address?: string;
     notes?: string;
+    actEc?: string | null;
     sourceOrigin: string;
     createdById?: string;
     company: Prisma.CompanyCreateWithoutEntityInput;
@@ -131,6 +132,7 @@ export const companyRepository = {
         corregimiento: data.corregimiento,
         address: data.address,
         notes: data.notes,
+        actEc: data.actEc,
         sourceOrigin: data.sourceOrigin,
         createdById: data.createdById,
         company: { create: data.company },

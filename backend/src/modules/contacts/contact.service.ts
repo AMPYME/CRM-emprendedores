@@ -31,33 +31,17 @@ export const contactService = {
     }
     await personChangeService.assertNoPendingForEntity(entityId);
 
-    const contact = await contactRepository.create(entityId, {
-      contactType: input.contactType as any,
+    const { contactApiRepository } = await import('../../infrastructure/database');
+    const id = await contactApiRepository.add(actor?.userId ?? 'system', {
+      entityId,
+      contactType: input.contactType,
       contactValue: input.contactValue,
       label: input.label,
       isPrimary: input.isPrimary ?? false,
-      isVerified: input.isVerified ?? false,
     });
 
-    const quien = await actorContext(actor);
-    await auditService.log({
-      action: 'CREATE',
-      entityType: 'CONTACT',
-      entityId,
-      entityLabel: contact.contactValue,
-      userId: actor?.userId,
-      userEmail: actor?.userEmail,
-      metadata: {
-        ...quien,
-        anterior: null,
-        nuevo: {
-          contactType: contact.contactType,
-          contactValue: contact.contactValue,
-          label: contact.label,
-        },
-      },
-    });
-
+    const contact = await contactRepository.findById(id);
+    if (!contact) throw new NotFoundError('Contacto', id);
     return contact;
   },
 
@@ -110,21 +94,8 @@ export const contactService = {
       throw new NotFoundError('Contacto', contactId);
     }
     await personChangeService.assertNoPendingForEntity(contact.entityId);
-    const removed = await contactRepository.remove(contactId, actor?.userId ?? null);
-    const quien = await actorContext(actor);
-    await auditService.log({
-      action: 'DELETE',
-      entityType: 'CONTACT',
-      entityId: contact.entityId,
-      entityLabel: contact.contactValue,
-      userId: actor?.userId,
-      userEmail: actor?.userEmail,
-      metadata: {
-        ...quien,
-        anterior: { contactType: contact.contactType, contactValue: contact.contactValue },
-        nuevo: null,
-      },
-    });
-    return removed;
+    const { contactApiRepository } = await import('../../infrastructure/database');
+    await contactApiRepository.softDelete(actor?.userId ?? 'system', contactId);
+    return contact;
   },
 };

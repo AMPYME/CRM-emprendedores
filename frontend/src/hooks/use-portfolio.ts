@@ -11,7 +11,10 @@ const PORTFOLIO_ACTIONS_KEY = 'portfolio-actions';
 const PORTFOLIO_STATS_KEY = 'portfolio-stats';
 
 export function usePortfolios(params?: PaginationParams & {
+  search?: string;
+  documento?: string;
   status?: string;
+  excludeResolved?: boolean;
   priority?: string;
   sedeId?: string;
   departamentoId?: string;

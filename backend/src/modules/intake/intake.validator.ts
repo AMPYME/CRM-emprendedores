@@ -58,6 +58,9 @@ export const updateSessionSchema = z.object({
         .refine((v) => v === '' || v.length === 3, 'Código de nacionalidad inválido')
         .optional(),
       educationLevel: z.string().optional(),
+      occupation: z.string().max(128).optional(),
+      businessName: z.string().max(200).optional(),
+      economicActivity: z.string().max(128).optional(),
       hasArtisanCard: z.union([z.boolean(), z.string()]).optional(),
     })
     .optional(),
@@ -69,6 +72,7 @@ export const updateSessionSchema = z.object({
       dv: z.string().optional(),
       companyType: z.string().optional(),
       companySizeClass: z.enum(['MICRO', 'PEQUENA', 'MEDIANA']).optional(),
+      economicActivity: z.string().max(128).optional(),
       foundedDate: z.string().optional(),
     })
     .optional(),

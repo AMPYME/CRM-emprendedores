@@ -1,14 +1,23 @@
 /**
  * Controller del módulo de empresas.
+ * CREATE/UPDATE/DELETE se encolan para confirmación (igual que personas).
  */
 import { Request, Response } from 'express';
 import { companyService } from './company.service';
-import { sendSuccess, sendCreated, sendPaginated } from '../../shared/utils/response.utils';
+import { personChangeService } from '../person-changes/person-change.service';
+import { sendSuccess, sendPaginated } from '../../shared/utils/response.utils';
+import { UnauthorizedError } from '../../shared/errors/app-error';
 import { AuditActor } from '../audit/audit.service';
 
 function getActor(req: Request): AuditActor | undefined {
   if (!req.user?.id || !req.user?.email) return undefined;
   return { userId: req.user.id, userEmail: req.user.email };
+}
+
+function requireActor(req: Request): AuditActor {
+  const actor = getActor(req);
+  if (!actor) throw new UnauthorizedError('Usuario no autenticado');
+  return actor;
 }
 
 export const companyController = {
@@ -23,17 +32,24 @@ export const companyController = {
   },
 
   async create(req: Request, res: Response): Promise<void> {
-    const company = await companyService.create(req.body, getActor(req));
-    sendCreated(res, company);
+    const queued = await personChangeService.enqueueCreateCompany(req.body, requireActor(req));
+    res.status(202).json({ success: true, data: queued });
   },
 
   async update(req: Request, res: Response): Promise<void> {
-    const company = await companyService.update(req.params.id as string, req.body, getActor(req));
-    sendSuccess(res, company);
+    const queued = await personChangeService.enqueueUpdateCompany(
+      req.params.id as string,
+      req.body,
+      requireActor(req)
+    );
+    res.status(202).json({ success: true, data: queued });
   },
 
   async remove(req: Request, res: Response): Promise<void> {
-    const result = await companyService.remove(req.params.id as string, getActor(req));
-    sendSuccess(res, result);
+    const queued = await personChangeService.enqueueDeleteCompany(
+      req.params.id as string,
+      requireActor(req)
+    );
+    res.status(202).json({ success: true, data: queued });
   },
 };

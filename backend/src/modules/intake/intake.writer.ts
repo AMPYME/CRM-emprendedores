@@ -140,6 +140,9 @@ export async function replaceIntakeSnapshot(
                 clean(person.nationalityCode) ?? DEFAULT_NATIONALITY_CODE
               ),
               educationLevel: clean(person.educationLevel),
+              occupation: clean(person.occupation),
+              businessName: clean(person.businessName),
+              economicActivity: clean(person.economicActivity)?.slice(0, 128),
               hasArtisanCard: hasArtisanCard ?? null,
             },
           },
@@ -157,6 +160,7 @@ export async function replaceIntakeSnapshot(
         'Empresa sin nombre';
       const tradeName = clean(company.tradeName) ?? clean(company.tradeName);
       const displayName = tradeName ?? legalName;
+      const economicActivity = clean(company.economicActivity)?.slice(0, 128);
 
       await tx.intakeEntity.create({
         data: {
@@ -171,6 +175,7 @@ export async function replaceIntakeSnapshot(
               tradeName,
               companyType: clean(company.companyType) ?? clean(company.companyType),
               companySizeClass: toSizeClass(company.companySizeClass ?? company.companySizeClass),
+              economicActivity,
               foundedDate: parseDate(company.foundedDate ?? company.foundedDate),
             },
           },

@@ -9,7 +9,6 @@ import { NotFoundError, ConflictError } from '../../shared/errors/app-error';
 import { PaginationMeta } from '../../shared/types/api-response.types';
 import { persistableLocationCodes } from '../../shared/utils/entity-location';
 import { auditService, AuditActor } from '../audit/audit.service';
-import { personChangeService } from '../person-changes/person-change.service';
 
 function buildDisplayName(legalName: string, tradeName?: string): string {
   return tradeName ? `${tradeName} (${legalName})` : legalName;
@@ -48,44 +47,66 @@ export const companyService = {
       }
     }
 
-    const displayName = buildDisplayName(input.legalName, input.tradeName);
     const loc = await persistableLocationCodes(input);
+    const actorId = actor?.userId || null;
+    const { companyApiRepository, contactApiRepository } = await import(
+      '../../infrastructure/database'
+    );
 
-    const entity = await companyRepository.create({
-      displayName,
-      province: loc.province,
-      district: loc.district,
-      corregimiento: loc.corregimiento,
-      address: input.address,
-      notes: input.notes,
-      sourceOrigin: input.sourceOrigin || 'MANUAL',
-      createdById: actor?.userId,
-      company: {
+    let entityId: string;
+    try {
+      entityId = await companyApiRepository.create(actorId, {
         legalName: input.legalName,
         tradeName: input.tradeName,
         ruc: input.ruc,
         dv: input.dv,
+        politicalDivisionCode: loc.corregimiento || loc.district || loc.province || null,
+        addressLine: input.address ?? null,
+        sourceOrigin: input.sourceOrigin || 'MANUAL',
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('RUC ya registrado') || msg.includes('23505')) {
+        throw new ConflictError(`Ya existe una empresa con RUC '${input.ruc}'`);
+      }
+      throw err;
+    }
+
+    // Sync legacy geo columns + extra company fields
+    await companyRepository.update(
+      entityId,
+      {
+        province: loc.province ?? null,
+        district: loc.district ?? null,
+        corregimiento: loc.corregimiento ?? null,
+        notes: input.notes,
+        actEc: input.economicActivity?.trim() || null,
+        displayName: buildDisplayName(input.legalName, input.tradeName),
+      },
+      {
         companyType: input.companyType,
         companySizeClass: input.companySizeClass,
+        economicActivity: input.economicActivity,
         foundedDate: input.foundedDate ? new Date(input.foundedDate) : undefined,
-      },
-      contacts: input.contacts,
-    });
+      }
+    );
 
-    await auditService.log({
-      action: 'CREATE',
-      entityType: 'COMPANY',
-      entityId: entity.id,
-      entityLabel: entity.displayName,
-      userId: actor?.userId,
-      userEmail: actor?.userEmail,
-    });
+    if (input.contacts?.length) {
+      for (const c of input.contacts) {
+        await contactApiRepository.add(actorId, {
+          entityId,
+          contactType: c.contactType,
+          contactValue: c.contactValue,
+          label: c.label,
+          isPrimary: c.isPrimary,
+        });
+      }
+    }
 
-    return entity;
+    return companyService.getById(entityId);
   },
 
   async update(entityId: string, input: UpdateCompanyInput, actor?: AuditActor) {
-    await personChangeService.assertNoPendingForEntity(entityId);
     const current = await companyRepository.findById(entityId);
     if (!current) {
       throw new NotFoundError('Empresa', entityId);
@@ -118,6 +139,9 @@ export const companyService = {
     }
     if (input.address !== undefined) entityData.address = input.address;
     if (input.notes !== undefined) entityData.notes = input.notes;
+    if (input.economicActivity !== undefined) {
+      entityData.actEc = input.economicActivity?.trim() || null;
+    }
 
     const companyData: Prisma.CompanyUpdateWithoutEntityInput = {};
     if (input.legalName !== undefined) companyData.legalName = input.legalName;
@@ -126,6 +150,7 @@ export const companyService = {
     if (input.dv !== undefined) companyData.dv = input.dv;
     if (input.companyType !== undefined) companyData.companyType = input.companyType;
     if (input.companySizeClass !== undefined) companyData.companySizeClass = input.companySizeClass;
+    if (input.economicActivity !== undefined) companyData.economicActivity = input.economicActivity;
     if (input.foundedDate !== undefined) {
       companyData.foundedDate = input.foundedDate ? new Date(input.foundedDate) : null;
     }
@@ -152,22 +177,12 @@ export const companyService = {
   },
 
   async remove(entityId: string, actor?: AuditActor) {
-    await personChangeService.assertNoPendingForEntity(entityId);
     const entity = await companyRepository.findById(entityId);
     if (!entity) {
       throw new NotFoundError('Empresa', entityId);
     }
-    const result = await companyRepository.softDelete(entityId);
-
-    await auditService.log({
-      action: 'DELETE',
-      entityType: 'COMPANY',
-      entityId: entity.id,
-      entityLabel: entity.displayName,
-      userId: actor?.userId,
-      userEmail: actor?.userEmail,
-    });
-
-    return result;
+    const { companyApiRepository } = await import('../../infrastructure/database');
+    await companyApiRepository.softDelete(actor?.userId || null, entityId);
+    return entity;
   },
 };

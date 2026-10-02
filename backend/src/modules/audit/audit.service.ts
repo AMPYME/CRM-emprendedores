@@ -74,7 +74,11 @@ export const auditService = {
                 id: user.id,
                 firstName: user.firstName,
                 lastName: user.lastName,
-                username: user.username && !user.username.includes('@') ? user.username : null,
+                username: user.username
+                  ? user.username.includes('@')
+                    ? user.username.split('@')[0] || null
+                    : user.username
+                  : null,
               }
             : null,
         };
@@ -88,9 +92,17 @@ export const auditService = {
     return {
       data: result.data.map((row) => {
         const metadata = (row.metadata ?? {}) as Record<string, unknown>;
-        const usuarioMeta = typeof metadata.usuario === 'string' && !metadata.usuario.includes('@')
-          ? metadata.usuario
-          : null;
+        const asUsuario = (value?: string | null) => {
+          const raw = value?.trim() || '';
+          if (!raw) return null;
+          if (raw.includes('@')) {
+            const local = raw.split('@')[0]?.trim() || '';
+            return local || null;
+          }
+          return raw;
+        };
+        const usuarioMeta =
+          typeof metadata.usuario === 'string' ? asUsuario(metadata.usuario) : null;
         const sedeMeta = typeof metadata.sede === 'string' ? metadata.sede : null;
         const departamentoMeta = typeof metadata.departamento === 'string' ? metadata.departamento : null;
         const nuevoGuardado = metadata.nuevo ?? nuevoDesdeMetadataPlana(metadata);
@@ -103,7 +115,7 @@ export const auditService = {
           action: row.action,
           entityType: row.entityType,
           createdAt: row.createdAt,
-          usuario: usuarioMeta || (row.user?.username && !row.user.username.includes('@') ? row.user.username : null),
+          usuario: usuarioMeta || asUsuario(row.user?.username),
           sede: sedeMeta || row.user?.sede?.name || null,
           departamento: departamentoMeta || row.user?.departamento?.name || null,
           anterior: metadata.anterior ?? null,

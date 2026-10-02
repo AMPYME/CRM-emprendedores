@@ -139,6 +139,7 @@ export const personRepository = {
     corregimiento?: string;
     address?: string;
     notes?: string;
+    actEc?: string | null;
     sourceOrigin: string;
     createdById?: string;
     person: Prisma.PersonCreateWithoutEntityInput;
@@ -154,6 +155,7 @@ export const personRepository = {
         corregimiento: data.corregimiento,
         address: data.address,
         notes: data.notes,
+        actEc: data.actEc,
         sourceOrigin: data.sourceOrigin,
         createdById: data.createdById,
         person: { create: data.person },

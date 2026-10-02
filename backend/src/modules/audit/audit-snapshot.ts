@@ -1,9 +1,14 @@
 import { prisma } from '../../config/database';
 import type { AuditActor } from './audit.service';
 
+/** Solo usuario (nunca correo completo). Si username es correo, usa la parte local. */
 function usuarioDe(username: string | null | undefined): string | null {
   const raw = username?.trim() || '';
-  if (!raw || raw.includes('@')) return null;
+  if (!raw) return null;
+  if (raw.includes('@')) {
+    const local = raw.split('@')[0]?.trim() || '';
+    return local || null;
+  }
   return raw;
 }
 

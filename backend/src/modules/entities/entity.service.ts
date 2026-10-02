@@ -54,25 +54,13 @@ export const entityService = {
     if (!entity) {
       throw new NotFoundError('Entidad', id);
     }
-    const anterior = entity.registroEmpresarialFecha
-      ? entity.registroEmpresarialFecha.toISOString().slice(0, 10)
-      : null;
-    const updated = await entityRepository.setRegistroEmpresarialFecha(id, input.fecha);
-    const quien = await actorContext(actor);
-    await auditService.log({
-      action: 'UPDATE',
-      entityType: entity.entityType,
-      entityId: entity.id,
-      entityLabel: entity.displayName,
-      userId: actor?.userId,
-      userEmail: actor?.userEmail,
-      metadata: {
-        ...quien,
-        anterior: { registroEmpresarialFecha: anterior },
-        nuevo: { registroEmpresarialFecha: input.fecha },
-      },
-    });
-    return updated;
+    const { registroEmpresarialApiRepository } = await import('../../infrastructure/database');
+    await registroEmpresarialApiRepository.setFecha(
+      actor?.userId ?? 'system',
+      id,
+      input.fecha
+    );
+    return entityRepository.findById(id);
   },
 
   async verificarDocumento(documento: string) {
@@ -149,7 +137,11 @@ export const entityService = {
 
     const usuarioDe = (username?: string | null) => {
       const raw = username?.trim() || '';
-      if (!raw || raw.includes('@')) return null;
+      if (!raw) return null;
+      if (raw.includes('@')) {
+        const local = raw.split('@')[0]?.trim() || '';
+        return local || null;
+      }
       return raw;
     };
     const tieneAlta = Boolean(alta);

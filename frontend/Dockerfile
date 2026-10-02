@@ -1,10 +1,13 @@
 # syntax=docker/dockerfile:1
 #
-# Dokploy clona el repo completo: el contexto es la RAÍZ del git.
+# Contexto de build = carpeta frontend/ (no la raíz del git).
 #
-# En Dokploy:
+# Local:
+#   cd frontend && podman build --no-cache -t mi-app:1.0.0 .
+#
+# Dokploy:
 #   Docker File: frontend/Dockerfile
-#   Docker Context Path: .          (raíz del git, NO "frontend")
+#   Docker Context Path: frontend
 #   Docker Build Stage: runner
 #   Root Directory / Base Path: vacío
 #
@@ -17,13 +20,13 @@
 FROM node:20-bookworm-slim AS build
 WORKDIR /app
 
-COPY frontend/package.json ./
+COPY package.json ./
 RUN npm install
 
-COPY frontend/tsconfig.json frontend/next.config.js frontend/next-env.d.ts ./
-COPY frontend/postcss.config.js frontend/tailwind.config.ts ./
-COPY frontend/public ./public
-COPY frontend/src ./src
+COPY tsconfig.json next.config.js next-env.d.ts ./
+COPY postcss.config.js tailwind.config.ts ./
+COPY public ./public
+COPY src ./src
 
 ARG NEXT_PUBLIC_API_URL=https://api-emprendedores.ampyme.local/api/v1
 ARG NEXT_PUBLIC_WS_URL=wss://api-emprendedores.ampyme.local/ws/intake

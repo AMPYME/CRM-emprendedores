@@ -44,6 +44,7 @@ const personSchema = z
     notes: z.string().optional(),
     email: z.string().email('Correo inválido').optional().or(z.literal('')),
     phone: z.string().optional(),
+    economicActivity: z.string().max(128, 'Máximo 128 caracteres').optional(),
   })
   .superRefine((data, ctx) => {
     const err = validateDocumentNumber(
@@ -114,6 +115,7 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
       notes: '',
       email: '',
       phone: '',
+      economicActivity: '',
     },
   });
 
@@ -149,6 +151,7 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
           data.contacts?.find(
             (c) => c.contactType === 'PHONE' || c.contactType === 'MOBILE'
           )?.contactValue || '',
+        economicActivity: data.actEc || p?.economicActivity || '',
       });
     } else if (!isEdit) {
       reset();
@@ -184,6 +187,7 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
       corregimiento: formData.corregimiento || undefined,
       address: formData.address || undefined,
       notes: formData.notes || undefined,
+      economicActivity: formData.economicActivity?.trim() || undefined,
       contacts: contacts.length > 0 ? contacts : undefined,
     };
 
@@ -258,6 +262,13 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
             {...register('nationalityCode')}
           />
           <Select label="Carnet de artesano" options={yesNoOptions} {...register('hasArtisanCard')} />
+          <Input
+            label="Actividad económica"
+            maxLength={128}
+            error={errors.economicActivity?.message}
+            {...register('economicActivity')}
+            className="sm:col-span-2"
+          />
           <LocationCascadeFields register={register} watch={watch} setValue={setValue} />
           <Input
             label="Correo electrónico"
