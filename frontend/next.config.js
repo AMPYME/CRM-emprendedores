@@ -1,8 +1,10 @@
 /** @type {import('next').NextConfig} */
+// Destino del rewrite /backend-api → API (alcanzable DESDE el contenedor Next).
+// Producción: IP 10.14.80.245 (no *.ampyme.local).
 const apiProxyTarget = (
   process.env.API_PROXY_TARGET ||
   process.env.NEXT_PUBLIC_API_URL ||
-  'http://192.168.99.60:4000/api/v1'
+  'http://10.14.80.245/api/v1'
 ).replace(/\/$/, '');
 
 const nextConfig = {
@@ -18,9 +20,9 @@ const nextConfig = {
   },
   env: {
     NEXT_PUBLIC_API_URL:
-      process.env.NEXT_PUBLIC_API_URL || 'http://192.168.99.60:4000/api/v1',
+      process.env.NEXT_PUBLIC_API_URL || 'http://10.14.80.245/api/v1',
     NEXT_PUBLIC_WS_URL:
-      process.env.NEXT_PUBLIC_WS_URL || 'ws://192.168.99.60:4000/ws/intake',
+      process.env.NEXT_PUBLIC_WS_URL || 'ws://10.14.80.245/ws/intake',
     NEXT_PUBLIC_INTAKE_FORM_URL:
       process.env.NEXT_PUBLIC_INTAKE_FORM_URL || '',
     NEXT_PUBLIC_FORMS_PUBLIC_URL:

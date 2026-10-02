@@ -1,8 +1,12 @@
 /**
- * URLs públicas incrustadas en el build (NEXT_PUBLIC_*).
- * En páginas HTTPS, las llamadas REST van al mismo origen (`/backend-api`)
- * para no bloquear mixed content. El rewrite de Next las reenvía al API.
- * WebSocket se sube de ws→wss cuando el API tiene TLS.
+ * URLs públicas (NEXT_PUBLIC_*).
+ *
+ * En el navegador las llamadas REST SIEMPRE van same-origin a `/backend-api`
+ * (nginx delante o rewrite de Next). Así no hay CORS aunque el front se abra
+ * por http://10.14.86.10 y el API esté en otra IP.
+ *
+ * El destino real del proxy se define en build (`API_PROXY_TARGET` /
+ * `NEXT_PUBLIC_API_URL`) y puede sobrescribirse en runtime vía entrypoint.
  */
 export function toPageProtocol(url: string): string {
   if (!url) return url;
@@ -14,11 +18,13 @@ export function toPageProtocol(url: string): string {
   return url;
 }
 
+function configuredApiUrl(): string {
+  return process.env.NEXT_PUBLIC_API_URL || 'http://10.14.80.245/api/v1';
+}
+
 export function publicApiBaseUrl(): string {
-  const configured = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
-  if (typeof window === 'undefined') return configured;
-  if (window.location.protocol === 'https:' && configured.startsWith('http:')) {
+  if (typeof window !== 'undefined') {
     return `${window.location.origin}/backend-api`;
   }
-  return toPageProtocol(configured);
+  return configuredApiUrl();
 }

@@ -141,13 +141,14 @@ export default function IntakeDetailPage() {
     sessionStorage.setItem(intakeAccessCodeKey(id), result.accessCode);
   };
 
+  const reviewingImport = !!verificationId && (snapshot?.status === 'DRAFT' || snapshot?.status === 'SUBMITTED');
   const canValidate =
     !!snapshot &&
-    snapshot.status === 'SUBMITTED' &&
+    (snapshot.status === 'SUBMITTED' || reviewingImport) &&
     status !== 'expired' &&
     status !== 'validated';
   const canDelete = !!snapshot && status !== 'validated' && status !== 'expired';
-  const canEdit = canDelete && snapshot?.status === 'SUBMITTED';
+  const canEdit = canDelete && (snapshot?.status === 'SUBMITTED' || reviewingImport);
 
   return (
     <div className="space-y-6">

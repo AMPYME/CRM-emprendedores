@@ -83,10 +83,17 @@ export const intakeService = {
 };
 
 function intakeWsBase(): string {
+  // Mismo origen que la página (nginx debe proxificar /ws/intake → backend).
+  // Evita ws://10.14.80.245 directo desde el navegador en 10.14.86.10.
+  if (typeof window !== 'undefined') {
+    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${proto}//${window.location.host}/ws/intake`;
+  }
+
   const explicit = process.env.NEXT_PUBLIC_WS_URL;
   const raw = explicit
     ? explicit.replace(/\/$/, '')
-    : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1')
+    : (process.env.NEXT_PUBLIC_API_URL || 'http://10.14.80.245/api/v1')
         .replace(/\/api\/v1\/?$/, '')
         .replace(/^http/, 'ws') + '/ws/intake';
   return toPageProtocol(raw);

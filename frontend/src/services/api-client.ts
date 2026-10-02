@@ -10,7 +10,8 @@ function apiBaseUrl(): string {
 }
 
 export const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1',
+  // En navegador el interceptor fuerza same-origin /backend-api (sin CORS).
+  baseURL: '/backend-api',
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',

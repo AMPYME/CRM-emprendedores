@@ -32,6 +32,7 @@ import {
   distritoNombre,
   corregimientoNombre,
 } from '@/lib/division-politica';
+import { getApiErrorMessage } from '@/services/api-client';
 import { intakeAccessCodeKey } from '@/services/intake.service';
 import type { VerificationListItem } from '@/services/verification.service';
 import { useAuthStore } from '@/stores/auth.store';
@@ -150,12 +151,13 @@ export function VerificationQueuePanel() {
         router.push(`/dashboard/intake/${result.intakeSessionId}?verificationId=${item.id}`);
       }
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { code?: string; message?: string } } };
-      if (axiosErr.response?.data?.code === 'VERIFICATION_ALREADY_ASSIGNED') {
+      const code = (err as { response?: { data?: { error?: { code?: string } } } }).response?.data
+        ?.error?.code;
+      if (code === 'VERIFICATION_ALREADY_ASSIGNED') {
         alert('Este registro ya fue asignado a otro funcionario.');
         refetch();
       } else {
-        alert(axiosErr.response?.data?.message || 'No se pudo reclamar el registro');
+        alert(getApiErrorMessage(err));
       }
     }
   };
