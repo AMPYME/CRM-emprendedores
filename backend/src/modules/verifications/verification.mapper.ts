@@ -201,3 +201,152 @@ export function stagingRowToVerificationCreateInput(params: {
     searchText: searchParts.join(' ').slice(0, 500) || undefined,
   };
 }
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function text(value: unknown): string | undefined {
+  if (value === null || value === undefined) return undefined;
+  const trimmed = String(value).trim();
+  if (!trimmed || trimmed === '-' || trimmed.toLowerCase() === 'null' || trimmed.toLowerCase() === 'n/a') {
+    return undefined;
+  }
+  return trimmed;
+}
+
+function pickText(obj: Record<string, unknown>, ...keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = text(obj[key]);
+    if (value) return value;
+  }
+  return undefined;
+}
+
+function splitPersonName(displayName: string | null | undefined): { first?: string; last?: string } {
+  const primary = (displayName ?? '').split('·')[0]?.trim() ?? '';
+  const parts = primary.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return {};
+  if (parts.length === 1) return { first: parts[0] };
+  return { first: parts[0], last: parts.slice(1).join(' ') };
+}
+
+/**
+ * Arma el snapshot que se precarga al reclamar un ítem.
+ * Completa huecos del JSON con las columnas de la cola (nombre, cédula, RUC).
+ */
+export function buildVerificationSeedSnapshot(item: {
+  entityType: string;
+  displayName: string | null;
+  searchCedula: string | null;
+  searchRuc: string | null;
+  province: string | null;
+  district: string | null;
+  corregimiento: string | null;
+  data: unknown;
+}): {
+  entityType: 'PERSON' | 'COMPANY';
+  snapshot: {
+    location: {
+      province?: string;
+      district?: string;
+      corregimiento?: string;
+      address?: string;
+    };
+    notes: string | null;
+    person: Record<string, unknown> | null;
+    company: Record<string, unknown> | null;
+    contacts: unknown;
+  };
+} {
+  const payload = asRecord(item.data);
+  const snap = asRecord(payload.snapshot);
+  const personSrc = asRecord(snap.person);
+  const companySrc = asRecord(snap.company);
+  const loc = asRecord(snap.location);
+  const fields = asRecord(asRecord(payload.importMeta).fields);
+  const entityType: 'PERSON' | 'COMPANY' =
+    text(payload.entityType)?.toUpperCase() === 'COMPANY' || item.entityType === 'COMPANY'
+      ? 'COMPANY'
+      : 'PERSON';
+  const names = splitPersonName(item.displayName);
+  const companyFromLabel = (item.displayName ?? '').includes('·')
+    ? text((item.displayName ?? '').split('·').slice(1).join('·'))
+    : undefined;
+
+  const firstName =
+    pickText(personSrc, 'first_name', 'firstName') ??
+    text(fields.extractedFirstName) ??
+    (entityType === 'PERSON' ? names.first : undefined);
+  const lastName =
+    pickText(personSrc, 'last_name', 'lastName') ??
+    text(fields.extractedLastName) ??
+    (entityType === 'PERSON' ? names.last : undefined);
+  const cedula =
+    pickText(personSrc, 'cedula', 'document_number', 'documentNumber') ??
+    text(fields.extractedCedula) ??
+    text(item.searchCedula);
+
+  const hasPerson = !!(
+    firstName ||
+    lastName ||
+    cedula ||
+    pickText(personSrc, 'second_last_name', 'secondLastName')
+  );
+
+  const explicitCompany = Object.keys(companySrc).length > 0;
+  const legalName =
+    pickText(companySrc, 'legal_name', 'legalName') ??
+    (explicitCompany ? text(fields.extractedBusinessName) : undefined) ??
+    companyFromLabel ??
+    (entityType === 'COMPANY' ? text(item.displayName) ?? text(fields.extractedBusinessName) : undefined);
+  const ruc = pickText(companySrc, 'ruc') ?? text(fields.extractedRuc) ?? text(item.searchRuc);
+  const tradeName = pickText(companySrc, 'trade_name', 'tradeName');
+  const hasCompany = !!(legalName || ruc || tradeName);
+
+  return {
+    entityType,
+    snapshot: {
+      location: {
+        province: pickText(loc, 'province') ?? text(item.province),
+        district: pickText(loc, 'district') ?? text(item.district),
+        corregimiento: pickText(loc, 'corregimiento') ?? text(item.corregimiento),
+        address: pickText(loc, 'address'),
+      },
+      notes: pickText(snap, 'notes') ?? null,
+      person: hasPerson
+        ? {
+            cedula,
+            document_number: cedula,
+            first_name: firstName,
+            last_name: lastName,
+            second_last_name: pickText(personSrc, 'second_last_name', 'secondLastName'),
+            gender: pickText(personSrc, 'gender'),
+            birth_date: pickText(personSrc, 'birth_date', 'birthDate'),
+            nationality_code: pickText(personSrc, 'nationality_code', 'nationalityCode'),
+            education_level: pickText(personSrc, 'education_level', 'educationLevel'),
+            occupation: pickText(personSrc, 'occupation'),
+            business_name:
+              pickText(personSrc, 'business_name', 'businessName') ?? text(fields.extractedBusinessName),
+            economic_activity: pickText(personSrc, 'economic_activity', 'economicActivity'),
+            has_artisan_card: personSrc.has_artisan_card ?? personSrc.hasArtisanCard,
+          }
+        : null,
+      company: hasCompany
+        ? {
+            ruc,
+            dv: pickText(companySrc, 'dv'),
+            legal_name: legalName,
+            trade_name: tradeName,
+            company_type: pickText(companySrc, 'company_type', 'companyType'),
+            company_size_class: pickText(companySrc, 'company_size_class', 'companySizeClass'),
+            economic_activity: pickText(companySrc, 'economic_activity', 'economicActivity'),
+            founded_date: pickText(companySrc, 'founded_date', 'foundedDate'),
+          }
+        : null,
+      contacts: snap.contacts,
+    },
+  };
+}

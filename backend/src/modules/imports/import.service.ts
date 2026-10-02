@@ -1099,7 +1099,10 @@ export const importService = {
     const { deleted, sessionIds } =
       await verificationRepository.deleteUnvalidatedByImportBatch(batchId);
     if (sessionIds.length > 0) {
-      await prisma.intakeSession.deleteMany({ where: { id: { in: sessionIds } } });
+      await prisma.intakeSession.updateMany({
+        where: { id: { in: sessionIds } },
+        data: { deletedAt: new Date() },
+      });
     }
     if (deleted > 0) {
       intakeWs.notifyQueueChanged('import_cancelled');

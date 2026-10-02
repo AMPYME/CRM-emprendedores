@@ -3,12 +3,12 @@ import { prisma } from '../../config/database';
 import { verificationRepository } from './verification.repository';
 import { verificationQuerySchema, type VerificationQueryInput, type RejectVerificationInput } from './verification.validator';
 import type { VerificationDataPayload, VerificationListItem, VerificationClaimResult, VerificationValidateResult } from './verification.types';
-import { stagingRowToVerificationCreateInput } from './verification.mapper';
+import { stagingRowToVerificationCreateInput, buildVerificationSeedSnapshot } from './verification.mapper';
 import { importRepository } from '../imports/import.repository';
 import { importService } from '../imports/import.service';
 import { isUnifiedCsvSource } from '../imports/mapper.service';
 import { intakeRepository } from '../intake/intake.repository';
-import { seedIntakeFromVerificationPayload } from '../intake/intake.writer';
+import { markIntakeSubmitted, seedIntakeFromVerificationPayload } from '../intake/intake.writer';
 import { intakeService } from '../intake/intake.service';
 import { auditService } from '../audit/audit.service';
 import { PaginationMeta } from '../../shared/types/api-response.types';
@@ -27,6 +27,45 @@ import {
   IMPORT_VERIFICATION_INACTIVITY_TTL_MIN,
   ttlMinutesForVerificationSource,
 } from '../intake/intake-ttl';
+
+function intakeSnapshotHasData(
+  snapshot: {
+    person: { first_name: string | null; last_name: string | null; cedula: string | null } | null;
+    company: { legal_name: string | null; trade_name: string | null; ruc: string | null } | null;
+  } | null
+): boolean {
+  if (!snapshot) return false;
+  const person = snapshot.person;
+  const company = snapshot.company;
+  return !!(
+    person?.first_name ||
+    person?.last_name ||
+    person?.cedula ||
+    company?.legal_name ||
+    company?.trade_name ||
+    company?.ruc
+  );
+}
+
+async function seedVerificationSession(
+  item: Parameters<typeof buildVerificationSeedSnapshot>[0] & { id: string },
+  sessionId: string
+): Promise<void> {
+  const built = buildVerificationSeedSnapshot(item);
+  try {
+    await seedIntakeFromVerificationPayload(sessionId, built.entityType, built.snapshot);
+  } catch (err) {
+    logger.error('No se pudo precargar la verificación', {
+      verificationId: item.id,
+      message: err instanceof Error ? err.message : String(err),
+    });
+    await verificationRepository.releaseAny(item.id).catch(() => undefined);
+    await intakeRepository.deleteSession(sessionId).catch(() => undefined);
+    throw new BadRequestError(
+      'No se pudieron cargar los datos del registro. Intente reclamarlo de nuevo.'
+    );
+  }
+}
 
 function buildPaginationMeta(total: number, page: number, limit: number): PaginationMeta {
   const totalPages = Math.ceil(total / limit);
@@ -295,7 +334,15 @@ export const verificationService = {
         if (!item.assignedToId) {
           await verificationRepository.claimAtomic(id, userId);
         }
+        const current = await intakeRepository.getSnapshot(item.intakeSessionId);
+        if (!intakeSnapshotHasData(current)) {
+          await seedVerificationSession(item, item.intakeSessionId);
+        } else if (session.status === 'DRAFT') {
+          await markIntakeSubmitted(item.intakeSessionId);
+        }
         await verificationRepository.updateStatus(id, 'IN_REVIEW');
+        intakeWs.notifyQueueChanged('claimed');
+
         return {
           verificationId: id,
           intakeSessionId: item.intakeSessionId,
@@ -314,21 +361,16 @@ export const verificationService = {
       );
     }
 
-    const payload = item.data as unknown as VerificationDataPayload;
+    const seeded = buildVerificationSeedSnapshot(item);
     const ttlMinutes = ttlMinutesForVerificationSource(item.source);
     const { session, accessCode } = await intakeRepository.createSession(
       userId,
-      payload.entityType,
+      seeded.entityType,
       ttlMinutes
     );
 
     await verificationRepository.linkIntakeSession(id, session.session_id, userId);
-
-    await seedIntakeFromVerificationPayload(
-      session.session_id,
-      payload.entityType,
-      payload.snapshot as Parameters<typeof seedIntakeFromVerificationPayload>[2]
-    );
+    await seedVerificationSession(item, session.session_id);
 
     await auditService.log({
       action: 'VERIFICATION_CLAIM',
@@ -391,7 +433,10 @@ export const verificationService = {
       .filter((id): id is string => !!id);
 
     if (sessionIds.length > 0) {
-      await prisma.intakeSession.deleteMany({ where: { id: { in: sessionIds } } });
+      await prisma.intakeSession.updateMany({
+        where: { id: { in: sessionIds } },
+        data: { deletedAt: new Date() },
+      });
     }
 
     const result = await verificationRepository.releaseAllAssigned();

@@ -28,11 +28,40 @@ function clean(v: unknown): string | null {
   return t === '' ? null : t;
 }
 
+function clip(v: unknown, max: number): string | null {
+  const s = clean(v);
+  if (!s) return null;
+  return s.length > max ? s.slice(0, max) : s;
+}
+
 function parseDate(v: unknown): Date | null {
   const s = clean(v);
   if (!s) return null;
-  const d = new Date(s);
-  return Number.isNaN(d.getTime()) ? null : d;
+  const dmy = s.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/);
+  let d: Date;
+  if (dmy) {
+    const day = Number(dmy[1]);
+    const month = Number(dmy[2]);
+    const year = Number(dmy[3]);
+    d = new Date(Date.UTC(year, month - 1, day));
+    if (d.getUTCFullYear() !== year || d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) {
+      return null;
+    }
+  } else {
+    d = new Date(s);
+  }
+  if (Number.isNaN(d.getTime())) return null;
+  const year = d.getUTCFullYear();
+  if (year < 1900 || year > 2100) return null;
+  return d;
+}
+
+function toGender(v: unknown): Gender | null {
+  const s = (clean(v) ?? '').toUpperCase();
+  if (['MALE', 'M', 'H', 'HOMBRE', 'MASCULINO'].includes(s)) return 'MALE';
+  if (['FEMALE', 'F', 'MUJER', 'FEMENINO'].includes(s)) return 'FEMALE';
+  if (s === 'OTHER' || s === 'OTRO' || s === 'OTRA') return 'OTHER';
+  return null;
 }
 
 const CONTACT_TYPES: ContactType[] = [
@@ -70,14 +99,18 @@ export async function replaceIntakeSnapshot(
   const locCodes = locationInputToCodes(location);
 
   await prisma.$transaction(async (tx) => {
-    await tx.intakeEntity.deleteMany({ where: { sessionId } });
+    // Soft-delete (el middleware bloquea deleteMany físico en IntakeEntity)
+    await tx.intakeEntity.updateMany({
+      where: { sessionId },
+      data: { deletedAt: new Date() },
+    });
 
     const entityData: Prisma.IntakeEntityCreateInput = {
       session: { connect: { id: sessionId } },
       entityType,
-      province: locCodes.province || clean(location.province),
-      district: locCodes.district || clean(location.district),
-      corregimiento: locCodes.corregimiento || clean(location.corregimiento),
+      province: clip(locCodes.province || clean(location.province), 120),
+      district: clip(locCodes.district || clean(location.district), 120),
+      corregimiento: clip(locCodes.corregimiento || clean(location.corregimiento), 120),
       address: clean(location.address),
       notes,
       sourceOrigin: 'EMPRENDEDORES_INTAKE',
@@ -111,17 +144,15 @@ export async function replaceIntakeSnapshot(
     const createCompany = hasCompanyData || (entityType === 'COMPANY' && !hasPersonData);
 
     if (createPerson) {
-      const firstName = clean(person.firstName);
-      const lastName = clean(person.lastName);
-      const displayName =
-        [firstName, lastName].filter(Boolean).join(' ') || 'Sin nombre';
-      const genderRaw = (clean(person.gender) ?? '').toUpperCase();
-      const gender: Gender | null =
-        genderRaw === 'MALE' || genderRaw === 'FEMALE' || genderRaw === 'OTHER'
-          ? genderRaw
-          : null;
+      const firstName = clip(person.firstName, 120);
+      const lastName = clip(person.lastName, 120);
+      const displayName = clip(
+        [firstName, lastName].filter(Boolean).join(' ') || 'Sin nombre',
+        255
+      );
+      const gender = toGender(person.gender);
       const hasArtisanCard = parseBoolean(person.hasArtisanCard);
-      const cedula = clean(person.documentNumber) ?? clean(person.cedula);
+      const cedula = clip(person.documentNumber, 40) ?? clip(person.cedula, 40);
 
       await tx.intakeEntity.create({
         data: {
@@ -133,16 +164,16 @@ export async function replaceIntakeSnapshot(
               cedula,
               firstName,
               lastName,
-              secondLastName: clean(person.secondLastName),
+              secondLastName: clip(person.secondLastName, 120),
               gender,
               birthDate: parseDate(person.birthDate),
               nationalityCode: resolveNationalityCode(
                 clean(person.nationalityCode) ?? DEFAULT_NATIONALITY_CODE
               ),
-              educationLevel: clean(person.educationLevel),
-              occupation: clean(person.occupation),
-              businessName: clean(person.businessName),
-              economicActivity: clean(person.economicActivity)?.slice(0, 128),
+              educationLevel: clip(person.educationLevel, 120),
+              occupation: clip(person.occupation, 160),
+              businessName: clip(person.businessName, 200),
+              economicActivity: clip(person.economicActivity, 200),
               hasArtisanCard: hasArtisanCard ?? null,
             },
           },
@@ -153,14 +184,12 @@ export async function replaceIntakeSnapshot(
 
     if (createCompany) {
       const legalName =
-        clean(company.legalName) ??
-        clean(company.legalName) ??
-        clean(company.tradeName) ??
-        clean(company.tradeName) ??
+        clip(company.legalName, 200) ??
+        clip(company.tradeName, 200) ??
         'Empresa sin nombre';
-      const tradeName = clean(company.tradeName) ?? clean(company.tradeName);
-      const displayName = tradeName ?? legalName;
-      const economicActivity = clean(company.economicActivity)?.slice(0, 128);
+      const tradeName = clip(company.tradeName, 200);
+      const displayName = clip(tradeName ?? legalName, 255);
+      const economicActivity = clip(company.economicActivity, 200);
 
       await tx.intakeEntity.create({
         data: {
@@ -169,12 +198,12 @@ export async function replaceIntakeSnapshot(
           displayName,
           company: {
             create: {
-              ruc: clean(company.ruc),
-              dv: clean(company.dv),
+              ruc: clip(company.ruc, 60),
+              dv: clip(company.dv, 10),
               legalName,
               tradeName,
-              companyType: clean(company.companyType) ?? clean(company.companyType),
-              companySizeClass: toSizeClass(company.companySizeClass ?? company.companySizeClass),
+              companyType: clip(company.companyType, 80),
+              companySizeClass: toSizeClass(company.companySizeClass),
               economicActivity,
               foundedDate: parseDate(company.foundedDate ?? company.foundedDate),
             },
@@ -211,6 +240,33 @@ export async function markIntakeSubmitted(sessionId: string): Promise<void> {
   });
 }
 
+function textField(obj: Record<string, unknown>, ...keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = clean(obj[key]);
+    if (value) return value;
+  }
+  return undefined;
+}
+
+function normalizeSeedContacts(raw: unknown): IntakeUpdateBody['contacts'] {
+  if (!Array.isArray(raw)) return [];
+  const contacts: NonNullable<IntakeUpdateBody['contacts']> = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const row = item as Record<string, unknown>;
+    const contactValue = textField(row, 'contact_value', 'contactValue');
+    if (!contactValue) continue;
+    const primary = row.is_primary ?? row.isPrimary;
+    contacts.push({
+      contactType: textField(row, 'contact_type', 'contactType') ?? 'OTHER',
+      contactValue,
+      label: textField(row, 'label'),
+      isPrimary: primary === true || primary === 1 || primary === '1',
+    });
+  }
+  return contacts;
+}
+
 /**
  * Precarga una sesión intake desde datos de cola de verificación.
  * El operador ve el borrador en vivo por WebSocket al abrir /dashboard/intake/:id.
@@ -218,61 +274,64 @@ export async function markIntakeSubmitted(sessionId: string): Promise<void> {
 export async function seedIntakeFromVerificationPayload(
   sessionId: string,
   entityType: IntakeEntityType,
-  snapshot: {
-    location: { province?: string | null; district?: string | null; corregimiento?: string | null; address?: string | null };
+  snapshot?: {
+    location?: {
+      province?: string | null;
+      district?: string | null;
+      corregimiento?: string | null;
+      address?: string | null;
+    } | null;
     notes?: string | null;
     person?: Record<string, unknown> | null;
     company?: Record<string, unknown> | null;
-    contacts?: Array<{ contact_type: string; contact_value: string; label?: string | null; is_primary?: number }>;
-  }
+    contacts?: unknown;
+  } | null
 ): Promise<void> {
+  const loc = snapshot?.location ?? {};
+  const personSrc = snapshot?.person ?? null;
+  const companySrc = snapshot?.company ?? null;
   const body: IntakeUpdateBody = {
     location: {
-      province: snapshot.location.province ?? undefined,
-      district: snapshot.location.district ?? undefined,
-      corregimiento: snapshot.location.corregimiento ?? undefined,
-      address: snapshot.location.address ?? undefined,
+      province: loc.province ?? undefined,
+      district: loc.district ?? undefined,
+      corregimiento: loc.corregimiento ?? undefined,
+      address: loc.address ?? undefined,
     },
-    notes: snapshot.notes ?? undefined,
-    contacts: (snapshot.contacts ?? []).map((c) => ({
-      contactType: c.contact_type,
-      contactValue: c.contact_value,
-      label: c.label ?? undefined,
-      isPrimary: !!c.is_primary,
-    })),
+    notes: snapshot?.notes ?? undefined,
+    contacts: normalizeSeedContacts(snapshot?.contacts),
   };
 
-  if (snapshot.person) {
+  if (personSrc) {
     body.person = {
-      cedula: snapshot.person.cedula as string | undefined,
-      documentNumber: (snapshot.person.document_number ?? snapshot.person.cedula) as
-        | string
+      cedula: textField(personSrc, 'cedula'),
+      documentNumber: textField(personSrc, 'document_number', 'documentNumber', 'cedula'),
+      documentType: textField(personSrc, 'document_type', 'documentType'),
+      firstName: textField(personSrc, 'first_name', 'firstName'),
+      lastName: textField(personSrc, 'last_name', 'lastName'),
+      secondLastName: textField(personSrc, 'second_last_name', 'secondLastName'),
+      gender: textField(personSrc, 'gender'),
+      birthDate: textField(personSrc, 'birth_date', 'birthDate'),
+      nationalityCode: textField(personSrc, 'nationality_code', 'nationalityCode'),
+      educationLevel: textField(personSrc, 'education_level', 'educationLevel'),
+      occupation: textField(personSrc, 'occupation'),
+      businessName: textField(personSrc, 'business_name', 'businessName'),
+      economicActivity: textField(personSrc, 'economic_activity', 'economicActivity'),
+      hasArtisanCard: (personSrc.has_artisan_card ?? personSrc.hasArtisanCard) as
+        | boolean
         | undefined,
-      documentType: snapshot.person.document_type as string | undefined,
-      firstName: snapshot.person.first_name as string | undefined,
-      lastName: snapshot.person.last_name as string | undefined,
-      secondLastName: snapshot.person.second_last_name as string | undefined,
-      gender: snapshot.person.gender as string | undefined,
-      birthDate: snapshot.person.birth_date as string | undefined,
-      nationalityCode: snapshot.person.nationality_code as string | undefined,
-      educationLevel: snapshot.person.education_level as string | undefined,
-      occupation: snapshot.person.occupation as string | undefined,
-      businessName: snapshot.person.business_name as string | undefined,
-      economicActivity: snapshot.person.economic_activity as string | undefined,
-      hasArtisanCard: snapshot.person.has_artisan_card as boolean | undefined,
     };
   }
 
-  if (snapshot.company) {
+  if (companySrc) {
     body.company = {
-      ruc: snapshot.company.ruc as string | undefined,
-      dv: snapshot.company.dv as string | undefined,
-      legalName: snapshot.company.legal_name as string | undefined,
-      tradeName: snapshot.company.trade_name as string | undefined,
-      companyType: snapshot.company.company_type as string | undefined,
-      companySizeClass: snapshot.company.company_size_class as string | undefined,
-      economicActivity: snapshot.company.economic_activity as string | undefined,
-      foundedDate: snapshot.company.founded_date as string | undefined,
+      ruc: textField(companySrc, 'ruc'),
+      dv: textField(companySrc, 'dv'),
+      legalName: textField(companySrc, 'legal_name', 'legalName'),
+      tradeName: textField(companySrc, 'trade_name', 'tradeName'),
+      companyType: textField(companySrc, 'company_type', 'companyType'),
+      companySizeClass: textField(companySrc, 'company_size_class', 'companySizeClass'),
+      economicActivity: textField(companySrc, 'economic_activity', 'economicActivity'),
+      foundedDate: textField(companySrc, 'founded_date', 'foundedDate'),
     };
   }
 

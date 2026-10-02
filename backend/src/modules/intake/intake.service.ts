@@ -234,7 +234,10 @@ export const intakeService = {
             .join(' ');
 
           if (existing && onDuplicate === 'update') {
-            await tx.entityContact.deleteMany({ where: { entityId: existing.id } });
+            await tx.entityContact.updateMany({
+              where: { entityId: existing.id },
+              data: { deletedAt: new Date() },
+            });
             const entity = await tx.entity.update({
               where: { id: existing.id },
               data: {
@@ -331,7 +334,10 @@ export const intakeService = {
             : input.legalName;
 
           if (existing && onDuplicate === 'update') {
-            await tx.entityContact.deleteMany({ where: { entityId: existing.id } });
+            await tx.entityContact.updateMany({
+              where: { entityId: existing.id },
+              data: { deletedAt: new Date() },
+            });
             const entity = await tx.entity.update({
               where: { id: existing.id },
               data: {

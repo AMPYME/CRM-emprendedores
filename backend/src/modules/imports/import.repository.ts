@@ -183,17 +183,23 @@ export const importRepository = {
    * Elimina un lote de importacion y sus filas staging (cascade).
    */
   async deleteBatch(id: string): Promise<void> {
-    await prisma.importBatch.delete({ where: { id } });
+    await prisma.importBatch.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
   },
 
   /**
    * Limpia el batch para permitir reintento sin re-subir archivo.
-   * - Borra staging rows del batch
+   * - Soft-delete staging rows del batch
    * - Resetea stats/errores/timestamps y deja status en PENDING
    */
   async resetBatchForRetry(batchId: string): Promise<BatchWithRelations> {
     return prisma.$transaction(async (tx) => {
-      await tx.stagingRow.deleteMany({ where: { importBatchId: batchId } });
+      await tx.stagingRow.updateMany({
+        where: { importBatchId: batchId },
+        data: { deletedAt: new Date() },
+      });
 
       return tx.importBatch.update({
         where: { id: batchId },
