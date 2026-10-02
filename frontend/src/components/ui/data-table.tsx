@@ -97,13 +97,15 @@ export function TableHeaderCell({
 
 // ── Data cell ────────────────────────────────────────
 
-export function TableCell({ children, className, align = 'left' }: {
+export function TableCell({ children, className, align = 'left', colSpan }: {
   children: React.ReactNode;
   className?: string;
   align?: 'left' | 'center' | 'right';
+  colSpan?: number;
 }) {
   return (
     <td
+      colSpan={colSpan}
       className={cn(
         'whitespace-nowrap px-4 py-3 text-gray-700',
         align === 'center' && 'text-center',

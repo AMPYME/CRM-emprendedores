@@ -20,8 +20,10 @@
 FROM node:20-bookworm-slim AS build
 WORKDIR /app
 
-COPY package.json ./
-RUN npm install
+# Lockfile + npm ci: instalación determinista y más rápida que `npm install` sin lock.
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund \
+  && npm cache clean --force
 
 COPY tsconfig.json next.config.js next-env.d.ts ./
 COPY postcss.config.js tailwind.config.ts ./
