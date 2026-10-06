@@ -27,6 +27,23 @@ export const portfolioController = {
   },
 
   /**
+   * GET /api/v1/portfolios/export?from=YYYY-MM-DD&to=YYYY-MM-DD
+   * Excel de la sede asignada al usuario.
+   */
+  async exportXlsx(req: Request, res: Response): Promise<void> {
+    const { buffer, filename } = await portfolioService.exportXlsx(req.user, {
+      from: req.query.from,
+      to: req.query.to,
+    });
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
+  },
+
+  /**
    * GET /api/v1/entities/:entityId/portfolios
    * Registros de cartera de una entidad.
    */

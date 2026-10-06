@@ -344,4 +344,36 @@ export const portfolioRepository = {
 
     return { total, byStatus: statusCounts, overdue, upcoming, unmanaged };
   },
+
+  async findForExport(sedeId: string, from: Date, to: Date) {
+    return prisma.portfolioRecord.findMany({
+      where: {
+        sedeId,
+        deletedAt: null,
+        createdAt: { gte: from, lte: to },
+      },
+      include: {
+        entity: {
+          select: {
+            displayName: true,
+            entityType: true,
+            person: { select: { documentNumber: true, cedula: true } },
+            company: { select: { ruc: true } },
+          },
+        },
+        assignedTo: {
+          select: {
+            firstName: true,
+            lastName: true,
+            username: true,
+            departamento: { select: { name: true } },
+          },
+        },
+        sede: { select: { name: true } },
+        departamento: { select: { name: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+      take: 20000,
+    });
+  },
 };

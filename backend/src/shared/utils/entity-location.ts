@@ -54,6 +54,7 @@ export async function persistableLocationCodes(location: LocationInput, db: Db =
     create: { codProv: codes.province, nombre: provData?.nombre || codes.province },
     update: provData?.nombre ? { nombre: provData.nombre } : {},
   });
+  await upsertPoliticalDivision(db, codes.province, provData?.nombre || codes.province, 'PROVINCE', null);
 
   let district: string | undefined;
   if (codes.district) {
@@ -69,6 +70,13 @@ export async function persistableLocationCodes(location: LocationInput, db: Db =
         codProv: codes.province,
       },
     });
+    await upsertPoliticalDivision(
+      db,
+      codes.district,
+      distData?.nombre || codes.district,
+      'DISTRICT',
+      codes.province
+    );
     district = codes.district;
   }
 
@@ -86,8 +94,42 @@ export async function persistableLocationCodes(location: LocationInput, db: Db =
         codDist: district,
       },
     });
+    await upsertPoliticalDivision(
+      db,
+      codes.corregimiento,
+      corrNombre || codes.corregimiento,
+      'CORREGIMIENTO',
+      district
+    );
     corregimiento = codes.corregimiento;
   }
 
   return { province: codes.province, district, corregimiento };
+}
+
+async function upsertPoliticalDivision(
+  db: Db,
+  code: string,
+  name: string,
+  level: 'PROVINCE' | 'DISTRICT' | 'CORREGIMIENTO',
+  parentCode: string | null
+): Promise<void> {
+  const label = name.trim().slice(0, 150) || code;
+  try {
+    await db.$executeRaw`
+      INSERT INTO catalog.political_divisions (code, name, level, parent_code)
+      VALUES (
+        ${code},
+        ${label},
+        ${level}::catalog.political_division_level,
+        ${parentCode}
+      )
+      ON CONFLICT (code) DO UPDATE
+        SET name = EXCLUDED.name,
+            is_active = TRUE,
+            updated_at = NOW()
+    `;
+  } catch {
+    // Si el catálogo canónico no acepta el código, las columnas cod_* igual se guardan.
+  }
 }

@@ -37,6 +37,14 @@ function joinUrl(base: string, path: string): string {
   return `${b}${p}`;
 }
 
+function readProfileString(user: Record<string, unknown>, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = user[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return undefined;
+}
+
 function readToken(body: Record<string, unknown>, key: string): string | undefined {
   const v = body[key];
   return typeof v === 'string' ? v : undefined;
@@ -116,7 +124,13 @@ export async function adGetMe(baseUrl: string, accessToken: string): Promise<AdM
       email: typeof user.email === 'string' ? user.email : undefined,
       userPrincipalName:
         typeof user.userPrincipalName === 'string' ? user.userPrincipalName : undefined,
-      username: typeof user.username === 'string' ? user.username : undefined,
+      username: readProfileString(user, [
+        'username',
+        'userName',
+        'samAccountName',
+        'sAMAccountName',
+        'accountName',
+      ]),
       firstName: typeof user.firstName === 'string' ? user.firstName : undefined,
       lastName: typeof user.lastName === 'string' ? user.lastName : undefined,
       givenName: typeof user.givenName === 'string' ? user.givenName : undefined,

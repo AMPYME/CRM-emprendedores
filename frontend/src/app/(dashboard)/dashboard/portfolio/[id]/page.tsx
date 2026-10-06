@@ -32,12 +32,6 @@ const statusLabel: Record<string, string> = {
   NEW: 'Nuevo', IN_PROGRESS: 'En progreso', WAITING: 'En espera',
   RESOLVED: 'Resuelto', CLOSED: 'Cerrado',
 };
-const priorityBadge: Record<string, 'default' | 'primary' | 'success' | 'warning' | 'danger'> = {
-  LOW: 'default', MEDIUM: 'primary', HIGH: 'warning', URGENT: 'danger',
-};
-const priorityLabel: Record<string, string> = {
-  LOW: 'Baja', MEDIUM: 'Media', HIGH: 'Alta', URGENT: 'Urgente',
-};
 const actionTypeIcons: Record<string, React.ElementType> = {
   CALL: Phone, EMAIL_ACTION: Mail, WHATSAPP: MessageSquare,
   VISIT: Eye, MEETING: User, NOTE: FileText, DOCUMENT: FileText,
@@ -54,12 +48,6 @@ const statusOptions = [
   { value: 'WAITING', label: 'En espera' },
   { value: 'RESOLVED', label: 'Resuelto' },
   { value: 'CLOSED', label: 'Cerrado' },
-];
-const priorityOptions = [
-  { value: 'LOW', label: 'Baja' },
-  { value: 'MEDIUM', label: 'Media' },
-  { value: 'HIGH', label: 'Alta' },
-  { value: 'URGENT', label: 'Urgente' },
 ];
 const actionTypeOptions = [
   { value: 'CALL', label: 'Llamada' },
@@ -84,9 +72,8 @@ export default function PortfolioDetailPage() {
 
   const [activeTab, setActiveTab] = useState('info');
 
-  // Edit status/priority quick actions
   const [editOpen, setEditOpen] = useState(false);
-  const [editForm, setEditForm] = useState({ status: '', priority: '', nextFollowUpDate: '' });
+  const [editForm, setEditForm] = useState({ status: '', nextFollowUpDate: '' });
 
   // Add action modal
   const [actionOpen, setActionOpen] = useState(false);
@@ -102,7 +89,6 @@ export default function PortfolioDetailPage() {
     if (!record) return;
     setEditForm({
       status: record.status,
-      priority: record.priority,
       nextFollowUpDate: record.nextFollowUpDate ? record.nextFollowUpDate.slice(0, 10) : '',
     });
     setEditOpen(true);
@@ -115,7 +101,6 @@ export default function PortfolioDetailPage() {
         id: record.id,
         data: {
           status: editForm.status as any,
-          priority: editForm.priority as any,
           nextFollowUpDate: editForm.nextFollowUpDate || undefined,
         },
       });
@@ -178,9 +163,6 @@ export default function PortfolioDetailPage() {
             <Badge variant={statusBadge[record.status] || 'default'}>
               {statusLabel[record.status] || record.status}
             </Badge>
-            <Badge variant={priorityBadge[record.priority] || 'default'}>
-              {priorityLabel[record.priority] || record.priority}
-            </Badge>
             {record.category && <span className="text-xs text-gray-400">{record.category}</span>}
             {isOverdue && (
               <span className="flex items-center gap-1 text-xs text-red-600 font-medium">
@@ -227,7 +209,6 @@ export default function PortfolioDetailPage() {
                 <InfoRow label="Descripción" value={record.description} span2 />
                 <InfoRow label="Categoría" value={record.category} />
                 <InfoRow label="Estado" value={statusLabel[record.status]} />
-                <InfoRow label="Prioridad" value={priorityLabel[record.priority]} />
                 <InfoRow label="Próximo seguimiento" value={record.nextFollowUpDate ? formatDate(record.nextFollowUpDate) : null} />
                 {record.closedAt && (
                   <>
@@ -273,11 +254,11 @@ export default function PortfolioDetailPage() {
               {record.assignedTo ? (
                 <div className="space-y-1 text-sm">
                   <p className="font-medium text-gray-900">{record.assignedTo.username || '—'}</p>
-                  {record.sede?.name && (
-                    <p className="text-gray-500">{record.sede.name}</p>
-                  )}
                   {record.departamento?.name && (
                     <p className="text-gray-500">{record.departamento.name}</p>
+                  )}
+                  {record.sede?.name && (
+                    <p className="text-gray-500">{record.sede.name}</p>
                   )}
                 </div>
               ) : (
@@ -391,12 +372,6 @@ export default function PortfolioDetailPage() {
             options={statusOptions}
             value={editForm.status}
             onChange={(e) => setEditForm((p) => ({ ...p, status: e.target.value }))}
-          />
-          <Select
-            label="Prioridad"
-            options={priorityOptions}
-            value={editForm.priority}
-            onChange={(e) => setEditForm((p) => ({ ...p, priority: e.target.value }))}
           />
           <Input
             label="Próximo seguimiento"

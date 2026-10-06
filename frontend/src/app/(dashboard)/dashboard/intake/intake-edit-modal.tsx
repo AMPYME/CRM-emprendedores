@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { Modal } from '@/components/ui/modal';
 import { Input } from '@/components/ui/input';
@@ -172,8 +172,16 @@ export function IntakeEditModal({ isOpen, onClose, sessionId, snapshot, accessCo
     setError,
   } = useForm<FormValues>();
 
+  const formReady = useRef(false);
   useEffect(() => {
-    if (isOpen && snapshot) reset(snapshotToForm(snapshot));
+    if (!isOpen) {
+      formReady.current = false;
+      return;
+    }
+    if (snapshot && !formReady.current) {
+      reset(snapshotToForm(snapshot));
+      formReady.current = true;
+    }
   }, [isOpen, snapshot, reset]);
 
   const documentType = watch('documentType');
@@ -246,7 +254,6 @@ export function IntakeEditModal({ isOpen, onClose, sessionId, snapshot, accessCo
               error={errors.documentType?.message}
               {...register('documentType', {
                 required: 'Seleccione el tipo de documento',
-                onChange: () => setValue('documentNumber', ''),
               })}
             />
             <Input

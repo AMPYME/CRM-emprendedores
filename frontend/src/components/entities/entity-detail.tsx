@@ -26,7 +26,8 @@ import {
 } from '@/components/ui/table';
 import { useEntity, useEntityContacts } from '@/hooks/use-entities';
 import { useEntityRelationships } from '@/hooks/use-relationships';
-import { useEntityPortfolios } from '@/hooks/use-portfolio';
+import { useCreatePortfolio, useEntityPortfolios } from '@/hooks/use-portfolio';
+import { portfolioCategoryOptions } from '@/lib/portfolio.constants';
 import { formatDate, formatDateShort, cn } from '@/lib/utils';
 import {
   provinciaNombre,
@@ -190,6 +191,50 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
     amount: string;
   } | null>(null);
   const [savingSeed, setSavingSeed] = useState(false);
+  const createPortfolio = useCreatePortfolio();
+  const [portfolioOpen, setPortfolioOpen] = useState(false);
+  const [portfolioForm, setPortfolioForm] = useState({
+    subject: '',
+    category: '',
+    description: '',
+    nextFollowUpDate: '',
+  });
+
+  const openPortfolioModal = () => {
+    setPortfolioForm({
+      subject: '',
+      category: '',
+      description: '',
+      nextFollowUpDate: '',
+    });
+    setPortfolioOpen(true);
+  };
+
+  const submitPortfolio = async () => {
+    if (!portfolioForm.subject.trim()) {
+      toast.error('El asunto es obligatorio');
+      return;
+    }
+    try {
+      const record = await createPortfolio.mutateAsync({
+        entityId,
+        subject: portfolioForm.subject.trim(),
+        category: portfolioForm.category || undefined,
+        description: portfolioForm.description.trim() || undefined,
+        nextFollowUpDate: portfolioForm.nextFollowUpDate || undefined,
+      });
+      setPortfolioOpen(false);
+      router.push(`/dashboard/portfolio/${record.id}`);
+    } catch {
+      /* el hook ya muestra el error */
+    }
+  };
+
+  const portfolioCreateButton = !readOnly ? (
+    <Button size="sm" icon={<Plus className="h-4 w-4" />} onClick={openPortfolioModal}>
+      Nuevo registro
+    </Button>
+  ) : null;
 
   const openSeedEditor = (row?: CapitalSemillaRecord) => {
     setSeedEditor({
@@ -735,14 +780,19 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
               icon={FolderKanban}
               title="Sin registros de seguimiento"
               description="No hay registros de seguimiento para esta entidad."
+              action={portfolioCreateButton}
             />
           ) : (
+            <>
+            {portfolioCreateButton && (
+              <div className="mb-4 flex justify-end">{portfolioCreateButton}</div>
+            )}
             <Table>
               <TableHead>
                 <TableRow>
                   <TableHeaderCell>Asunto</TableHeaderCell>
+                  <TableHeaderCell>Fecha de creación</TableHeaderCell>
                   <TableHeaderCell>Estado</TableHeaderCell>
-                  <TableHeaderCell>Prioridad</TableHeaderCell>
                   <TableHeaderCell>Próximo seguimiento</TableHeaderCell>
                   <TableHeaderCell align="right">Ver</TableHeaderCell>
                 </TableRow>
@@ -755,11 +805,13 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                       {rec.category && <p className="text-xs text-gray-400">{rec.category}</p>}
                     </TableCell>
                     <TableCell>
+                      {rec.createdAt ? formatDateShort(rec.createdAt) : '—'}
+                    </TableCell>
+                    <TableCell>
                       <Badge variant={portfolioStatusBadge[rec.status] || 'default'}>
                         {portfolioStatusLabel[rec.status] || rec.status}
                       </Badge>
                     </TableCell>
-                    <TableCell>{rec.priority}</TableCell>
                     <TableCell>
                       {rec.nextFollowUpDate ? formatDateShort(rec.nextFollowUpDate) : '—'}
                     </TableCell>
@@ -777,7 +829,54 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                 ))}
               </TableBody>
             </Table>
+            </>
           )}
+          <Modal
+            isOpen={portfolioOpen}
+            onClose={() => setPortfolioOpen(false)}
+            title="Nuevo seguimiento"
+            description={`Caso de seguimiento para ${entity?.displayName || 'esta entidad'}`}
+            size="lg"
+            footer={
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setPortfolioOpen(false)}>Cancelar</Button>
+                <Button onClick={submitPortfolio} isLoading={createPortfolio.isPending}>
+                  Crear registro
+                </Button>
+              </div>
+            }
+          >
+            <div className="space-y-4">
+              <Input
+                label="Asunto *"
+                placeholder="Motivo del seguimiento..."
+                value={portfolioForm.subject}
+                onChange={(event) => setPortfolioForm((prev) => ({ ...prev, subject: event.target.value }))}
+              />
+              <Select
+                label="Categoría"
+                options={portfolioCategoryOptions}
+                value={portfolioForm.category}
+                onChange={(event) => setPortfolioForm((prev) => ({ ...prev, category: event.target.value }))}
+              />
+              <Input
+                label="Próximo seguimiento"
+                type="date"
+                value={portfolioForm.nextFollowUpDate}
+                onChange={(event) => setPortfolioForm((prev) => ({ ...prev, nextFollowUpDate: event.target.value }))}
+              />
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Descripción</label>
+                <textarea
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
+                  rows={3}
+                  placeholder="Detalles del caso..."
+                  value={portfolioForm.description}
+                  onChange={(event) => setPortfolioForm((prev) => ({ ...prev, description: event.target.value }))}
+                />
+              </div>
+            </div>
+          </Modal>
         </Card>
       )}
 

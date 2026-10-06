@@ -3,7 +3,8 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { FolderKanban, Plus, Eye, AlertTriangle } from 'lucide-react';
+import { FolderKanban, Plus, Eye, AlertTriangle, Download } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useForm } from 'react-hook-form';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,8 @@ import {
 } from '@/components/ui/table';
 import { usePortfolios, usePortfolioStats, useCreatePortfolio } from '@/hooks/use-portfolio';
 import { personsService } from '@/services/persons.service';
+import { portfolioService } from '@/services/portfolio.service';
+import { getApiErrorMessage } from '@/services/api-client';
 import { adminService } from '@/services/admin.service';
 import { usePagination } from '@/hooks/use-pagination';
 import { formatDateShort } from '@/lib/utils';
@@ -35,16 +38,6 @@ const statusOptions = [
   { value: 'CLOSED', label: 'Cerrado' },
 ];
 
-const priorityOptions = [
-  { value: '', label: 'Todas las prioridades' },
-  { value: 'LOW', label: 'Baja' },
-  { value: 'MEDIUM', label: 'Media' },
-  { value: 'HIGH', label: 'Alta' },
-  { value: 'URGENT', label: 'Urgente' },
-];
-
-const createPriorityOptions = priorityOptions.filter((o) => o.value !== '');
-
 const statusBadge: Record<string, 'default' | 'primary' | 'success' | 'warning' | 'danger'> = {
   NEW: 'primary',
   IN_PROGRESS: 'warning',
@@ -53,25 +46,19 @@ const statusBadge: Record<string, 'default' | 'primary' | 'success' | 'warning' 
   CLOSED: 'default',
 };
 
-const priorityBadge: Record<string, 'default' | 'primary' | 'success' | 'warning' | 'danger'> = {
-  LOW: 'default',
-  MEDIUM: 'primary',
-  HIGH: 'warning',
-  URGENT: 'danger',
-};
-
 const statusLabel: Record<string, string> = {
   NEW: 'Nuevo', IN_PROGRESS: 'En progreso', WAITING: 'En espera',
   RESOLVED: 'Resuelto', CLOSED: 'Cerrado',
 };
 
-const priorityLabel: Record<string, string> = {
-  LOW: 'Baja', MEDIUM: 'Media', HIGH: 'Alta', URGENT: 'Urgente',
-};
+function isoDate(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
 
 interface CreatePortfolioForm {
   subject: string;
-  priority: string;
   category: string;
   description: string;
   nextFollowUpDate: string;
@@ -97,7 +84,6 @@ export default function PortfolioPage() {
   const [documento, setDocumento] = useState('');
   const [documentoBuscado, setDocumentoBuscado] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState('');
-  const [priorityFilter, setPriorityFilter] = useState('');
   const [sedeFilter, setSedeFilter] = useState('');
   const [sedeReady, setSedeReady] = useState(false);
   const [departamentoFilter, setDepartamentoFilter] = useState('');
@@ -121,7 +107,6 @@ export default function PortfolioPage() {
     documento: documentoBuscado || undefined,
     status: statusFilter || undefined,
     excludeResolved: !statusFilter ? true : undefined,
-    priority: priorityFilter || undefined,
     sedeId: sedeFilter || undefined,
     departamentoId: departamentoFilter || undefined,
   });
@@ -146,11 +131,28 @@ export default function PortfolioPage() {
 
   const stats = usePortfolioStats();
   const createMutation = useCreatePortfolio();
+  const [exportFrom, setExportFrom] = useState(() => {
+    const now = new Date();
+    return isoDate(new Date(now.getFullYear(), now.getMonth(), 1));
+  });
+  const [exportTo, setExportTo] = useState(() => isoDate(new Date()));
+  const [exporting, setExporting] = useState(false);
+
+  const downloadExcel = async () => {
+    if (!user?.sede?.id) return;
+    setExporting(true);
+    try {
+      await portfolioService.downloadBySede(exportFrom, exportTo);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error));
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const { register, handleSubmit, reset, formState: { errors: formErrors } } = useForm<CreatePortfolioForm>({
     defaultValues: {
       subject: '',
-      priority: 'MEDIUM',
       category: '',
       description: '',
       nextFollowUpDate: '',
@@ -204,7 +206,6 @@ export default function PortfolioPage() {
       const record = await createMutation.mutateAsync({
         entityId: selectedEntityId,
         subject: formData.subject,
-        priority: formData.priority || undefined,
         category: formData.category || undefined,
         description: formData.description || undefined,
         nextFollowUpDate: formData.nextFollowUpDate || undefined,
@@ -224,9 +225,45 @@ export default function PortfolioPage() {
         title="Seguimiento"
         description="Gestión de casos y seguimiento de emprendedores"
         actions={
-          <Button icon={<Plus className="h-4 w-4" />} onClick={openCreate}>
-            Nuevo registro
-          </Button>
+          <div className="flex flex-col items-stretch gap-2 sm:items-end">
+            <div className="flex flex-wrap items-end gap-2">
+              <label className="text-xs font-medium text-gray-600">
+                Desde
+                <input
+                  type="date"
+                  value={exportFrom}
+                  onChange={(event) => setExportFrom(event.target.value)}
+                  className="mt-1 block h-9 rounded-lg border border-gray-300 px-2 text-sm text-gray-900"
+                />
+              </label>
+              <label className="text-xs font-medium text-gray-600">
+                Hasta
+                <input
+                  type="date"
+                  value={exportTo}
+                  onChange={(event) => setExportTo(event.target.value)}
+                  className="mt-1 block h-9 rounded-lg border border-gray-300 px-2 text-sm text-gray-900"
+                />
+              </label>
+              <Button
+                variant="outline"
+                icon={<Download className="h-4 w-4" />}
+                onClick={downloadExcel}
+                isLoading={exporting}
+                disabled={!user?.sede?.id}
+              >
+                Descargar Excel
+              </Button>
+              <Button icon={<Plus className="h-4 w-4" />} onClick={openCreate}>
+                Nuevo registro
+              </Button>
+            </div>
+            <p className="text-xs text-gray-500">
+              {user?.sede?.name
+                ? `El Excel incluye los seguimientos de ${user.sede.name}, según la fecha en que se crearon.`
+                : 'Tu usuario no tiene una sede asignada, así que no puede descargar el Excel.'}
+            </p>
+          </div>
         }
       />
 
@@ -275,9 +312,6 @@ export default function PortfolioPage() {
             <div className="w-full sm:w-52">
               <Select options={statusOptions} value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} />
             </div>
-            <div className="w-full sm:w-44">
-              <Select options={priorityOptions} value={priorityFilter} onChange={(e) => { setPriorityFilter(e.target.value); setPage(1); }} />
-            </div>
             <div className="w-full sm:w-52">
               <Select options={sedeOptions} value={sedeFilter} onChange={(e) => { setSedeFilter(e.target.value); setPage(1); }} />
             </div>
@@ -313,7 +347,6 @@ export default function PortfolioPage() {
                   <TableHeaderCell>Entidad</TableHeaderCell>
                   <TableHeaderCell>Act. económica</TableHeaderCell>
                   <TableHeaderCell>Estado</TableHeaderCell>
-                  <TableHeaderCell>Prioridad</TableHeaderCell>
                   <TableHeaderCell>Asignado a</TableHeaderCell>
                   <TableHeaderCell>Próximo seguimiento</TableHeaderCell>
                   <TableHeaderCell align="right">Ver</TableHeaderCell>
@@ -345,19 +378,14 @@ export default function PortfolioPage() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={priorityBadge[record.priority] || 'default'}>
-                          {priorityLabel[record.priority] || record.priority}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
                         {record.assignedTo ? (
                           <div className="flex flex-col gap-0.5 text-sm">
                             <span>{record.assignedTo.username || '—'}</span>
-                            {record.sede?.name && (
-                              <span className="text-gray-500">{record.sede.name}</span>
-                            )}
                             {record.departamento?.name && (
                               <span className="text-gray-500">{record.departamento.name}</span>
+                            )}
+                            {record.sede?.name && (
+                              <span className="text-gray-500">{record.sede.name}</span>
                             )}
                           </div>
                         ) : (
@@ -450,18 +478,11 @@ export default function PortfolioPage() {
             {...register('subject', { required: 'Requerido' })}
           />
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Select
-              label="Prioridad"
-              options={createPriorityOptions}
-              {...register('priority')}
-            />
-            <Select
-              label="Categoría"
-              options={portfolioCategoryOptions}
-              {...register('category')}
-            />
-          </div>
+          <Select
+            label="Categoría"
+            options={portfolioCategoryOptions}
+            {...register('category')}
+          />
 
           <Input
             label="Próximo seguimiento"

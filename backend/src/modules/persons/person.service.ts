@@ -101,6 +101,37 @@ export const personService = {
       }
     }
 
+    const personData: Prisma.PersonUpdateWithoutEntityInput = {};
+    if (input.birthDate) personData.birthDate = new Date(input.birthDate);
+    if (input.nationalityCode) personData.nationalityCode = input.nationalityCode;
+    if (input.hasArtisanCard !== undefined) personData.hasArtisanCard = input.hasArtisanCard;
+    if (input.educationLevel) personData.educationLevel = input.educationLevel;
+    if (input.occupation) personData.occupation = input.occupation;
+    if (input.businessName) personData.businessName = input.businessName;
+    if (input.economicActivity) personData.economicActivity = input.economicActivity;
+
+    const locationData: Prisma.EntityUncheckedUpdateInput = {
+      province: loc.province ?? null,
+      district: loc.district ?? null,
+      corregimiento: loc.corregimiento ?? null,
+      politicalDivisionCode: politicalCodeFromLoc(loc),
+      ...(input.notes !== undefined ? { notes: input.notes } : {}),
+      ...(input.economicActivity !== undefined
+        ? { actEc: input.economicActivity.trim() || null }
+        : {}),
+    };
+    try {
+      await personRepository.update(entityId, locationData, personData);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!msg.includes('entities_political_division_code_fkey') && !msg.includes('23503')) {
+        throw err;
+      }
+      const withoutPoliticalCode = { ...locationData };
+      delete withoutPoliticalCode.politicalDivisionCode;
+      await personRepository.update(entityId, withoutPoliticalCode, personData);
+    }
+
     const entity = await personRepository.findById(entityId);
     if (!entity) throw new NotFoundError('Persona', entityId);
     return entity;

@@ -67,6 +67,36 @@ export const portfolioService = {
     return res.data.data;
   },
 
+  async downloadBySede(from: string, to: string): Promise<void> {
+    const res = await apiClient.get('/portfolios/export', {
+      params: { from, to },
+      responseType: 'blob',
+      timeout: 120000,
+    });
+    const blob = res.data as Blob;
+    const contentType = String(res.headers['content-type'] || blob.type || '');
+    if (contentType.includes('application/json')) {
+      const text = await blob.text();
+      let message = 'No se pudo descargar el archivo';
+      try {
+        const parsed = JSON.parse(text) as { error?: { message?: string } };
+        if (parsed.error?.message) message = parsed.error.message;
+      } catch {
+        /* el cuerpo no era JSON */
+      }
+      throw new Error(message);
+    }
+    const disposition = String(res.headers['content-disposition'] || '');
+    const match = disposition.match(/filename="([^"]+)"/);
+    const filename = match?.[1] || `seguimientos_${from}_${to}.xlsx`;
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  },
+
   // Acciones
   async listActions(portfolioId: string): Promise<PortfolioAction[]> {
     const res = await apiClient.get<ApiResponse<PortfolioAction[]>>(`/portfolios/${portfolioId}/actions`);

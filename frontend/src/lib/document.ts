@@ -5,6 +5,7 @@
 export type DocumentTypeValue = 'CEDULA_NUMERO' | 'CEDULA_LETRA' | 'PASAPORTE';
 
 const CEDULA_NUMERO_RE = /^\d+-\d+-\d+$/;
+const CEDULA_SOLO_DIGITOS_RE = /^\d{5,15}$/;
 const CEDULA_LETRA_RE = /^(E|PE|N)-\d+-\d+$/i;
 const PASAPORTE_RE = /^[A-Z0-9]{1,20}$/;
 
@@ -38,8 +39,8 @@ export function validateDocumentNumber(
   const value = normalizeDocumentNumber(documentType, documentNumber)!;
 
   if (documentType === 'CEDULA_NUMERO') {
-    if (!CEDULA_NUMERO_RE.test(value)) {
-      return 'Formato inválido. Use solo números y dos guiones (ej. 8-554-6674)';
+    if (!CEDULA_NUMERO_RE.test(value) && !CEDULA_SOLO_DIGITOS_RE.test(value)) {
+      return 'Formato inválido. Use solo números y dos guiones (ej. 8-554-6674) o solo dígitos';
     }
     return null;
   }
@@ -67,10 +68,10 @@ export function inferDocumentType(
 ): DocumentTypeValue | undefined {
   if (!documentNumber?.trim()) return undefined;
   const raw = documentNumber.trim();
-  if (CEDULA_NUMERO_RE.test(raw)) return 'CEDULA_NUMERO';
+  if (CEDULA_NUMERO_RE.test(raw) || CEDULA_SOLO_DIGITOS_RE.test(raw)) return 'CEDULA_NUMERO';
   if (CEDULA_LETRA_RE.test(raw)) return 'CEDULA_LETRA';
   const upper = raw.toUpperCase();
-  if (!upper.includes('-') && PASAPORTE_RE.test(upper)) return 'PASAPORTE';
+  if (/[A-Z]/.test(upper) && !upper.includes('-') && PASAPORTE_RE.test(upper)) return 'PASAPORTE';
   return undefined;
 }
 

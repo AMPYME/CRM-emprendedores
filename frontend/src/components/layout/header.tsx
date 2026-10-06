@@ -32,6 +32,13 @@ function sectionTitle(pathname: string | null): string {
   return match?.title ?? 'Dashboard';
 }
 
+function adUsername(user: { username?: string | null; email: string }): string {
+  const username = user.username?.trim();
+  if (username && !username.includes('@')) return username;
+  const local = user.email.split('@')[0]?.trim();
+  return local || username || user.email;
+}
+
 function initials(username?: string | null, firstName?: string, lastName?: string): string {
   const fromUser = username?.trim().charAt(0);
   if (fromUser) return fromUser.toUpperCase();
@@ -81,11 +88,11 @@ export function Header({ onMenuClick }: HeaderProps) {
           <>
             <div className="flex items-center gap-2 rounded-lg py-1 pl-1 pr-2">
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">
-                {initials(user.username, user.firstName, user.lastName)}
+                {initials(adUsername(user), user.firstName, user.lastName)}
               </span>
               <span className="hidden text-left sm:block">
                 <span className="block text-sm font-medium leading-tight text-slate-900">
-                  {user.email}
+                  {adUsername(user)}
                 </span>
                 <span className="block max-w-[180px] truncate text-xs text-slate-500">
                   {user.sede?.name || 'Sin sede'}

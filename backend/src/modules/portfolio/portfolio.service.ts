@@ -14,7 +14,10 @@ import {
 import {
   NotFoundError,
   BadRequestError,
+  ForbiddenError,
 } from '../../shared/errors/app-error';
+import type { AuthUser } from '../auth/auth.types';
+import * as XLSX from 'xlsx';
 import { PaginationMeta } from '../../shared/types/api-response.types';
 import { auditService, AuditActor } from '../audit/audit.service';
 import { actorContext, cambios } from '../audit/audit-snapshot';
@@ -60,6 +63,84 @@ export const portfolioService = {
       throw new NotFoundError('Registro de cartera', id);
     }
     return record;
+  },
+
+  /**
+   * Excel de seguimientos de la sede del usuario, por fecha de creación.
+   */
+  async exportXlsx(user: AuthUser | undefined, query: { from?: unknown; to?: unknown }) {
+    const sedeId = user?.sede?.id;
+    if (!sedeId) {
+      throw new ForbiddenError('Solo puedes descargar los seguimientos de tu sede, y tu usuario no tiene una sede asignada');
+    }
+
+    const fromRaw = typeof query.from === 'string' ? query.from : '';
+    const toRaw = typeof query.to === 'string' ? query.to : '';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fromRaw) || !/^\d{4}-\d{2}-\d{2}$/.test(toRaw)) {
+      throw new BadRequestError('Indica la fecha inicial y la fecha final (AAAA-MM-DD)');
+    }
+    const from = new Date(`${fromRaw}T00:00:00.000-05:00`);
+    const to = new Date(`${toRaw}T23:59:59.999-05:00`);
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || from > to) {
+      throw new BadRequestError('El rango de fechas no es válido');
+    }
+
+    const rows = await portfolioRepository.findForExport(sedeId, from, to);
+    const statusLabel: Record<string, string> = {
+      NEW: 'Nuevo',
+      IN_PROGRESS: 'En progreso',
+      WAITING: 'En espera',
+      RESOLVED: 'Resuelto',
+      CLOSED: 'Cerrado',
+    };
+    const sheetRows = rows.map((row) => {
+      const atendio = row.assignedTo?.username?.trim()
+        || (row.assignedTo
+          ? `${row.assignedTo.firstName} ${row.assignedTo.lastName}`.trim()
+          : '');
+      const documento =
+        row.entity.person?.documentNumber ||
+        row.entity.person?.cedula ||
+        row.entity.company?.ruc ||
+        '';
+      return {
+        'Fecha de creación': row.createdAt.toLocaleString('es-PA', { timeZone: 'America/Panama' }),
+        Sede: row.sede?.name || user?.sede?.name || '',
+        Departamento: row.departamento?.name || row.assignedTo?.departamento?.name || '',
+        'Usuario que atendió': atendio || row.assignedTo?.username || '',
+        Asunto: row.subject,
+        Entidad: row.entity.displayName,
+        Documento: documento,
+        Estado: statusLabel[row.status] || row.status,
+        Categoría: row.category || '',
+        Descripción: row.description || '',
+      };
+    });
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(
+      sheetRows.length
+        ? sheetRows
+        : [{
+            'Fecha de creación': '',
+            Sede: user?.sede?.name || '',
+            Departamento: '',
+            'Usuario que atendió': '',
+            Asunto: '',
+            Entidad: '',
+            Documento: '',
+            Estado: '',
+            Categoría: '',
+            Descripción: 'No hay seguimientos en este rango',
+          }]
+    );
+    XLSX.utils.book_append_sheet(wb, ws, 'Seguimientos');
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
+    const safeName = (user?.sede?.name || 'sede').replace(/[^\w\-]+/g, '_').slice(0, 40);
+    return {
+      buffer,
+      filename: `seguimientos_${safeName}_${fromRaw}_${toRaw}.xlsx`,
+    };
   },
 
   /**

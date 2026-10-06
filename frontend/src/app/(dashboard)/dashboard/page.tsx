@@ -9,6 +9,7 @@ import { useCompanies } from '@/hooks/use-companies';
 import { useEvents } from '@/hooks/use-events';
 import { useAuthStore } from '@/stores/auth.store';
 import { canAccessImports, canAccessNav, isReadOnlyRole } from '@/lib/roles';
+import { DemographicCharts } from '@/components/dashboard/demographic-charts';
 
 function DashboardScene() {
   return (
@@ -180,6 +181,8 @@ export default function DashboardPage() {
             )}
           </section>
         )}
+
+        <DemographicCharts />
 
         <hr className="mb-8 border-slate-200" />
 

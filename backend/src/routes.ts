@@ -38,6 +38,7 @@ import { capitalSemillaRoutes } from './modules/capital-semilla/capital-semilla.
 import { personChangeRoutes } from './modules/person-changes/person-change.routes';
 import { siepRoutes } from './modules/siep/siep.routes';
 import { sedeRoutes } from './modules/sedes/sede.routes';
+import { demographicsRoutes } from './modules/stats/demographics.routes';
 import { departamentoRoutes } from './modules/departamentos/departamento.routes';
 import { userAdminRoutes } from './modules/users/user.routes';
 
@@ -45,6 +46,7 @@ export const apiRouter = Router();
 
 // ── Módulo de salud ─────────────────────────────────────────────
 apiRouter.use('/health', healthRoutes);
+apiRouter.use('/stats/demographics', demographicsRoutes);
 
 // ── CRUD maestro (FASE 4) ───────────────────────────────────────
 apiRouter.use('/entities', entityRoutes);

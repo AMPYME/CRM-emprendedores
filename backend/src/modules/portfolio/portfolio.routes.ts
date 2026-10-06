@@ -45,6 +45,12 @@ portfolioRoutes.get(
   asyncHandler(portfolioController.getStats)
 );
 
+portfolioRoutes.get(
+  '/export',
+  protect,
+  asyncHandler(portfolioController.exportXlsx)
+);
+
 portfolioRoutes.post(
   '/',
   protect,
