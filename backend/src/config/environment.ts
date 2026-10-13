@@ -51,31 +51,26 @@ export const config = {
   rateLimitMaxRequests: parseInt(requiredEnv('RATE_LIMIT_MAX_REQUESTS', '3000'), 10),
 
   /**
-   * API interna de usuarios (AD-user-api). Obligatoria: el CRM solo autentica vía AD.
-   * Ej: http://api-adusers.ampyme.local
+   * Login central de Entra. El backend canjea el código; el navegador solo inicia el login.
+   * Desde Docker: http://host.docker.internal:8080. Desde el host: http://localhost:8080.
    */
-  adApiBaseUrl: (process.env.AD_API_BASE_URL || '').trim() || undefined,
+  entraApiBaseUrl: (process.env.ENTRA_API_BASE_URL || '').trim() || undefined,
+  entraClientId: (process.env.EMPRENDEDORES_CLIENT_ID || '00000000-0000-4000-8000-000000000004').trim(),
+  entraClientSecret: (process.env.EMPRENDEDORES_APP_SECRET || '').trim() || undefined,
 
-  /** Si el usuario AD no existe en el CRM, crearlo con rol EMPREND_OPERADOR. */
-  adAutoProvision: process.env.AD_AUTO_PROVISION !== 'false',
-
-  /**
-   * Dominio para armar email cuando el usuario escribe solo el login (sin @).
-   * Ej: ampyme.gob.pa → usuario queda usuario@ampyme.gob.pa
-   */
-  adEmailDomain: (process.env.AD_EMAIL_DOMAIN || '').trim() || undefined,
+  /** Si el funcionario de Entra no existe en el CRM, crearlo. */
+  entraAutoProvision: process.env.ENTRA_AUTO_PROVISION !== 'false',
 
   /**
-   * Nombre(s) de rol en la API interna (GET /api/auth/me → user.roles, típicamente en MAYÚSCULAS en BD).
-   * El usuario debe tener al menos uno (se normaliza a mayúsculas para comparar).
-   * AD_SKIP_ROLE_CHECK=true desactiva la validación (solo desarrollo).
+   * Roles de Entra (POST /api/auth/exchange → roles). El usuario debe tener al menos uno.
+   * ENTRA_SKIP_ROLE_CHECK=true desactiva la validación (solo desarrollo).
    */
-  adRequiredAppRoleSlugs: (process.env.AD_REQUIRED_APP_ROLES || 'EMPREND_OPERADOR,EMPREND_VIEWER,EMPREND_ADMIN,ADMIN,SUPER_ADMIN')
+  entraRequiredAppRoleSlugs: (process.env.ENTRA_REQUIRED_APP_ROLES || 'EMPREND_OPERADOR,EMPREND_VIEWER,EMPREND_ADMIN,ADMIN,SUPER_ADMIN')
     .split(',')
     .map((s) => s.trim().toUpperCase())
     .filter(Boolean),
 
-  adSkipRoleCheck: process.env.AD_SKIP_ROLE_CHECK === 'true',
+  entraSkipRoleCheck: process.env.ENTRA_SKIP_ROLE_CHECK === 'true',
 
   // ── Intake de Emprendedores (PostgreSQL temporal → WebSocket → CRM) ──
   /** Ruta del servidor WebSocket de intake. */

@@ -25,7 +25,7 @@ import { portfolioService } from '@/services/portfolio.service';
 import { getApiErrorMessage } from '@/services/api-client';
 import { adminService } from '@/services/admin.service';
 import { usePagination } from '@/hooks/use-pagination';
-import { formatDateShort } from '@/lib/utils';
+import { formatDateShortOnly, toDateOnlyString } from '@/lib/utils';
 import { portfolioCategoryOptions } from '@/lib/portfolio.constants';
 import { useAuthStore } from '@/stores/auth.store';
 
@@ -224,8 +224,9 @@ export default function PortfolioPage() {
       <PageHeader
         title="Seguimiento"
         description="Gestión de casos y seguimiento de emprendedores"
+        className="mb-2 sm:mb-4"
         actions={
-          <div className="flex flex-col items-stretch gap-2 sm:items-end">
+          <div className="mb-4 flex flex-col items-stretch gap-2 pb-2 sm:mb-6 sm:items-end sm:pb-3">
             <div className="flex flex-wrap items-end gap-2">
               <label className="text-xs font-medium text-gray-600">
                 Desde
@@ -255,7 +256,7 @@ export default function PortfolioPage() {
                 Descargar Excel
               </Button>
               <Button icon={<Plus className="h-4 w-4" />} onClick={openCreate}>
-                Nuevo registro
+                Nuevo Seguimiento
               </Button>
             </div>
             <p className="text-xs text-gray-500">
@@ -354,7 +355,10 @@ export default function PortfolioPage() {
               </TableHead>
               <TableBody>
                 {records.map((record) => {
-                  const isOverdue = record.nextFollowUpDate && new Date(record.nextFollowUpDate) < new Date();
+                  const followUpYmd = record.nextFollowUpDate
+                    ? toDateOnlyString(record.nextFollowUpDate)
+                    : '';
+                  const isOverdue = Boolean(followUpYmd && followUpYmd < toDateOnlyString(new Date()));
                   const actEc = actEcDeEntidad(record.entity as Parameters<typeof actEcDeEntidad>[0]);
                   return (
                     <TableRow key={record.id}>
@@ -396,7 +400,7 @@ export default function PortfolioPage() {
                         {record.nextFollowUpDate ? (
                           <span className={isOverdue ? 'flex items-center gap-1 text-red-600 font-medium' : ''}>
                             {isOverdue && <AlertTriangle className="h-3 w-3" />}
-                            {formatDateShort(record.nextFollowUpDate)}
+                            {formatDateShortOnly(record.nextFollowUpDate)}
                           </span>
                         ) : <span className="text-gray-400">—</span>}
                       </TableCell>

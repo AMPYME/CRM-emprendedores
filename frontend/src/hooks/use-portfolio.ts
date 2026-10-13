@@ -61,7 +61,8 @@ export function useUpdatePortfolio() {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: Parameters<typeof portfolioService.update>[1] }) =>
       portfolioService.update(id, data),
-    onSuccess: () => {
+    onSuccess: (updated, variables) => {
+      qc.setQueryData([PORTFOLIO_KEY, variables.id], updated);
       qc.invalidateQueries({ queryKey: [PORTFOLIO_KEY] });
       qc.invalidateQueries({ queryKey: [PORTFOLIO_STATS_KEY] });
       toast.success('Registro actualizado');

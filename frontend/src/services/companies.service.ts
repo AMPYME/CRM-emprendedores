@@ -13,6 +13,8 @@ export interface CompanyFilters extends PaginationParams {
   ruc?: string;
   companyType?: string;
   companySizeClass?: string;
+  cinuCategoryId?: string;
+  cinuDivisionId?: string;
 }
 
 /**

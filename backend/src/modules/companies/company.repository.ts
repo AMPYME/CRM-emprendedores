@@ -11,6 +11,7 @@ import {
   COMPANY_LIST_INCLUDES,
 } from '../../shared/types/entity.types';
 import { PaginatedResult } from '../../shared/types/api-response.types';
+import { economicActivitiesRepository } from '../economic-activities/economic-activities.repository';
 
 const detailIncludes = {
   company: true,
@@ -66,6 +67,14 @@ export const companyRepository = {
     if (filters.companyType) companyWhere.companyType = { contains: filters.companyType, mode: 'insensitive' };
     if (filters.companySizeClass) companyWhere.companySizeClass = filters.companySizeClass;
     if (Object.keys(companyWhere).length > 0) where.company = companyWhere;
+
+    if (filters.cinuDivisionId || filters.cinuCategoryId) {
+      const entityIds = await economicActivitiesRepository.listEntityIdsByCinuFilter({
+        categoryId: filters.cinuCategoryId,
+        divisionId: filters.cinuDivisionId,
+      });
+      where.id = { in: entityIds.length > 0 ? entityIds : ['__none__'] };
+    }
 
     if (filters.search) {
       where.OR = [

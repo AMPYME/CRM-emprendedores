@@ -7,10 +7,11 @@ import toast from 'react-hot-toast';
 
 const PERSONS_KEY = 'persons';
 
-export function usePersons(filters: PersonFilters = {}) {
+export function usePersons(filters: PersonFilters = {}, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: [PERSONS_KEY, filters],
     queryFn: () => personsService.list(filters),
+    enabled: options?.enabled ?? true,
   });
 }
 

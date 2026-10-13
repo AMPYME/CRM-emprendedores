@@ -2,24 +2,16 @@
 
 import { useEffect, useState, type MouseEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import toast from 'react-hot-toast';
 import { Loader2 } from 'lucide-react';
 import { authService } from '@/services/auth.service';
+import { entraSessionService } from '@/services/entra-session.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { getApiErrorMessage } from '@/services/api-client';
+import { ENTRA_API_URL, ENTRA_CLIENT_ID, entraReturnUrl } from '@/lib/entra';
 
 const CENTRO_INTERNA = 'https://aplicaciones.ampyme.local/';
 const CENTRO_PUBLICA = 'http://programas.ampyme.gob.pa/aplicaciones';
-
-const loginSchema = z.object({
-  email: z.string().min(1, 'Usuario o correo requerido'),
-  password: z.string().min(1, 'La contraseña es requerida'),
-});
-
-type LoginFormData = z.infer<typeof loginSchema>;
 
 async function resolverUrlCentro(timeoutMs = 2000): Promise<string> {
   const controller = new AbortController();
@@ -44,41 +36,60 @@ export default function LoginPage() {
   const { setAuth } = useAuthStore();
   const [centroHref, setCentroHref] = useState(CENTRO_PUBLICA);
   const [volviendo, setVolviendo] = useState(false);
-
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    formState: { errors, isSubmitting },
-  } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: { email: '', password: '' },
-  });
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     void resolverUrlCentro().then(setCentroHref);
 
     const params = new URLSearchParams(window.location.search);
-    const emailFromQuery = params.get('email');
-    const hadSecrets = params.has('password') || params.has('email');
+    const code = params.get('code');
+    if (!code) return;
 
-    if (emailFromQuery && !params.has('password')) {
-      setValue('email', emailFromQuery);
-    }
+    const guard = `entra-exchange:${code}`;
+    if (sessionStorage.getItem(guard)) return;
+    sessionStorage.setItem(guard, '1');
+    window.history.replaceState(null, '', '/login');
 
-    if (hadSecrets) {
-      window.history.replaceState(null, '', '/login');
-    }
-  }, [setValue]);
+    setBusy(true);
+    authService
+      .exchange(code)
+      .then(async (result) => {
+        setAuth(result.user, result.accessToken, result.refreshToken);
+        // Captura csrfToken de la sesión central (misma cookie del login Entra).
+        const me = await entraSessionService.me();
+        if (me.kind === 'ok') {
+          useAuthStore.getState().setCsrfToken(me.data.csrfToken ?? null);
+        }
+        toast.success(`¡Bienvenido, ${result.user.firstName}!`);
+        router.replace('/dashboard');
+      })
+      .catch((error) => {
+        sessionStorage.removeItem(guard);
+        setBusy(false);
+        toast.error(getApiErrorMessage(error));
+      });
+  }, [router, setAuth]);
 
-  const onSubmit = async (data: LoginFormData) => {
+  const ingresarConMicrosoft = async () => {
+    if (busy) return;
+    setBusy(true);
     try {
-      const result = await authService.login(data);
-      setAuth(result.user, result.accessToken, result.refreshToken, result.adAccessToken);
-      toast.success(`¡Bienvenido, ${result.user.firstName}!`);
-      router.replace('/dashboard');
-    } catch (error) {
-      toast.error(getApiErrorMessage(error));
+      const response = await fetch(`${ENTRA_API_URL}/api/auth/login`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId: ENTRA_CLIENT_ID, returnUrl: entraReturnUrl() }),
+      });
+      const data = (await response.json()) as { url?: string; error?: string };
+      if (!response.ok || !data.url) {
+        setBusy(false);
+        toast.error(data.error || 'No se pudo iniciar el ingreso');
+        return;
+      }
+      window.location.assign(data.url);
+    } catch {
+      setBusy(false);
+      toast.error('No se pudo contactar el servicio de identidad');
     }
   };
 
@@ -120,16 +131,7 @@ export default function LoginPage() {
       {/* Formulario */}
       <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto bg-slate-50 lg:w-1/3">
         <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-5 py-6 sm:px-8">
-          <form
-            method="post"
-            action="/login"
-            autoComplete="on"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void handleSubmit(onSubmit)(e);
-            }}
-            className="flex w-full flex-col rounded-lg bg-white p-6 shadow-sm ring-1 ring-slate-200/80 sm:p-8"
-          >
+          <div className="flex w-full flex-col rounded-lg bg-white p-6 shadow-sm ring-1 ring-slate-200/80 sm:p-8">
             <a
               href={centroHref}
               onClick={volverAlCentro}
@@ -167,61 +169,30 @@ export default function LoginPage() {
 
             <p className="mb-4 text-lg font-semibold text-slate-800">Acceso Usuario</p>
 
-            <label htmlFor="username" className="mb-1.5 text-sm font-semibold text-slate-800">
-              Usuario
-              <span className="ml-0.5 text-red-500">*</span>
-            </label>
-            <input
-              id="username"
-              type="text"
-              autoComplete="username"
-              placeholder="Usuario"
-              className={`w-full rounded-lg border-[1.2px] bg-slate-50 px-3 py-2.5 text-base text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#0066A1] ${
-                errors.email ? 'border-red-400' : 'border-slate-200'
-              }`}
-              {...register('email')}
-            />
-            {errors.email && (
-              <p className="mt-1 text-sm text-red-500">{errors.email.message}</p>
-            )}
-
-            <label htmlFor="password" className="mb-1.5 mt-4 text-sm font-semibold text-slate-800">
-              Contraseña
-              <span className="ml-0.5 text-red-500">*</span>
-            </label>
-            <input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              placeholder="Contraseña"
-              className={`w-full rounded-lg border-[1.2px] bg-slate-50 px-3 py-2.5 text-base text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#0066A1] ${
-                errors.password ? 'border-red-400' : 'border-slate-200'
-              }`}
-              {...register('password')}
-            />
-            {errors.password && (
-              <p className="mt-1 text-sm text-red-500">{errors.password.message}</p>
-            )}
-
-            <p className="mt-3 text-sm text-slate-500">
-              Pantalla solo para uso interno. Si no tienes una cuenta, contacta it@ampyme.gob.pa.
+            <p className="text-sm text-slate-500">
+              El ingreso usa la cuenta institucional de Microsoft. No se pide contraseña en esta pantalla.
             </p>
 
             <button
-              type="submit"
-              disabled={isSubmitting}
+              type="button"
+              disabled={busy}
+              onClick={() => void ingresarConMicrosoft()}
               className="mt-5 w-full rounded-lg bg-[#10B981] py-3 text-base font-semibold text-white transition-colors hover:bg-[#059669] active:bg-[#047857] disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {isSubmitting ? (
+              {busy ? (
                 <span className="inline-flex items-center justify-center gap-2">
                   <Loader2 className="h-5 w-5 animate-spin" />
                   Iniciando sesión...
                 </span>
               ) : (
-                'Acceder'
+                'Ingresar con Microsoft'
               )}
             </button>
-          </form>
+
+            <p className="mt-3 text-sm text-slate-500">
+              Pantalla solo para uso interno. Si no tienes acceso, contacta it@ampyme.gob.pa.
+            </p>
+          </div>
 
           <footer className="mt-4 shrink-0 pb-2 text-center text-xs text-slate-500">
             © 2026 Autoridad de la Micro, Pequeña y Mediana Empresa. Todos los derechos reservados.

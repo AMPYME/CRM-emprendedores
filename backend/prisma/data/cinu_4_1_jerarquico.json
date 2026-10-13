@@ -1,0 +1,5210 @@
+{
+  "fuente": "Manual CINU 4.1, INEC Panama, octubre 2018",
+  "estructura": "categoria > division > grupo > clase > subclase (cuando exista)",
+  "categorias": [
+    {
+      "codigo": "A",
+      "nombre": "AGRICULTURA, GANADERÍA, CAZA, SILVICULTURA, PESCA Y ACTIVIDADES DE SERVICIOS CONEXAS",
+      "divisiones": [
+        {
+          "codigo": "01",
+          "nombre": "Agricultura, ganadería, caza y actividades de servicios conexas",
+          "grupos": [
+            {
+              "codigo": "011",
+              "nombre": "Cultivo de productos no perennes",
+              "clases": [
+                {
+                  "codigo": "0111",
+                  "nombre": "Cultivo de cereales (excepto arroz y maíz), legumbres y semillas oleaginosas"
+                },
+                {
+                  "codigo": "0112",
+                  "nombre": "Cultivo de arroz"
+                },
+                {
+                  "codigo": "0113",
+                  "nombre": "Cultivo de vegetales, raíces y tubérculos"
+                },
+                {
+                  "codigo": "0114",
+                  "nombre": "Cultivo de caña de azúcar"
+                },
+                {
+                  "codigo": "0115",
+                  "nombre": "Cultivo de tabaco"
+                },
+                {
+                  "codigo": "0116",
+                  "nombre": "Cultivo de fibras"
+                },
+                {
+                  "codigo": "0117",
+                  "nombre": "Cultivo de maíz"
+                },
+                {
+                  "codigo": "0119",
+                  "nombre": "Cultivo de otros productos no perennes"
+                }
+              ]
+            },
+            {
+              "codigo": "012",
+              "nombre": "Cultivo de productos perennes",
+              "clases": [
+                {
+                  "codigo": "0122",
+                  "nombre": "Cultivo de frutas tropicales y subtropicales"
+                },
+                {
+                  "codigo": "0125",
+                  "nombre": "Cultivo de otras frutas que crecen en árboles y/o arbustos y/o nueces"
+                },
+                {
+                  "codigo": "0126",
+                  "nombre": "Cultivo de frutas oleaginosas"
+                },
+                {
+                  "codigo": "0127",
+                  "nombre": "Cultivo de productos para preparar bebidas"
+                },
+                {
+                  "codigo": "0128",
+                  "nombre": "Cultivo de plantas aromáticas, medicinales y especias"
+                },
+                {
+                  "codigo": "0129",
+                  "nombre": "Otros cultivos perennes"
+                }
+              ]
+            },
+            {
+              "codigo": "013",
+              "nombre": "Propagación de plantas",
+              "clases": [
+                {
+                  "codigo": "0130",
+                  "nombre": "Propagación de plantas"
+                }
+              ]
+            },
+            {
+              "codigo": "014",
+              "nombre": "Ganadería",
+              "clases": [
+                {
+                  "codigo": "0141",
+                  "nombre": "Cría de ganado vacuno y búfalos"
+                },
+                {
+                  "codigo": "0142",
+                  "nombre": "Cría de caballos y otros equinos"
+                },
+                {
+                  "codigo": "0144",
+                  "nombre": "Cría de ovejas y cabras"
+                },
+                {
+                  "codigo": "0145",
+                  "nombre": "Cría de cerdos / puercos"
+                },
+                {
+                  "codigo": "0146",
+                  "nombre": "Cría de aves de corral y obtención de subproductos"
+                },
+                {
+                  "codigo": "0147",
+                  "nombre": "Cría de animales exóticos"
+                },
+                {
+                  "codigo": "0149",
+                  "nombre": "Cría de otros animales"
+                }
+              ]
+            },
+            {
+              "codigo": "015",
+              "nombre": "Explotación mixta",
+              "clases": [
+                {
+                  "codigo": "0150",
+                  "nombre": "Explotación mixta"
+                }
+              ]
+            },
+            {
+              "codigo": "016",
+              "nombre": "Actividades de apoyo a la agricultura, ganadería y actividades posteriores a la cosecha",
+              "clases": [
+                {
+                  "codigo": "0161",
+                  "nombre": "Actividades de apoyo a los cultivos y posteriores a la cosecha"
+                },
+                {
+                  "codigo": "0162",
+                  "nombre": "Actividades de apoyo a la ganadería"
+                },
+                {
+                  "codigo": "0164",
+                  "nombre": "Procesamiento de semillas para la propagación"
+                }
+              ]
+            },
+            {
+              "codigo": "017",
+              "nombre": "Caza ordinaria, mediante trampas y actividades de servicios conexas",
+              "clases": [
+                {
+                  "codigo": "0170",
+                  "nombre": "Caza ordinaria, mediante trampas y actividades de servicios conexas"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "02",
+          "nombre": "Silvicultura y extracción de madera",
+          "grupos": [
+            {
+              "codigo": "021",
+              "nombre": "Silvicultura y otras actividades relacionadas a la silvicultura",
+              "clases": [
+                {
+                  "codigo": "0210",
+                  "nombre": "Silvicultura y otras actividades relacionadas a la silvicultura"
+                }
+              ]
+            },
+            {
+              "codigo": "022",
+              "nombre": "Extracción de madera",
+              "clases": [
+                {
+                  "codigo": "0220",
+                  "nombre": "Extracción de madera"
+                }
+              ]
+            },
+            {
+              "codigo": "023",
+              "nombre": "Recolección de productos forestales diferentes a la madera",
+              "clases": [
+                {
+                  "codigo": "0230",
+                  "nombre": "Recolección de productos forestales diferentes a la madera"
+                }
+              ]
+            },
+            {
+              "codigo": "024",
+              "nombre": "Servicios de apoyo a la silvicultura",
+              "clases": [
+                {
+                  "codigo": "0240",
+                  "nombre": "Servicios de apoyo a la silvicultura"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "03",
+          "nombre": "Pesca y Acuicultura",
+          "grupos": [
+            {
+              "codigo": "031",
+              "nombre": "Pesca",
+              "clases": [
+                {
+                  "codigo": "0311",
+                  "nombre": "Pesca marítima oceánicas o costeras"
+                },
+                {
+                  "codigo": "0312",
+                  "nombre": "Pesca de aguas dulce"
+                }
+              ]
+            },
+            {
+              "codigo": "032",
+              "nombre": "Acuicultura",
+              "clases": [
+                {
+                  "codigo": "0321",
+                  "nombre": "Acuicultura marítima"
+                },
+                {
+                  "codigo": "0322",
+                  "nombre": "Acuicultura de aguas dulce"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "codigo": "B",
+      "nombre": "EXPLOTACIÓN DE MINAS Y CANTERAS",
+      "divisiones": [
+        {
+          "codigo": "05",
+          "nombre": "Extracción de carbón y lignito, extracción de turba",
+          "grupos": [
+            {
+              "codigo": "051",
+              "nombre": "Extracción y aglomeración de carbón de piedra",
+              "clases": [
+                {
+                  "codigo": "0510",
+                  "nombre": "Extracción y aglomeración de carbón de piedra"
+                }
+              ]
+            },
+            {
+              "codigo": "052",
+              "nombre": "Extracción y aglomeración de lignito",
+              "clases": [
+                {
+                  "codigo": "0520",
+                  "nombre": "Extracción y aglomeración de lignito"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "06",
+          "nombre": "Extracción de petróleo crudo y gas natural",
+          "grupos": [
+            {
+              "codigo": "061",
+              "nombre": "Extracción de petróleo crudo",
+              "clases": [
+                {
+                  "codigo": "0610",
+                  "nombre": "Extracción de petróleo crudo"
+                }
+              ]
+            },
+            {
+              "codigo": "062",
+              "nombre": "Extracción de gas natural",
+              "clases": [
+                {
+                  "codigo": "0620",
+                  "nombre": "Extracción de gas natural"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "07",
+          "nombre": "Extracción de minerales metalíferos",
+          "grupos": [
+            {
+              "codigo": "071",
+              "nombre": "Extracción de minerales de hierro",
+              "clases": [
+                {
+                  "codigo": "0710",
+                  "nombre": "Extracción de minerales de hierro"
+                }
+              ]
+            },
+            {
+              "codigo": "072",
+              "nombre": "Extracción de minerales metalíferos no ferrosos",
+              "clases": [
+                {
+                  "codigo": "0721",
+                  "nombre": "Extracción de minerales de uranio y torio"
+                },
+                {
+                  "codigo": "0729",
+                  "nombre": "Extracción de otros minerales metalíferos no ferrosos"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "08",
+          "nombre": "Explotación de otras minas y cantera",
+          "grupos": [
+            {
+              "codigo": "081",
+              "nombre": "Extracción de piedra, arena y arcilla",
+              "clases": [
+                {
+                  "codigo": "0810",
+                  "nombre": "Extracción de piedra, arena y arcilla"
+                }
+              ]
+            },
+            {
+              "codigo": "089",
+              "nombre": "Explotación de minas y canteras n.c.p.",
+              "clases": [
+                {
+                  "codigo": "0891",
+                  "nombre": "Extracción de minerales para la fabricación de fertilizantes y productos químicos"
+                },
+                {
+                  "codigo": "0892",
+                  "nombre": "Extracción de turba"
+                },
+                {
+                  "codigo": "0893",
+                  "nombre": "Extracción de sal"
+                },
+                {
+                  "codigo": "0899",
+                  "nombre": "Explotación de otras minas y canteras n.c.p."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "09",
+          "nombre": "de minas",
+          "grupos": [
+            {
+              "codigo": "091",
+              "nombre": "Actividades de apoyo a la extracción de petróleo y gas natural",
+              "clases": [
+                {
+                  "codigo": "0910",
+                  "nombre": "Actividades de apoyo a la extracción de petróleo y gas natural"
+                }
+              ]
+            },
+            {
+              "codigo": "099",
+              "nombre": "Actividades de apoyo a la explotación de otras minas y canteras",
+              "clases": [
+                {
+                  "codigo": "0990",
+                  "nombre": "Actividades de apoyo a la explotación de otras minas y canteras"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "codigo": "C",
+      "nombre": "INDUSTRIAS MANUFACTURERAS",
+      "divisiones": [
+        {
+          "codigo": "10",
+          "nombre": "Elaboración de productos alimenticios",
+          "grupos": [
+            {
+              "codigo": "101",
+              "nombre": "Procesamiento y conservación de carne",
+              "clases": [
+                {
+                  "codigo": "1010",
+                  "nombre": "Procesamiento y conservación de carne"
+                }
+              ]
+            },
+            {
+              "codigo": "102",
+              "nombre": "Procesamiento y conservación de pescados, crustáceos y moluscos",
+              "clases": [
+                {
+                  "codigo": "1020",
+                  "nombre": "Procesamiento y conservación de pescados, crustáceos y moluscos"
+                }
+              ]
+            },
+            {
+              "codigo": "103",
+              "nombre": "Procesamiento y conservación de frutas y vegetales",
+              "clases": [
+                {
+                  "codigo": "1030",
+                  "nombre": "Procesamiento y conservación de frutas y vegetales"
+                }
+              ]
+            },
+            {
+              "codigo": "104",
+              "nombre": "Elaboración de aceites y grasas de origen vegetal y animal",
+              "clases": [
+                {
+                  "codigo": "1040",
+                  "nombre": "Elaboración de aceites y grasas de origen vegetal y animal"
+                }
+              ]
+            },
+            {
+              "codigo": "105",
+              "nombre": "Elaboración de productos lácteos",
+              "clases": [
+                {
+                  "codigo": "1050",
+                  "nombre": "Elaboración de productos lácteos"
+                }
+              ]
+            },
+            {
+              "codigo": "106",
+              "nombre": "Elaboración de productos de molinería, almidones y productos derivados del almidón",
+              "clases": [
+                {
+                  "codigo": "1061",
+                  "nombre": "Elaboración de productos de molinería"
+                },
+                {
+                  "codigo": "1062",
+                  "nombre": "Elaboración de almidones y productos elaborados del almidón"
+                }
+              ]
+            },
+            {
+              "codigo": "107",
+              "nombre": "Elaboración de otros productos alimenticios",
+              "clases": [
+                {
+                  "codigo": "1071",
+                  "nombre": "Elaboración de productos de panadería"
+                },
+                {
+                  "codigo": "1072",
+                  "nombre": "Elaboración de azúcar"
+                },
+                {
+                  "codigo": "1073",
+                  "nombre": "Elaboración de cacao, chocolate y productos de confitería"
+                },
+                {
+                  "codigo": "1074",
+                  "nombre": "Elaboración de macarrones, fideos, cuscús y productos farináceos similares"
+                },
+                {
+                  "codigo": "1075",
+                  "nombre": "Elaboración de comidas y platos preparados"
+                },
+                {
+                  "codigo": "1079",
+                  "nombre": "Elaboración de otros productos alimenticios n.c.p."
+                }
+              ]
+            },
+            {
+              "codigo": "108",
+              "nombre": "Elaboración de alimentos preparados para animales",
+              "clases": [
+                {
+                  "codigo": "1080",
+                  "nombre": "Elaboración de alimentos preparados para animales"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "11",
+          "nombre": "Elaboración de bebidas",
+          "grupos": [
+            {
+              "codigo": "110",
+              "nombre": "Elaboración de bebidas",
+              "clases": [
+                {
+                  "codigo": "1101",
+                  "nombre": "Destilación, rectificación y mezcla de bebidas alcohólicas"
+                },
+                {
+                  "codigo": "1102",
+                  "nombre": "Elaboración de vinos"
+                },
+                {
+                  "codigo": "1103",
+                  "nombre": "Elaboración de bebidas malteadas ( cerveza y malta)"
+                },
+                {
+                  "codigo": "1104",
+                  "nombre": "Elaboración de bebidas no alcohólicas; producción de aguas minerales y agua embotellada"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "12",
+          "nombre": "Elaboración de productos de tabaco",
+          "grupos": [
+            {
+              "codigo": "120",
+              "nombre": "Elaboración de productos de tabaco",
+              "clases": [
+                {
+                  "codigo": "1200",
+                  "nombre": "Elaboración de productos de tabaco"
+                },
+                {
+                  "codigo": "1201",
+                  "nombre": "Elaboración de productos de tabaco en Zonas Francas"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "13",
+          "nombre": "Fabricación de productos textiles",
+          "grupos": [
+            {
+              "codigo": "131",
+              "nombre": "Hiladura, tejedura y acabados de productos textiles",
+              "clases": [
+                {
+                  "codigo": "1311",
+                  "nombre": "Preparación e hiladura de fibras textiles"
+                },
+                {
+                  "codigo": "1312",
+                  "nombre": "Tejedura de productos textiles"
+                },
+                {
+                  "codigo": "1313",
+                  "nombre": "Acabado de productos textiles (Serigrafía)"
+                }
+              ]
+            },
+            {
+              "codigo": "139",
+              "nombre": "Fabricación de otros productos textiles",
+              "clases": [
+                {
+                  "codigo": "1391",
+                  "nombre": "Fabricación de tejidos y tela de punto (Crochet o Ganchillo)"
+                },
+                {
+                  "codigo": "1392",
+                  "nombre": "Fabricación de artículos confeccionados con textiles, excepto prendas de vestir"
+                },
+                {
+                  "codigo": "1393",
+                  "nombre": "Fabricación de tapices y alfombras"
+                },
+                {
+                  "codigo": "1394",
+                  "nombre": "Fabricación de cuerdas, cordeles, bramantes y redes"
+                },
+                {
+                  "codigo": "1399",
+                  "nombre": "Fabricación de otros textiles n.c.p."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "14",
+          "nombre": "Fabricación de prendas de vestir",
+          "grupos": [
+            {
+              "codigo": "141",
+              "nombre": "Fabricación de prendas de vestir, excepto prendas de piel",
+              "clases": [
+                {
+                  "codigo": "1411",
+                  "nombre": "Fabricación de prendas de vestir, excepto prendas de piel"
+                },
+                {
+                  "codigo": "1412",
+                  "nombre": "Fabricación de prendas de vestir, excepto prendas de piel en Zonas Francas"
+                }
+              ]
+            },
+            {
+              "codigo": "142",
+              "nombre": "Fabricación de artículos de piel",
+              "clases": [
+                {
+                  "codigo": "1420",
+                  "nombre": "Fabricación de artículos de piel"
+                }
+              ]
+            },
+            {
+              "codigo": "143",
+              "nombre": "Fabricación de prendas de tejidos y de punto y ganchillo",
+              "clases": [
+                {
+                  "codigo": "1430",
+                  "nombre": "Fabricación de prendas de tejidos de punto y ganchillo o crochet (aguja de tejer)"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "15",
+          "nombre": "Fabricación de cueros y productos conexos",
+          "grupos": [
+            {
+              "codigo": "151",
+              "nombre": "Preparación, curtido y acabado del cuero; fabricación de maletas, bolsos de mano, artículos de talabartería o guarnicionería; preparación y teñido de pieles",
+              "clases": [
+                {
+                  "codigo": "1511",
+                  "nombre": "Curtido y adobo de cueros; adobo y teñido de pieles"
+                },
+                {
+                  "codigo": "1512",
+                  "nombre": "Fabricación de maletas, bolsos de mano, y artículos de talabartería y guarnicionería"
+                }
+              ]
+            },
+            {
+              "codigo": "152",
+              "nombre": "Fabricación de calzado",
+              "clases": [
+                {
+                  "codigo": "1520",
+                  "nombre": "Fabricación de calzado"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "16",
+          "nombre": "Producción de madera y fabricación de productos de madera y corcho, excepto muebles; fabricación de artículos de paja y de materiales trenzables",
+          "grupos": [
+            {
+              "codigo": "161",
+              "nombre": "Aserrados y acepilladura de madera",
+              "clases": [
+                {
+                  "codigo": "1610",
+                  "nombre": "Aserrados y acepilladura de madera"
+                }
+              ]
+            },
+            {
+              "codigo": "162",
+              "nombre": "Fabricación de productos de madera, corcho, paja y materiales trenzables",
+              "clases": [
+                {
+                  "codigo": "1621",
+                  "nombre": "Fabricación de hojas de madera para enchapado, fabricación de tableros laminados, tablas de partículas y otros tableros y paneles"
+                },
+                {
+                  "codigo": "1622",
+                  "nombre": "Fabricación de partes y piezas de carpintería para edificios y construcciones"
+                },
+                {
+                  "codigo": "1623",
+                  "nombre": "Fabricación de recipientes de madera"
+                },
+                {
+                  "codigo": "1629",
+                  "nombre": "Fabricación de otros productos de madera; fabricación de artículos de corcho, paja y materiales trenzables"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "17",
+          "nombre": "Fabricación de papel y de los productos de papel",
+          "grupos": [
+            {
+              "codigo": "170",
+              "nombre": "Fabricación de papel y productos de papel",
+              "clases": [
+                {
+                  "codigo": "1701",
+                  "nombre": "Fabricación de pulpa, papel y cartón"
+                },
+                {
+                  "codigo": "1702",
+                  "nombre": "envases de papel y cartón"
+                },
+                {
+                  "codigo": "1709",
+                  "nombre": "Fabricación de otros artículos del papel y cartón"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "18",
+          "nombre": "Actividades de impresión y reproducción de grabaciones",
+          "grupos": [
+            {
+              "codigo": "181",
+              "nombre": "Actividades de impresión y servicios conexos",
+              "clases": [
+                {
+                  "codigo": "1811",
+                  "nombre": "Actividades de impresión (periódicos, revistas y otros)"
+                },
+                {
+                  "codigo": "1812",
+                  "nombre": "Servicios relacionados con la impresión"
+                },
+                {
+                  "codigo": "1813",
+                  "nombre": "Actividades de impresión directa (Serigrafía)"
+                },
+                {
+                  "codigo": "1814",
+                  "nombre": "Servicio de impresión especializada (3D)"
+                }
+              ]
+            },
+            {
+              "codigo": "182",
+              "nombre": "Reproducción de grabaciones",
+              "clases": [
+                {
+                  "codigo": "1820",
+                  "nombre": "Reproducción de grabaciones"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "19",
+          "nombre": "Fabricación de coque y de productos de la refinación del petróleo",
+          "grupos": [
+            {
+              "codigo": "191",
+              "nombre": "Fabricación de productos de horno de coque",
+              "clases": [
+                {
+                  "codigo": "1910",
+                  "nombre": "Fabricación de productos de horno de coque"
+                }
+              ]
+            },
+            {
+              "codigo": "192",
+              "nombre": "Fabricación de los productos de la refinación del petróleo",
+              "clases": [
+                {
+                  "codigo": "1920",
+                  "nombre": "Fabricación de los productos de la refinación del petróleo"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "20",
+          "nombre": "Fabricación de sustancias y productos químicos",
+          "grupos": [
+            {
+              "codigo": "201",
+              "nombre": "Fabricación de sustancias químicas básicas, abonos y compuestos de nitrógeno, plásticos y caucho sintético en formas primarias",
+              "clases": [
+                {
+                  "codigo": "2011",
+                  "nombre": "Fabricación de sustancias químicas básicas"
+                },
+                {
+                  "codigo": "2012",
+                  "nombre": "Fabricación abonos y compuestos de nitrógeno"
+                },
+                {
+                  "codigo": "2013",
+                  "nombre": "Fabricación de plásticos y de caucho sintético en formas primarias"
+                }
+              ]
+            },
+            {
+              "codigo": "202",
+              "nombre": "Fabricación de otros productos químicos",
+              "clases": [
+                {
+                  "codigo": "2021",
+                  "nombre": "Fabricación de pesticidas y de otros productos químicos de uso agropecuario"
+                },
+                {
+                  "codigo": "2022",
+                  "nombre": "Fabricación de pinturas, barnices y productos de revestimiento similares, tintas de imprenta y masillas"
+                },
+                {
+                  "codigo": "2023",
+                  "nombre": "Fabricación de jabones, detergentes preparados para limpiar y pulir, perfumes, preparados de tocador y velas"
+                },
+                {
+                  "codigo": "2029",
+                  "nombre": "Fabricación de otros productos químicos, n.c.p."
+                }
+              ]
+            },
+            {
+              "codigo": "203",
+              "nombre": "Fabricación de fibras manufacturadas",
+              "clases": [
+                {
+                  "codigo": "2030",
+                  "nombre": "Fabricación de fibras artificiales y sintéticas"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "21",
+          "nombre": "Fabricación de productos farmacéuticos, sustancias químicas medicinales y de productos botánicos",
+          "grupos": [
+            {
+              "codigo": "210",
+              "nombre": "Fabricación de productos farmacéuticos, sustancias químicas medicinales y de productos botánicos",
+              "clases": [
+                {
+                  "codigo": "2100",
+                  "nombre": "Fabricación de productos farmacéuticos, sustancias químicas medicinales y de productos botánicos"
+                },
+                {
+                  "codigo": "2101",
+                  "nombre": "Fabricación de productos farmacéuticos, sustancias químicas medicinales y de productos botánicos en Zonas francas"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "22",
+          "nombre": "Fabricación de productos de caucho y plástico",
+          "grupos": [
+            {
+              "codigo": "221",
+              "nombre": "Fabricación de productos de caucho",
+              "clases": [
+                {
+                  "codigo": "2211",
+                  "nombre": "Fabricación de cubiertas y cámaras de caucho; reencauche (renovación de cubiertas de caucho)"
+                },
+                {
+                  "codigo": "2219",
+                  "nombre": "Fabricación de otros productos de caucho"
+                }
+              ]
+            },
+            {
+              "codigo": "222",
+              "nombre": "Fabricación de productos de plástico",
+              "clases": [
+                {
+                  "codigo": "2220",
+                  "nombre": "Fabricación de productos de plástico"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "23",
+          "nombre": "Fabricación de otros productos minerales no metálicos",
+          "grupos": [
+            {
+              "codigo": "231",
+              "nombre": "Fabricación de vidrio y de productos de vidrio",
+              "clases": [
+                {
+                  "codigo": "2310",
+                  "nombre": "Fabricación de vidrio y de productos de vidrio"
+                }
+              ]
+            },
+            {
+              "codigo": "239",
+              "nombre": "Fabricación de productos minerales no metálicos, n.c.p.",
+              "clases": [
+                {
+                  "codigo": "2391",
+                  "nombre": "Fabricación de productos refractarios"
+                },
+                {
+                  "codigo": "2392",
+                  "nombre": "Fabricación de materiales de arcilla para la construcción"
+                },
+                {
+                  "codigo": "2393",
+                  "nombre": "Fabricación de otros productos de cerámica y porcelana"
+                },
+                {
+                  "codigo": "2394",
+                  "nombre": "Fabricación de cemento, cal y yeso"
+                },
+                {
+                  "codigo": "2395",
+                  "nombre": "Fabricación de artículos de hormigón, cemento, yeso y panalit"
+                },
+                {
+                  "codigo": "2396",
+                  "nombre": "Corte, tallado y acabado de la piedra"
+                },
+                {
+                  "codigo": "2399",
+                  "nombre": "Fabricación de otros productos minerales no metálicos, n.c.p."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "24",
+          "nombre": "Fabricación de metales comunes",
+          "grupos": [
+            {
+              "codigo": "241",
+              "nombre": "básicos",
+              "clases": [
+                {
+                  "codigo": "2410",
+                  "nombre": "Fabricación de productos básicos de hierro y acero"
+                }
+              ]
+            },
+            {
+              "codigo": "242",
+              "nombre": "Fabricación de productos primarios de metales preciosos y metales no ferrosos",
+              "clases": [
+                {
+                  "codigo": "2420",
+                  "nombre": "Fabricación de productos primarios de metales preciosos y metales no ferrosos"
+                }
+              ]
+            },
+            {
+              "codigo": "243",
+              "nombre": "Fundición de metales",
+              "clases": [
+                {
+                  "codigo": "2431",
+                  "nombre": "Fundición de hierro y acero"
+                },
+                {
+                  "codigo": "2432",
+                  "nombre": "Fundición de metales no ferrosos"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "25",
+          "nombre": "Fabricación de productos derivados del metal, excepto maquinaria y equipo",
+          "grupos": [
+            {
+              "codigo": "251",
+              "nombre": "Fabricación de productos metálicos para uso estructural, tanques, depósitos y los generadores de vapor",
+              "clases": [
+                {
+                  "codigo": "2511",
+                  "nombre": "Fabricación de productos metálicos para uso estructural (soldadura)"
+                },
+                {
+                  "codigo": "2512",
+                  "nombre": "Fabricación de tanques, depósitos y recipientes de metal"
+                },
+                {
+                  "codigo": "2513",
+                  "nombre": "Fabricación de los generadores del vapor, excepto calderas de agua caliente para calefacción central"
+                }
+              ]
+            },
+            {
+              "codigo": "252",
+              "nombre": "Fabricación de armas y municiones",
+              "clases": [
+                {
+                  "codigo": "2520",
+                  "nombre": "Fabricación de armas y municiones"
+                }
+              ]
+            },
+            {
+              "codigo": "259",
+              "nombre": "Fabricación de otros productos elaborados de metal; actividades de trabajo de metales",
+              "clases": [
+                {
+                  "codigo": "2591",
+                  "nombre": "Forja, prensado, estampado y laminado de metales; pulvimetalurgia"
+                },
+                {
+                  "codigo": "2592",
+                  "nombre": "Tratamiento y revestimiento de metales"
+                },
+                {
+                  "codigo": "2593",
+                  "nombre": "Fabricación de artículos de cuchillería, herramientas de mano y artículos de ferretería, llaves"
+                },
+                {
+                  "codigo": "2594",
+                  "nombre": "Fabricación de otros productos de metal en Zonas Francas"
+                },
+                {
+                  "codigo": "2599",
+                  "nombre": "Fabricación de otros productos de metal, n.c.p."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "26",
+          "nombre": "Fabricación de los productos informáticos, electrónicos y ópticos",
+          "grupos": [
+            {
+              "codigo": "261",
+              "nombre": "Fabricación de productos electrónicos",
+              "clases": [
+                {
+                  "codigo": "2610",
+                  "nombre": "Fabricación de productos electrónicos"
+                }
+              ]
+            },
+            {
+              "codigo": "262",
+              "nombre": "Fabricación de computadoras y equipo periférico",
+              "clases": [
+                {
+                  "codigo": "2620",
+                  "nombre": "Fabricación de computadoras y equipo periférico"
+                }
+              ]
+            },
+            {
+              "codigo": "263",
+              "nombre": "Fabricación de equipos de comunicaciones",
+              "clases": [
+                {
+                  "codigo": "2630",
+                  "nombre": "Fabricación de equipos de comunicaciones"
+                }
+              ]
+            },
+            {
+              "codigo": "264",
+              "nombre": "Fabricación de aparatos de consumo electrónico",
+              "clases": [
+                {
+                  "codigo": "2640",
+                  "nombre": "Fabricación de aparatos de consumo electrónico, de audio y video"
+                }
+              ]
+            },
+            {
+              "codigo": "265",
+              "nombre": "Fabricación de equipos para medir, verificar, navegar, equipos de control y relojes de todo tipo",
+              "clases": [
+                {
+                  "codigo": "2651",
+                  "nombre": "Fabricación de equipos para medir, verificar, y navegar y de equipos de control"
+                },
+                {
+                  "codigo": "2652",
+                  "nombre": "Fabricación de todo tipo de relojes"
+                }
+              ]
+            },
+            {
+              "codigo": "266",
+              "nombre": "Fabricación de equipos radiológicos, electromédicos y electro terapéuticos",
+              "clases": [
+                {
+                  "codigo": "2660",
+                  "nombre": "Fabricación de equipos radiológicos, electromédicos y electro terapéuticos"
+                }
+              ]
+            },
+            {
+              "codigo": "267",
+              "nombre": "Fabricación de instrumentos ópticos y equipo fotográfico",
+              "clases": [
+                {
+                  "codigo": "2670",
+                  "nombre": "Fabricación de instrumentos ópticos y equipo fotográfico"
+                }
+              ]
+            },
+            {
+              "codigo": "268",
+              "nombre": "Fabricación de soportes magnéticos y ópticos",
+              "clases": [
+                {
+                  "codigo": "2680",
+                  "nombre": "Fabricación de soportes magnéticos y ópticos"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "27",
+          "nombre": "Fabricación de equipo eléctrico y de uso doméstico",
+          "grupos": [
+            {
+              "codigo": "271",
+              "nombre": "Fabricación de motores eléctricos, generadores, transformadores eléctricos, distribución de la electricidad y aparato del control",
+              "clases": [
+                {
+                  "codigo": "2710",
+                  "nombre": "Fabricación de motores eléctricos, generadores, transformadores eléctricos, distribución de la electricidad y aparato de control"
+                }
+              ]
+            },
+            {
+              "codigo": "272",
+              "nombre": "Fabricación de baterías y acumuladores",
+              "clases": [
+                {
+                  "codigo": "2720",
+                  "nombre": "Fabricación de baterías y acumuladores"
+                }
+              ]
+            },
+            {
+              "codigo": "273",
+              "nombre": "Fabricación de cables y dispositivos de cableado",
+              "clases": [
+                {
+                  "codigo": "2731",
+                  "nombre": "Fabricación de cables de fibra óptica"
+                },
+                {
+                  "codigo": "2732",
+                  "nombre": "Fabricación de otros cables eléctricos y electrónicos"
+                },
+                {
+                  "codigo": "2733",
+                  "nombre": "Fabricación de dispositivos de cableado"
+                }
+              ]
+            },
+            {
+              "codigo": "274",
+              "nombre": "Fabricación de equipos de iluminación eléctricos y no eléctricos",
+              "clases": [
+                {
+                  "codigo": "2741",
+                  "nombre": "Fabricación de equipos de iluminación eléctrico"
+                },
+                {
+                  "codigo": "2742",
+                  "nombre": "Fabricación de equipo de iluminación no eléctrico"
+                }
+              ]
+            },
+            {
+              "codigo": "275",
+              "nombre": "Fabricación de aparatos de uso doméstico",
+              "clases": [
+                {
+                  "codigo": "2750",
+                  "nombre": "Fabricación de aparatos de uso doméstico"
+                }
+              ]
+            },
+            {
+              "codigo": "279",
+              "nombre": "Fabricación de otros equipos eléctricos",
+              "clases": [
+                {
+                  "codigo": "2790",
+                  "nombre": "Fabricación de otros equipos eléctricos"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "28",
+          "nombre": "Fabricación de la maquinaria y equipo, n.c.p.",
+          "grupos": [
+            {
+              "codigo": "281",
+              "nombre": "Fabricación de la maquinaria de uso general",
+              "clases": [
+                {
+                  "codigo": "2811",
+                  "nombre": "Fabricación de motores y turbinas, excepto motores para aeronaves, vehículos automotores y motocicletas"
+                },
+                {
+                  "codigo": "2812",
+                  "nombre": "Fabricación de equipos hidráulicos"
+                },
+                {
+                  "codigo": "2813",
+                  "nombre": "Fabricación de bombas, compresores, grifos y válvulas"
+                },
+                {
+                  "codigo": "2814",
+                  "nombre": "Fabricación de cojinetes, engranajes, trenes de engranajes y piezas de transmisión"
+                },
+                {
+                  "codigo": "2815",
+                  "nombre": "Fabricación de hornos, hogares y quemadores"
+                },
+                {
+                  "codigo": "2816",
+                  "nombre": "Fabricación de equipo de elevación y manipulación"
+                },
+                {
+                  "codigo": "2817",
+                  "nombre": "Fabricación de maquinaria y equipo de oficina"
+                },
+                {
+                  "codigo": "2818",
+                  "nombre": "Fabricación de herramientas manuales"
+                },
+                {
+                  "codigo": "2819",
+                  "nombre": "Fabricación de otros tipos de maquinaria de uso general"
+                }
+              ]
+            },
+            {
+              "codigo": "282",
+              "nombre": "Fabricación de maquinaria de uso especial",
+              "clases": [
+                {
+                  "codigo": "2821",
+                  "nombre": "Fabricación de maquinaria agropecuaria y forestal"
+                },
+                {
+                  "codigo": "2822",
+                  "nombre": "Fabricación de maquinarias de metal, y máquinas herramientas"
+                },
+                {
+                  "codigo": "2823",
+                  "nombre": "Fabricación de maquinaria para metalúrgica"
+                },
+                {
+                  "codigo": "2824",
+                  "nombre": "Fabricación de maquinaria para explotación de minas y canteras y para obras de construcción"
+                },
+                {
+                  "codigo": "2825",
+                  "nombre": "Fabricación de maquinaria para la elaboración de alimentos, bebidas y tabaco"
+                },
+                {
+                  "codigo": "2826",
+                  "nombre": "Fabricación de maquinaria para la elaboración de productos textiles, prendas de vestir y cueros"
+                },
+                {
+                  "codigo": "2829",
+                  "nombre": "Fabricación de otros tipos de maquinaria de uso especial"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "29",
+          "nombre": "Fabricación de vehículos automotores, remolques y semirremolques",
+          "grupos": [
+            {
+              "codigo": "291",
+              "nombre": "Fabricación de vehículos automotores",
+              "clases": [
+                {
+                  "codigo": "2910",
+                  "nombre": "Fabricación de vehículos automotores"
+                }
+              ]
+            },
+            {
+              "codigo": "292",
+              "nombre": "Fabricación de carrocerías para vehículos automotores; fabricación de remolques y semirremolques",
+              "clases": [
+                {
+                  "codigo": "2920",
+                  "nombre": "Fabricación de carrocerías para vehículos automotores; fabricación de remolques y semirremolques"
+                }
+              ]
+            },
+            {
+              "codigo": "293",
+              "nombre": "Fabricación de partes y accesorios para motores de vehículos",
+              "clases": [
+                {
+                  "codigo": "2930",
+                  "nombre": "Fabricación de partes y accesorios para motores de vehículos"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "30",
+          "nombre": "Fabricación de otros tipos de equipo de transporte",
+          "grupos": [
+            {
+              "codigo": "301",
+              "nombre": "Construcción de buques y otras embarcaciones",
+              "clases": [
+                {
+                  "codigo": "3011",
+                  "nombre": "Construcción de buques y estructuras flotantes"
+                },
+                {
+                  "codigo": "3012",
+                  "nombre": "Construcción de embarcaciones de recreo y deporte"
+                }
+              ]
+            },
+            {
+              "codigo": "302",
+              "nombre": "Fabricación de locomotoras y de material rodante",
+              "clases": [
+                {
+                  "codigo": "3020",
+                  "nombre": "Fabricación de locomotoras y de material rodante"
+                }
+              ]
+            },
+            {
+              "codigo": "303",
+              "nombre": "Fabricación de aeronaves y naves espaciales y de maquinaria conexa",
+              "clases": [
+                {
+                  "codigo": "3030",
+                  "nombre": "Fabricación de aeronaves y naves espaciales y de maquinaria conexa"
+                }
+              ]
+            },
+            {
+              "codigo": "304",
+              "nombre": "Fabricación de vehículos militares de combate",
+              "clases": [
+                {
+                  "codigo": "3040",
+                  "nombre": "Fabricación de vehículos militares de combate"
+                }
+              ]
+            },
+            {
+              "codigo": "309",
+              "nombre": "Fabricación de tipos de equipo de transporte, n.c.p.",
+              "clases": [
+                {
+                  "codigo": "3091",
+                  "nombre": "Fabricación de motocicletas"
+                },
+                {
+                  "codigo": "3092",
+                  "nombre": "Fabricación de bicicletas y sillas de ruedas"
+                },
+                {
+                  "codigo": "3099",
+                  "nombre": "Fabricación de otros tipos de equipo de transporte, n.c.p."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "31",
+          "nombre": "Fabricación de muebles",
+          "grupos": [
+            {
+              "codigo": "310",
+              "nombre": "Fabricación de muebles y colchones (tapicerías)",
+              "clases": [
+                {
+                  "codigo": "3100",
+                  "nombre": "Fabricación de muebles y colchones (tapicerías)"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "32",
+          "nombre": "Otras industrias manufactureras",
+          "grupos": [
+            {
+              "codigo": "321",
+              "nombre": "Fabricación de joyas, bisutería y artículos conexos",
+              "clases": [
+                {
+                  "codigo": "3211",
+                  "nombre": "Fabricación de joyas y artículos conexos"
+                },
+                {
+                  "codigo": "3212",
+                  "nombre": "Fabricación de joyas de imitación y artículos conexos"
+                }
+              ]
+            },
+            {
+              "codigo": "322",
+              "nombre": "Fabricación de instrumentos musicales",
+              "clases": [
+                {
+                  "codigo": "3220",
+                  "nombre": "Fabricación de instrumentos musicales"
+                }
+              ]
+            },
+            {
+              "codigo": "323",
+              "nombre": "Fabricación de artículos de deporte",
+              "clases": [
+                {
+                  "codigo": "3230",
+                  "nombre": "Fabricación de artículos de deporte"
+                }
+              ]
+            },
+            {
+              "codigo": "324",
+              "nombre": "Fabricación de juegos y juguetes (excepto bicicletas y triciclos de metal)",
+              "clases": [
+                {
+                  "codigo": "3240",
+                  "nombre": "Fabricación de juegos y juguetes (excepto bicicletas y triciclos de metal)"
+                }
+              ]
+            },
+            {
+              "codigo": "325",
+              "nombre": "Fabricación de instrumentos y suministros médicos y dentales",
+              "clases": [
+                {
+                  "codigo": "3250",
+                  "nombre": "Fabricación de instrumentos y suministros médicos y dentales"
+                }
+              ]
+            },
+            {
+              "codigo": "329",
+              "nombre": "Otras industrias manufactureras, n.c.p..",
+              "clases": [
+                {
+                  "codigo": "3291",
+                  "nombre": "Confección de artículos de artesanías"
+                },
+                {
+                  "codigo": "3299",
+                  "nombre": "Otras industrias manufactureras, n.c.p.."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "33",
+          "nombre": "Reparación, mantenimiento e instalación de maquinaria y equipo comercial e industrial",
+          "grupos": [
+            {
+              "codigo": "331",
+              "nombre": "Reparación y mantenimiento de productos elaborados de metal, maquinaria y equipos",
+              "clases": [
+                {
+                  "codigo": "3311",
+                  "nombre": "Reparación y mantenimiento de productos elaborados de metal"
+                },
+                {
+                  "codigo": "3312",
+                  "nombre": "Reparación y mantenimiento de maquinaria y equipo"
+                },
+                {
+                  "codigo": "3313",
+                  "nombre": "Reparación y mantenimiento de equipo electrónico y óptico"
+                },
+                {
+                  "codigo": "3314",
+                  "nombre": "Reparación y mantenimiento de equipo eléctrico"
+                },
+                {
+                  "codigo": "3315",
+                  "nombre": "Reparación y mantenimiento de equipo de transporte, excepto los vehículos automotores"
+                },
+                {
+                  "codigo": "3319",
+                  "nombre": "Reparación de equipo de otro tipo"
+                }
+              ]
+            },
+            {
+              "codigo": "332",
+              "nombre": "Instalación de maquinaria y equipo industrial",
+              "clases": [
+                {
+                  "codigo": "3320",
+                  "nombre": "Instalación de maquinaria y equipo industrial"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "codigo": "D",
+      "nombre": "SUMINISTRO DE ELECTRICIDAD, GAS, VAPOR Y AIRE ACONDICIONADO",
+      "divisiones": [
+        {
+          "codigo": "35",
+          "nombre": "Suministro de electricidad, gas, vapor y aire acondicionado",
+          "grupos": [
+            {
+              "codigo": "351",
+              "nombre": "Generación, transmisión y distribución de energía eléctrica",
+              "clases": [
+                {
+                  "codigo": "3510",
+                  "nombre": "Generación, transmisión y distribución de energía eléctrica"
+                }
+              ]
+            },
+            {
+              "codigo": "352",
+              "nombre": "Fabricación del gas; distribución de combustibles gaseosos por tuberías",
+              "clases": [
+                {
+                  "codigo": "3520",
+                  "nombre": "Fabricación del gas; distribución de combustibles gaseosos por tuberías"
+                }
+              ]
+            },
+            {
+              "codigo": "353",
+              "nombre": "Suministro de vapor, aire acondicionado y producción de hielo",
+              "clases": [
+                {
+                  "codigo": "3530",
+                  "nombre": "Suministro de vapor, aire acondicionado y producción de hielo"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "codigo": "E",
+      "nombre": "SUMINISTRO DE AGUA; ALCANTARILLADO, GESTIÓN DE DESECHOS Y ACTIVIDADES DE SANEAMIENTO",
+      "divisiones": [
+        {
+          "codigo": "36",
+          "nombre": "Captación, tratamiento y suministro de agua",
+          "grupos": [
+            {
+              "codigo": "360",
+              "nombre": "Captación, tratamiento y suministro de agua",
+              "clases": [
+                {
+                  "codigo": "3600",
+                  "nombre": "Captación, tratamiento y suministro de agua"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "37",
+          "nombre": "Alcantarillado",
+          "grupos": [
+            {
+              "codigo": "370",
+              "nombre": "Alcantarillado",
+              "clases": [
+                {
+                  "codigo": "3700",
+                  "nombre": "Alcantarillado"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "38",
+          "nombre": "Recolección, tratamiento y eliminación de desechos, recuperación de materiales",
+          "grupos": [
+            {
+              "codigo": "381",
+              "nombre": "Recolección de desechos",
+              "clases": [
+                {
+                  "codigo": "3811",
+                  "nombre": "Recolección de desechos no peligrosos (basura)"
+                },
+                {
+                  "codigo": "3812",
+                  "nombre": "Recolección de desechos peligrosos"
+                }
+              ]
+            },
+            {
+              "codigo": "382",
+              "nombre": "Tratamiento y eliminación de desechos",
+              "clases": [
+                {
+                  "codigo": "3821",
+                  "nombre": "Tratamiento y eliminación de desechos no peligrosos"
+                },
+                {
+                  "codigo": "3822",
+                  "nombre": "Tratamiento y eliminación de desechos peligrosos"
+                }
+              ]
+            },
+            {
+              "codigo": "383",
+              "nombre": "Procesamiento y recuperación de materiales",
+              "clases": [
+                {
+                  "codigo": "3830",
+                  "nombre": "Procesamiento y recuperación de materiales"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "39",
+          "nombre": "servicios de gestión de desechos",
+          "grupos": [
+            {
+              "codigo": "390",
+              "nombre": "Actividades de saneamiento y otros servicios de gestión de desechos",
+              "clases": [
+                {
+                  "codigo": "3900",
+                  "nombre": "Actividades de saneamiento y otros servicios de gestión de desechos"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "codigo": "F",
+      "nombre": "CONSTRUCCIÓN",
+      "divisiones": [
+        {
+          "codigo": "41",
+          "nombre": "Construcción de edificios",
+          "grupos": [
+            {
+              "codigo": "410",
+              "nombre": "Construcción de edificios",
+              "clases": [
+                {
+                  "codigo": "4100",
+                  "nombre": "Construcción de edificios"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "42",
+          "nombre": "Ingeniería Civil",
+          "grupos": [
+            {
+              "codigo": "421",
+              "nombre": "Construcción de Caminos y vías férreas",
+              "clases": [
+                {
+                  "codigo": "4210",
+                  "nombre": "Construcción de Caminos y vías férreas"
+                }
+              ]
+            },
+            {
+              "codigo": "422",
+              "nombre": "Construcción de proyectos de servicios públicos",
+              "clases": [
+                {
+                  "codigo": "4220",
+                  "nombre": "Construcción de proyectos de servicios públicos"
+                }
+              ]
+            },
+            {
+              "codigo": "429",
+              "nombre": "Construcción de otros proyectos de ingeniería civil",
+              "clases": [
+                {
+                  "codigo": "4290",
+                  "nombre": "Construcción de otros proyectos de ingeniería civil"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "43",
+          "nombre": "Actividades especializadas de la construcción",
+          "grupos": [
+            {
+              "codigo": "431",
+              "nombre": "Demolición y preparación del terreno",
+              "clases": [
+                {
+                  "codigo": "4311",
+                  "nombre": "Demolición de edificios y otras estructuras"
+                },
+                {
+                  "codigo": "4312",
+                  "nombre": "Preparación del terreno"
+                }
+              ]
+            },
+            {
+              "codigo": "432",
+              "nombre": "Actividades de instalación eléctrica, fontanería y otras instalaciones de la construcción",
+              "clases": [
+                {
+                  "codigo": "4321",
+                  "nombre": "Instalación eléctrica"
+                },
+                {
+                  "codigo": "4322",
+                  "nombre": "Fontanería e instalación de calefacción y aire acondicionado"
+                },
+                {
+                  "codigo": "4329",
+                  "nombre": "Otro tipo de instalaciones de construcción"
+                }
+              ]
+            },
+            {
+              "codigo": "433",
+              "nombre": "Terminación de edificios",
+              "clases": [
+                {
+                  "codigo": "4330",
+                  "nombre": "Terminación de edificios"
+                }
+              ]
+            },
+            {
+              "codigo": "439",
+              "nombre": "Otras actividades especializadas de la construcción",
+              "clases": [
+                {
+                  "codigo": "4390",
+                  "nombre": "Otras actividades especializadas de la construcción"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "codigo": "G",
+      "nombre": "MENOR (INCLUYE ZONAS FRANCAS), REPARACIÓN DE VEHÍCULOS DE MOTOR Y MOTOCICLETAS",
+      "divisiones": [
+        {
+          "codigo": "45",
+          "nombre": "Comercio al por mayor en Zonas Francas",
+          "grupos": [
+            {
+              "codigo": "451",
+              "nombre": "Venta al por mayor a cambio de una retribución o por contrata en Zonas Francas",
+              "clases": [
+                {
+                  "codigo": "4510",
+                  "nombre": "Venta al por mayor a cambio de una retribución o por contrata en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "45101",
+                      "nombre": "Agencias de importación y/o exportación comisionista"
+                    },
+                    {
+                      "codigo": "45102",
+                      "nombre": "Corredores de productos básicos y mercancía en general"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "codigo": "452",
+              "nombre": "Venta al por mayor de materias primas agropecuarias y animales vivos en Zonas Francas",
+              "clases": [
+                {
+                  "codigo": "4520",
+                  "nombre": "Venta al por mayor de materias primas agropecuarias y animales vivos en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "45201",
+                      "nombre": "Venta al por mayor de granos y semillas"
+                    },
+                    {
+                      "codigo": "45202",
+                      "nombre": "Venta al por mayor de frutas oleaginosas"
+                    },
+                    {
+                      "codigo": "45203",
+                      "nombre": "Venta al por mayor de flores y plantas"
+                    },
+                    {
+                      "codigo": "45204",
+                      "nombre": "Venta al por mayor de tabaco no manufacturado"
+                    },
+                    {
+                      "codigo": "45205",
+                      "nombre": "Venta al por mayor de animales vivos"
+                    },
+                    {
+                      "codigo": "45206",
+                      "nombre": "Venta al por mayor de cueros y pieles"
+                    },
+                    {
+                      "codigo": "45207",
+                      "nombre": "Venta al por mayor de materiales agrícolas, desechos, residuos y productos usados para alimentar animales"
+                    },
+                    {
+                      "codigo": "45209",
+                      "nombre": "Venta al por mayor de otras materias primas agropecuarias y animales vivos, n.c.p."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "codigo": "453",
+              "nombre": "Venta al por mayor de alimentos, bebidas y tabaco en Zonas Francas",
+              "clases": [
+                {
+                  "codigo": "4530",
+                  "nombre": "Venta al por mayor de alimentos, bebidas y tabaco en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "45301",
+                      "nombre": "Venta al por mayor de alimentos, excepto carnes, aves de corral y pescado"
+                    },
+                    {
+                      "codigo": "45302",
+                      "nombre": "Venta al por mayor de productos lácteos y sus derivados"
+                    },
+                    {
+                      "codigo": "45303",
+                      "nombre": "Venta al por mayor de carnes y productos cárnicos (excepto aves de corral y sus productos)"
+                    },
+                    {
+                      "codigo": "45304",
+                      "nombre": "Venta al por mayor de aves de corral y sus productos"
+                    },
+                    {
+                      "codigo": "45305",
+                      "nombre": "Venta al por mayor de pescado, mariscos y productos conexos"
+                    },
+                    {
+                      "codigo": "45306",
+                      "nombre": "Venta al por mayor de bebidas alcohólicas (incluye cerveza)"
+                    },
+                    {
+                      "codigo": "45307",
+                      "nombre": "Venta al por mayor de bebidas no alcohólicas y agua mineral"
+                    },
+                    {
+                      "codigo": "45308",
+                      "nombre": "Venta al por de mayor de productos del tabaco"
+                    },
+                    {
+                      "codigo": "45309",
+                      "nombre": "Venta al por mayor de alimentos, bebidas y tabaco, n.c.p."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "codigo": "454",
+              "nombre": "Venta al por mayor de efectos personales, enseres domésticos, artículos de joyerías, relojes y productos diversos para el consumidor en Zonas Francas",
+              "clases": [
+                {
+                  "codigo": "4541",
+                  "nombre": "Venta al por mayor de textiles, prendas de vestir sus accesorios y calzado en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "45411",
+                      "nombre": "Venta al por mayor de hilo, telas y artículos de lencería para el hogar"
+                    },
+                    {
+                      "codigo": "45412",
+                      "nombre": "Venta al por mayor de artículos de mercería: agujas, hilos de costura, etc."
+                    },
+                    {
+                      "codigo": "45413",
+                      "nombre": "Venta al por mayor de prendas de vestir, incluso prendas de vestir deportiva y accesorios (excepto calzado)"
+                    },
+                    {
+                      "codigo": "45414",
+                      "nombre": "Venta al por mayor de calzado"
+                    },
+                    {
+                      "codigo": "45415",
+                      "nombre": "Venta al por mayor de artículos de piel"
+                    },
+                    {
+                      "codigo": "45419",
+                      "nombre": "Venta al por mayor de textiles, prendas de vestir, sus accesorios y calzados, n.c.p."
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4542",
+                  "nombre": "Venta al por mayor de enseres domésticos en Zonas Francas Venta al por mayor de muebles de hogar,",
+                  "subclases": [
+                    {
+                      "codigo": "45421",
+                      "nombre": "electrodomésticos: (radios, equipos de TV, grabadoras, reproductores de CD y DVD, estéreos, videojuegos) y equipo de iluminación"
+                    },
+                    {
+                      "codigo": "45422",
+                      "nombre": "Venta al por mayor de cubiertos; artículos de porcelana, cristalería; utensilios de madera, corcho y de mimbre"
+                    },
+                    {
+                      "codigo": "45429",
+                      "nombre": "Venta al por mayor de enseres domésticos, n.c.p."
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4543",
+                  "nombre": "relojes y fantasía fina en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "45430",
+                      "nombre": "Venta al por mayor de artículos de joyería,"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4549",
+                  "nombre": "Venta al por mayor de otros efectos personales y productos diversos para el consumidor en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "45491",
+                      "nombre": "Venta al por mayor de productos farmacéuticos y medicinales, cosméticos y artículos de tocador"
+                    },
+                    {
+                      "codigo": "45492",
+                      "nombre": "Venta al por mayor de bicicletas, sus partes y accesorios"
+                    },
+                    {
+                      "codigo": "45493",
+                      "nombre": "Venta al por mayor de libros, periódicos, revistas, papel y útiles de escritorio"
+                    },
+                    {
+                      "codigo": "45494",
+                      "nombre": "Venta al por mayor de videos y audio grabados, CD y DVD"
+                    },
+                    {
+                      "codigo": "45495",
+                      "nombre": "fotográficos y ópticos (lentes de sol, binoculares y lupas)"
+                    },
+                    {
+                      "codigo": "45496",
+                      "nombre": "Venta al por mayor de artículos de cueros y accesorios de viajes"
+                    },
+                    {
+                      "codigo": "45499",
+                      "nombre": "Venta al por mayor de otros efectos personales y productos diversos para el consumidor, n.c.p."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "codigo": "455",
+              "nombre": "Venta al por mayor de maquinaria, equipos y materiales; vehículos automotores y motocicletas sus partes, piezas y accesorios en Zonas Francas",
+              "clases": [
+                {
+                  "codigo": "4551",
+                  "nombre": "Venta al por mayor de computadoras, equipo informático periférico y programas informáticos en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "45511",
+                      "nombre": "Venta al por mayor de computadoras y equipo computacional periférico"
+                    },
+                    {
+                      "codigo": "45512",
+                      "nombre": "Venta al por mayor de software"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4552",
+                  "nombre": "telecomunicaciones sus partes y piezas en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "45520",
+                      "nombre": "Venta al por mayor de equipo electrónico,"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4553",
+                  "nombre": "Venta al por mayor de maquinaria, equipo agrícola, sus partes, piezas y accesorios en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "45531",
+                      "nombre": "Venta al por mayor de maquinaria y equipo agrícola"
+                    },
+                    {
+                      "codigo": "45532",
+                      "nombre": "Venta al por mayor de tractores usados"
+                    },
+                    {
+                      "codigo": "45539",
+                      "nombre": "Venta al por mayor de partes, piezas y accesorios de maquinaria y equipo agrícola"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4554",
+                  "nombre": "automotores en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "45540",
+                      "nombre": "Venta al por mayor de vehículos"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4555",
+                  "nombre": "accesorios de vehículos automotores en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "45550",
+                      "nombre": "Venta al por mayor de partes, piezas y"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4556",
+                  "nombre": "partes, piezas y accesorios en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "45560",
+                      "nombre": "Venta al por mayor de motocicletas, sus"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4559",
+                  "nombre": "Venta al por mayor de otro tipo de maquinaria y equipo en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "45591",
+                      "nombre": "Venta al por mayor de maquinaria y equipo de oficina (excepto computadoras y equipo periférico computacional)"
+                    },
+                    {
+                      "codigo": "45592",
+                      "nombre": "Venta al por mayor de muebles de oficina"
+                    },
+                    {
+                      "codigo": "45593",
+                      "nombre": "Venta al por mayor de equipo de transporte (excepto vehículos motorizados, motocicletas y bicicletas)"
+                    },
+                    {
+                      "codigo": "45594",
+                      "nombre": "Venta al por mayor de alambres e interruptores y otros equipos para uso industrial"
+                    },
+                    {
+                      "codigo": "45595",
+                      "nombre": "Venta al por mayor de otros materiales eléctricos, como motores eléctricos y transformadores"
+                    },
+                    {
+                      "codigo": "45596",
+                      "nombre": "herramientas de cualquier tipo y para cualquier material"
+                    },
+                    {
+                      "codigo": "45597",
+                      "nombre": "Ventas al por mayor de maquinaria y equipo para la construcción en zonas francas"
+                    },
+                    {
+                      "codigo": "45599",
+                      "nombre": "Venta al por mayor de otro tipo de maquinaria y equipo, n.c.p."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "codigo": "456",
+              "nombre": "Venta al por mayor especializada en Zonas Francas",
+              "clases": [
+                {
+                  "codigo": "4561",
+                  "nombre": "sólidos, líquidos y gaseosos y de productos conexos en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "45610",
+                      "nombre": "Venta al por mayor de combustibles"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4562",
+                  "nombre": "Venta al por mayor de metales y de minerales metalíferos en Zonas Francas Venta al por mayor de minerales ferrosos",
+                  "subclases": [
+                    {
+                      "codigo": "45621",
+                      "nombre": "y no ferrosos; metales ferrosos y no ferrosos en forma primarias; productos metálicos semiterminados ferrosos y no"
+                    },
+                    {
+                      "codigo": "45622",
+                      "nombre": "ferrosos Venta al por mayor de oro y otros metales preciosos"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4563",
+                  "nombre": "Venta al por mayor de materiales de construcción, artículos de ferretería, equipo y materiales de fontanería y calefacción en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "45631",
+                      "nombre": "Venta al por mayor de materiales de construcción"
+                    },
+                    {
+                      "codigo": "45632",
+                      "nombre": "Venta al por mayor de artículos de ferretería y accesorios eléctricos"
+                    },
+                    {
+                      "codigo": "45639",
+                      "nombre": "Venta al por mayor de materiales de construcción, artículos de ferretería, equipo y materiales de fontanería y calefacción, n.c.p."
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4569",
+                  "nombre": "otros productos, n.c.p. en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "45690",
+                      "nombre": "Venta al por mayor de basura, desecho y"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "codigo": "459",
+              "nombre": "Venta al por mayor de otros productos no especializado en Zonas Francas",
+              "clases": [
+                {
+                  "codigo": "4590",
+                  "nombre": "especializado en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "45900",
+                      "nombre": "Venta al por mayor de otros productos no"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "46",
+          "nombre": "Comercio al por mayor, en comisión y de vehículos automotores",
+          "grupos": [
+            {
+              "codigo": "461",
+              "nombre": "Venta al por mayor a cambio de una retribución o por contrata",
+              "clases": [
+                {
+                  "codigo": "4610",
+                  "nombre": "Venta al por mayor a cambio de una retribución o por contrata",
+                  "subclases": [
+                    {
+                      "codigo": "46101",
+                      "nombre": "Agencias de importación y/o exportación comisionista"
+                    },
+                    {
+                      "codigo": "46102",
+                      "nombre": "Corredores de productos básicos y mercancía en general"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "codigo": "462",
+              "nombre": "Venta al por mayor de materias primas agropecuarias y animales vivos",
+              "clases": [
+                {
+                  "codigo": "4620",
+                  "nombre": "Venta al por mayor de materias primas agropecuarias y animales vivos",
+                  "subclases": [
+                    {
+                      "codigo": "46201",
+                      "nombre": "Venta al por mayor de granos y semillas"
+                    },
+                    {
+                      "codigo": "46202",
+                      "nombre": "Venta al por mayor de frutas oleaginosas"
+                    },
+                    {
+                      "codigo": "46203",
+                      "nombre": "Venta al por mayor de flores y plantas"
+                    },
+                    {
+                      "codigo": "46204",
+                      "nombre": "Venta al por mayor de tabaco no manufacturado"
+                    },
+                    {
+                      "codigo": "46205",
+                      "nombre": "Venta al por mayor de animales vivos"
+                    },
+                    {
+                      "codigo": "46206",
+                      "nombre": "Venta al por mayor de cueros y pieles"
+                    },
+                    {
+                      "codigo": "46207",
+                      "nombre": "Venta al por mayor de materiales agrícolas, desechos, residuos y productos usados para alimentar animales"
+                    },
+                    {
+                      "codigo": "46209",
+                      "nombre": "Venta al por mayor de otras materias primas agropecuarias y animales vivos n.c.p."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "codigo": "463",
+              "nombre": "Venta al por mayor de alimentos, bebidas y tabaco",
+              "clases": [
+                {
+                  "codigo": "4630",
+                  "nombre": "Venta al por mayor de alimentos, bebidas y tabaco",
+                  "subclases": [
+                    {
+                      "codigo": "46301",
+                      "nombre": "Venta al por mayor de alimentos, excepto carnes, aves de corral y pescado"
+                    },
+                    {
+                      "codigo": "46302",
+                      "nombre": "Venta al por mayor de productos lácteos y sus derivados"
+                    },
+                    {
+                      "codigo": "46303",
+                      "nombre": "Venta al por mayor de carnes y productos cárnicos (excepto aves de corral y sus productos)"
+                    },
+                    {
+                      "codigo": "46304",
+                      "nombre": "Venta al por mayor de aves de corral y sus productos"
+                    },
+                    {
+                      "codigo": "46305",
+                      "nombre": "Venta al por mayor de pescado, mariscos y productos conexos"
+                    },
+                    {
+                      "codigo": "46306",
+                      "nombre": "Venta al por mayor de bebidas alcohólicas (incluye cerveza)"
+                    },
+                    {
+                      "codigo": "46307",
+                      "nombre": "Venta al por mayor de bebidas no alcohólicas y agua mineral"
+                    },
+                    {
+                      "codigo": "46308",
+                      "nombre": "Venta al por mayor de productos del tabaco"
+                    },
+                    {
+                      "codigo": "46309",
+                      "nombre": "Venta al por mayor de alimentos, bebidas y tabaco n.c.p."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "codigo": "464",
+              "nombre": "Venta al por mayor de efectos personales, enseres domésticos, artículos de joyerías, relojes y productos diversos para el consumidor",
+              "clases": [
+                {
+                  "codigo": "4641",
+                  "nombre": "Venta al por mayor de textiles, prendas de vestir sus accesorios y calzado",
+                  "subclases": [
+                    {
+                      "codigo": "46411",
+                      "nombre": "Venta al por mayor de hilo, telas y artículos de lencería para el hogar"
+                    },
+                    {
+                      "codigo": "46412",
+                      "nombre": "Venta al por mayor de artículos de mercería: agujas, hilos de costura, etc."
+                    },
+                    {
+                      "codigo": "46413",
+                      "nombre": "Venta al por mayor de prendas de vestir, incluso prendas de vestir deportiva y accesorios (excepto calzado)"
+                    },
+                    {
+                      "codigo": "46414",
+                      "nombre": "Venta al por mayor de calzado"
+                    },
+                    {
+                      "codigo": "46415",
+                      "nombre": "Venta al por mayor de artículos de piel"
+                    },
+                    {
+                      "codigo": "46419",
+                      "nombre": "Venta al por mayor de textiles, prendas de vestir, sus accesorios y calzado, n.c.p."
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4642",
+                  "nombre": "Venta al por mayor de otros enseres domésticos Venta al por mayor de muebles de hogar,",
+                  "subclases": [
+                    {
+                      "codigo": "46421",
+                      "nombre": "electrodomésticos, radios, equipos de TV, grabadoras, reproductores de CD, DVD y MP4, estéreos, videojuegos y equipo de iluminación, etc."
+                    },
+                    {
+                      "codigo": "46422",
+                      "nombre": "Venta al por mayor de cubiertos; artículos de porcelana y cristalería; utensilios de madera, corcho y de mimbre etc."
+                    },
+                    {
+                      "codigo": "46429",
+                      "nombre": "Venta al por mayor de enseres domésticos, n.c.p."
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4643",
+                  "nombre": ", relojes y fantasía fina",
+                  "subclases": [
+                    {
+                      "codigo": "46430",
+                      "nombre": "Venta al por mayor de artículos de joyería"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4649",
+                  "nombre": "Venta al por mayor de otros efectos personales y productos diversos para el consumidor",
+                  "subclases": [
+                    {
+                      "codigo": "46491",
+                      "nombre": "Venta al por mayor de productos farmacéuticos y medicinales, cosméticos y artículos de tocador"
+                    },
+                    {
+                      "codigo": "46492",
+                      "nombre": "Venta al por mayor de bicicletas, sus partes y accesorios"
+                    },
+                    {
+                      "codigo": "46493",
+                      "nombre": "Venta al por mayor de libros, periódicos, revistas, papel y útiles de escritorio"
+                    },
+                    {
+                      "codigo": "46494",
+                      "nombre": "Venta al por mayor de videos y audio grabados, CD y DVD"
+                    },
+                    {
+                      "codigo": "46495",
+                      "nombre": "Venta al por mayor de artículos fotográficos y ópticos (lentes de sol, binoculares y lupas)"
+                    },
+                    {
+                      "codigo": "46496",
+                      "nombre": "Venta al por mayor de artículos de cueros y accesorios de viajes"
+                    },
+                    {
+                      "codigo": "46499",
+                      "nombre": "Venta al por mayor de otros efectos personales y productos diversos para el consumidor n.c.p."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "codigo": "465",
+              "nombre": "Venta al por mayor de maquinaria equipos y materiales; vehículos automotores y motocicletas; sus partes, piezas y accesorios",
+              "clases": [
+                {
+                  "codigo": "4651",
+                  "nombre": "Venta al por mayor de computadoras, equipo informático periférico y programas informáticos",
+                  "subclases": [
+                    {
+                      "codigo": "46511",
+                      "nombre": "Venta al por mayor de computadoras y equipo computacional periférico"
+                    },
+                    {
+                      "codigo": "46512",
+                      "nombre": "Venta al por mayor de software"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4652",
+                  "nombre": "de telecomunicaciones, sus partes y piezas",
+                  "subclases": [
+                    {
+                      "codigo": "46520",
+                      "nombre": "Venta al por mayor de equipo electrónico"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4653",
+                  "nombre": "Venta al por mayor de maquinaria, equipo agrícola; sus partes, piezas y accesorios",
+                  "subclases": [
+                    {
+                      "codigo": "46531",
+                      "nombre": "Venta al por mayor de maquinaria y equipo agrícola"
+                    },
+                    {
+                      "codigo": "46532",
+                      "nombre": "Venta al por mayor de tractores usados"
+                    },
+                    {
+                      "codigo": "46539",
+                      "nombre": "Venta al por mayor de partes, piezas y accesorios de maquinaria y equipo agrícola"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4654",
+                  "nombre": "Venta al por mayor de vehículos automotores",
+                  "subclases": [
+                    {
+                      "codigo": "46540",
+                      "nombre": "Venta al por mayor de vehículos"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4655",
+                  "nombre": "accesorios de vehículos automotores",
+                  "subclases": [
+                    {
+                      "codigo": "46550",
+                      "nombre": "Venta al por mayor de partes, piezas y"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4656",
+                  "nombre": "partes, piezas y accesorios",
+                  "subclases": [
+                    {
+                      "codigo": "46560",
+                      "nombre": "Venta al por mayor de motocicletas, sus"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4659",
+                  "nombre": "Venta al por mayor de otro tipo de maquinaria y equipo",
+                  "subclases": [
+                    {
+                      "codigo": "46591",
+                      "nombre": "Venta al por mayor de maquinaria y equipo de oficina (excepto computadoras y equipo periférico computacional)"
+                    },
+                    {
+                      "codigo": "46592",
+                      "nombre": "Venta al por mayor de muebles de oficina"
+                    },
+                    {
+                      "codigo": "46593",
+                      "nombre": "Venta al por mayor de equipo de transporte, (excepto vehículos motorizados, motocicletas y bicicletas)"
+                    },
+                    {
+                      "codigo": "46594",
+                      "nombre": "Venta al por mayor de alambres e interruptores y otros equipos para uso industrial"
+                    },
+                    {
+                      "codigo": "46595",
+                      "nombre": "Venta al por mayor de otros materiales eléctricos, como motores eléctricos, transformadores"
+                    },
+                    {
+                      "codigo": "46596",
+                      "nombre": "Venta al por mayor de máquinas, herramientas de cualquier tipo y para cualquier material"
+                    },
+                    {
+                      "codigo": "46597",
+                      "nombre": "Ventas al por mayor de maquinaria y equipo para la construcción"
+                    },
+                    {
+                      "codigo": "46599",
+                      "nombre": "Venta al por mayor de otro tipo de maquinaria y equipo, n.c.p."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "codigo": "466",
+              "nombre": "Venta al por mayor especializada",
+              "clases": [
+                {
+                  "codigo": "4661",
+                  "nombre": "sólidos, líquidos y gaseosos y de productos conexos",
+                  "subclases": [
+                    {
+                      "codigo": "46610",
+                      "nombre": "Venta al por mayor de combustibles"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4662",
+                  "nombre": "Venta al por mayor de metales y de minerales metalíferos Venta al por mayor de minerales ferrosos",
+                  "subclases": [
+                    {
+                      "codigo": "46621",
+                      "nombre": "y no ferrosos; metales ferrosos y no ferrosos en forma primarias; productos metálicos semiterminados ferrosos y no"
+                    },
+                    {
+                      "codigo": "46622",
+                      "nombre": "ferrosos Venta al por mayor de oro y otros metales preciosos"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4663",
+                  "nombre": "Venta al por mayor de materiales de construcción, artículos de ferretería, equipo y materiales de fontanería y calefacción",
+                  "subclases": [
+                    {
+                      "codigo": "46631",
+                      "nombre": "Venta al por mayor de materiales de construcción"
+                    },
+                    {
+                      "codigo": "46632",
+                      "nombre": "ferretería y accesorios eléctricos"
+                    },
+                    {
+                      "codigo": "46639",
+                      "nombre": "Venta al por mayor de materiales de construcción, artículos de ferretería, equipo y materiales de fontanería y calefacción n.c.p."
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4669",
+                  "nombre": "Venta al por mayor de basura, desecho y otros productos, n.c.p.",
+                  "subclases": [
+                    {
+                      "codigo": "46691",
+                      "nombre": "Venta al por mayor de productos químicos industriales, fertilizantes y de productos agroquímicos"
+                    },
+                    {
+                      "codigo": "46692",
+                      "nombre": "Venta al por mayor de materiales plásticos y de caucho"
+                    },
+                    {
+                      "codigo": "46693",
+                      "nombre": "Venta al por mayor de fibras textiles"
+                    },
+                    {
+                      "codigo": "46694",
+                      "nombre": "Venta al por mayor de papel granel"
+                    },
+                    {
+                      "codigo": "46695",
+                      "nombre": "Venta al por mayor de piedras preciosas"
+                    },
+                    {
+                      "codigo": "46696",
+                      "nombre": "Venta al por mayor de desechos metálicos y no metálicos para reciclar. (Incluye: recolección, clasificado, separado y desmontaje)"
+                    },
+                    {
+                      "codigo": "46699",
+                      "nombre": "Venta al por mayor de basura, desechos y otros productos"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "codigo": "469",
+              "nombre": "Venta al por mayor no especializados de otros productos",
+              "clases": [
+                {
+                  "codigo": "4690",
+                  "nombre": "Venta al por mayor no especializados de otros productos",
+                  "subclases": [
+                    {
+                      "codigo": "46900",
+                      "nombre": "Venta al por mayor no especializados de"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "47",
+          "nombre": "Comercio al por menor: mantenimiento y reparación de vehículos automotores y motocicletas",
+          "grupos": [
+            {
+              "codigo": "471",
+              "nombre": "Venta al por menor en almacenes no especializados",
+              "clases": [
+                {
+                  "codigo": "4711",
+                  "nombre": "Venta al por menor en almacenes no especializados, con surtido compuestos principalmente de alimentos, bebidas y tabaco",
+                  "subclases": [
+                    {
+                      "codigo": "47111",
+                      "nombre": "Venta al por menor de abarrotes (tiendas, kioscos, etc.)"
+                    },
+                    {
+                      "codigo": "47112",
+                      "nombre": "Supermercados"
+                    },
+                    {
+                      "codigo": "47113",
+                      "nombre": "Mini súper"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4712",
+                  "nombre": "Venta al por menor en la vía pública, puestos improvisados y en la vivienda con surtido compuesto principalmente de alimentos, bebidas y tabaco",
+                  "subclases": [
+                    {
+                      "codigo": "47121",
+                      "nombre": "Venta al por menor de sodas en latas, aguas embotelladas, gomas de mascar, pastillas, mafá, chocolate en barra, etc."
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4719",
+                  "nombre": "Venta al por menor de otros productos en almacenes no especializados (almacenes por departamentos o secciones)",
+                  "subclases": [
+                    {
+                      "codigo": "47191",
+                      "nombre": "Venta al por menor en almacenes con surtido muy diverso"
+                    },
+                    {
+                      "codigo": "47192",
+                      "nombre": "Venta al por menor en almacenes por departamentos"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "codigo": "472",
+              "nombre": "Venta al por menor de alimentos, bebidas y tabaco en almacenes especializados",
+              "clases": [
+                {
+                  "codigo": "4721",
+                  "nombre": "Venta al por menor de alimentos en almacenes especializados",
+                  "subclases": [
+                    {
+                      "codigo": "47211",
+                      "nombre": "Venta al por menor de frutas y verduras frescas o en conservas"
+                    },
+                    {
+                      "codigo": "47212",
+                      "nombre": "Venta al por menor de productos lácteos y huevos"
+                    },
+                    {
+                      "codigo": "47213",
+                      "nombre": "Venta al por menor de carnes y productos cárnicos (incluso las aves de corral)"
+                    },
+                    {
+                      "codigo": "47214",
+                      "nombre": "Venta al por menor de pescado, mariscos y productos derivados"
+                    },
+                    {
+                      "codigo": "47215",
+                      "nombre": "Venta al por menor de pan y productos de panaderías"
+                    },
+                    {
+                      "codigo": "47216",
+                      "nombre": "Venta al por menor de productos de confitería"
+                    },
+                    {
+                      "codigo": "47219",
+                      "nombre": "Venta al por menor de alimentos en almacenes especializados, n.c.p."
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4722",
+                  "nombre": "almacenes especializados",
+                  "subclases": [
+                    {
+                      "codigo": "47220",
+                      "nombre": "Venta al por menor de bebidas en"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4723",
+                  "nombre": "almacenes especializados",
+                  "subclases": [
+                    {
+                      "codigo": "47230",
+                      "nombre": "Venta al por menor de tabaco en"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "codigo": "473",
+              "nombre": "Venta al por menor de vehículos automotores y motocicletas, sus partes y combustible para vehículos",
+              "clases": [
+                {
+                  "codigo": "4730",
+                  "nombre": "Venta al por menor de combustible para vehículos automotores",
+                  "subclases": [
+                    {
+                      "codigo": "47300",
+                      "nombre": "Venta al por menor de combustible para"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4731",
+                  "nombre": "Venta al por menor de vehículos automotores",
+                  "subclases": [
+                    {
+                      "codigo": "47310",
+                      "nombre": "Venta al por menor de vehículos"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4732",
+                  "nombre": "Mantenimiento y reparación de vehículos automotores",
+                  "subclases": [
+                    {
+                      "codigo": "47321",
+                      "nombre": "Mantenimiento y reparación de vehículos automotores"
+                    },
+                    {
+                      "codigo": "47322",
+                      "nombre": "Reparación de carrocerías (chapistería) para vehículos automotores"
+                    },
+                    {
+                      "codigo": "47323",
+                      "nombre": "Lavado y lustrado de vehículos automotores"
+                    },
+                    {
+                      "codigo": "47324",
+                      "nombre": "Reparación y mantenimiento electromecánico y de sistemas de inyección eléctrica, otros."
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4733",
+                  "nombre": "Venta al por menor de partes, piezas y accesorios de vehículos automotores y equipos pesados",
+                  "subclases": [
+                    {
+                      "codigo": "47331",
+                      "nombre": "Venta al por menor de partes, piezas y accesorios de vehículos automotores"
+                    },
+                    {
+                      "codigo": "47332",
+                      "nombre": "Venta al por menor de partes, piezas y accesorios de equipos pesados"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4734",
+                  "nombre": "Venta al por menor de motocicletas, sus partes, piezas y accesorios, mantenimiento y reparación",
+                  "subclases": [
+                    {
+                      "codigo": "47341",
+                      "nombre": "ciclomotores, sus partes, piezas y accesorios"
+                    },
+                    {
+                      "codigo": "47342",
+                      "nombre": "Reparación y mantenimiento de motocicletas y ciclomotores"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "codigo": "474",
+              "nombre": "Venta al por menor de equipos de TIC (Tecnología de Información y Comunicación) en almacenes especializados",
+              "clases": [
+                {
+                  "codigo": "4741",
+                  "nombre": "unidades periféricas, equipo de software y telecomunicaciones",
+                  "subclases": [
+                    {
+                      "codigo": "47410",
+                      "nombre": "Venta al por menor de computadoras,"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4742",
+                  "nombre": "video en almacenes especializados",
+                  "subclases": [
+                    {
+                      "codigo": "47420",
+                      "nombre": "Venta al por menor de equipo de audio y"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "codigo": "475",
+              "nombre": "Venta al por menor de otro equipamiento para la casa, en almacenes especializados",
+              "clases": [
+                {
+                  "codigo": "4751",
+                  "nombre": "almacenes especializados",
+                  "subclases": [
+                    {
+                      "codigo": "47510",
+                      "nombre": "Venta al por menor de textiles en"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4752",
+                  "nombre": "ferretería, pinturas y productos de vidrio en almacenes especializados",
+                  "subclases": [
+                    {
+                      "codigo": "47520",
+                      "nombre": "Venta al por menor de artículos de"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4753",
+                  "nombre": "cubiertas de pared y piso en almacenes especializados",
+                  "subclases": [
+                    {
+                      "codigo": "47530",
+                      "nombre": "Venta al por menor de alfombras,"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4759",
+                  "nombre": "Venta al por menor de aparatos, muebles, artículos y equipos de uso domésticos en almacenes especializados",
+                  "subclases": [
+                    {
+                      "codigo": "47591",
+                      "nombre": "Venta al por menor de muebles domésticos"
+                    },
+                    {
+                      "codigo": "47592",
+                      "nombre": "Venta al por menor de artículos de iluminación"
+                    },
+                    {
+                      "codigo": "47593",
+                      "nombre": "Venta al por menor de utensilios domésticos y cubiertos, artículos de loza, vidrio, porcelana y cerámica"
+                    },
+                    {
+                      "codigo": "47594",
+                      "nombre": "Venta al por menor de artículos hechos de madera, corcho y mimbre"
+                    },
+                    {
+                      "codigo": "47595",
+                      "nombre": "Venta al por menor de electrodomésticos"
+                    },
+                    {
+                      "codigo": "47596",
+                      "nombre": "Venta al por menor de instrumentos musicales y partituras"
+                    },
+                    {
+                      "codigo": "47597",
+                      "nombre": "Venta al por menor de sistemas de seguridad, tales como dispositivos de candados, cajas fuertes y bóvedas, sin instalación o servicio de mantenimiento"
+                    },
+                    {
+                      "codigo": "47599",
+                      "nombre": "Venta al por menor de aparatos, muebles, artículos y equipo de uso domésticos en almacenes especializados, n.c.p."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "codigo": "476",
+              "nombre": "Venta al por menor de productos culturales y de entretenimiento en almacenes especializados",
+              "clases": [
+                {
+                  "codigo": "4761",
+                  "nombre": "Venta al por menor de libros, periódicos, artículos de papelería, materiales y equipos de oficina en almacenes especializados",
+                  "subclases": [
+                    {
+                      "codigo": "47611",
+                      "nombre": "Venta al por menor de libros de todo tipo, periódicos y artículos de papelería"
+                    },
+                    {
+                      "codigo": "47612",
+                      "nombre": "materiales y equipo de oficina"
+                    },
+                    {
+                      "codigo": "47619",
+                      "nombre": "Venta al por menor de libros, periódicos, artículos de papelería, materiales y equipo de oficina, en almacenes especializados, n.c.p."
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4762",
+                  "nombre": "audio y video en almacenes especializados",
+                  "subclases": [
+                    {
+                      "codigo": "47620",
+                      "nombre": "Venta al por menor de grabaciones de"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4763",
+                  "nombre": "en almacenes especializados",
+                  "subclases": [
+                    {
+                      "codigo": "47630",
+                      "nombre": "Venta al por menor de artículos de deporte"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4764",
+                  "nombre": "juguetes en almacenes especializados",
+                  "subclases": [
+                    {
+                      "codigo": "47640",
+                      "nombre": "Venta al por menor de juegos y de"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "codigo": "477",
+              "nombre": "Venta al por menor de otros artículos en tiendas especializadas",
+              "clases": [
+                {
+                  "codigo": "4771",
+                  "nombre": "Venta al por menor de productos textiles, prendas de vestir, calzado y artículos de cuero en almacenes especializados",
+                  "subclases": [
+                    {
+                      "codigo": "47711",
+                      "nombre": "Venta al por menor de productos textiles"
+                    },
+                    {
+                      "codigo": "47712",
+                      "nombre": "Venta al por menor de prendas de vestir (excepto calzados)"
+                    },
+                    {
+                      "codigo": "47713",
+                      "nombre": "Venta al por menor de calzados"
+                    },
+                    {
+                      "codigo": "47714",
+                      "nombre": "Venta al por menor de artículos de cuero"
+                    },
+                    {
+                      "codigo": "47715",
+                      "nombre": "Venta al por menor de tejidos (telas)"
+                    },
+                    {
+                      "codigo": "47719",
+                      "nombre": "Venta al por menor de productos textiles, prendas de vestir, calzados y artículos de cuero en almacenes especializados, n.c.p. (boutique)"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4772",
+                  "nombre": "Venta al por menor de productos farmacéuticos, ortopédicos, medicinales , cosméticos y artículos de tocador en almacenes especializados",
+                  "subclases": [
+                    {
+                      "codigo": "47721",
+                      "nombre": "Venta al por menor de productos farmacéuticos y medicinales"
+                    },
+                    {
+                      "codigo": "47722",
+                      "nombre": "Venta al por menor de artículos ortopédicos (ejm: camas, bastones.etc.)"
+                    },
+                    {
+                      "codigo": "47729",
+                      "nombre": "Venta al por menor de productos farmacéuticos medicinales, ortopédicos, cosméticos y artículos de tocador en almacenes especializados, n.c.p."
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4773",
+                  "nombre": "Otros tipos venta al por menor de productos en almacenes especializados (ópticas)",
+                  "subclases": [
+                    {
+                      "codigo": "47731",
+                      "nombre": "Venta al por menor de equipos y/o artículos ópticos y de precisión actividades ópticas"
+                    },
+                    {
+                      "codigo": "47732",
+                      "nombre": "Venta al por menor de flores, plantas, semillas y fertilizantes"
+                    },
+                    {
+                      "codigo": "47733",
+                      "nombre": "Venta al por menor de mascotas y alimentos para mascotas"
+                    },
+                    {
+                      "codigo": "47734",
+                      "nombre": "recuerdos religiosos y artesanías; actividades de galerías de arte comerciales"
+                    },
+                    {
+                      "codigo": "47735",
+                      "nombre": "Venta al por menor de combustible para artículos domésticos, gas envasado, carbón y combustible de madera"
+                    },
+                    {
+                      "codigo": "47736",
+                      "nombre": "Venta al por menor de armas y municiones"
+                    },
+                    {
+                      "codigo": "47737",
+                      "nombre": "Venta al por menor de teléfonos celulares y sus accesorios"
+                    },
+                    {
+                      "codigo": "47739",
+                      "nombre": "Venta al por menor de productos nuevos en almacenes especializados n.c.p, (productos no alimenticios )"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4774",
+                  "nombre": "almacenes de artículos usados (Productos no alimenticios)",
+                  "subclases": [
+                    {
+                      "codigo": "47740",
+                      "nombre": "Venta al por menor de mercancías en"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4775",
+                  "nombre": "Venta al por menor de relojes, joyas y fantasía fina",
+                  "subclases": [
+                    {
+                      "codigo": "47750",
+                      "nombre": "Venta al por menor de relojes, joyas y"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4776",
+                  "nombre": "puestos improvisados y en la vivienda de productos no alimenticios",
+                  "subclases": [
+                    {
+                      "codigo": "47760",
+                      "nombre": "Venta al por menor en la vía pública,"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "codigo": "478",
+              "nombre": "Venta al por menor en puestos de ventas y mercados",
+              "clases": [
+                {
+                  "codigo": "4781",
+                  "nombre": "y mercados de alimentos, bebidas y de productos del tabaco",
+                  "subclases": [
+                    {
+                      "codigo": "47810",
+                      "nombre": "Venta al por menor en puestos de ventas"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4782",
+                  "nombre": "y mercados de artículos, textiles, ropa,. Calzado y otras mercancías",
+                  "subclases": [
+                    {
+                      "codigo": "47820",
+                      "nombre": "Venta al por menor en puestos de ventas"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4789",
+                  "nombre": "y mercados de lotería y periódicos",
+                  "subclases": [
+                    {
+                      "codigo": "47890",
+                      "nombre": "Venta al por menor en puestos de ventas"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "codigo": "479",
+              "nombre": "Comercio al por menor no realizado en almacenes, puestos de venta y mercados",
+              "clases": [
+                {
+                  "codigo": "4791",
+                  "nombre": "Venta al por menor a través de pedido por correo o vía Internet",
+                  "subclases": [
+                    {
+                      "codigo": "47910",
+                      "nombre": "Venta al por menor a través de pedido por"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4799",
+                  "nombre": "realizada en almacenes, puestos de ventas y mercados, n.c.p.",
+                  "subclases": [
+                    {
+                      "codigo": "47991",
+                      "nombre": "Otros tipos de venta al por menor no"
+                    },
+                    {
+                      "codigo": "47992",
+                      "nombre": "Ventas al por menor por agentes comisionistas (no en almacenes)"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "48",
+          "nombre": "Comercio al por menor en Zonas Francas",
+          "grupos": [
+            {
+              "codigo": "481",
+              "nombre": "Venta al por menor a cambio de una retribución o por contrata en Zonas Francas",
+              "clases": [
+                {
+                  "codigo": "4810",
+                  "nombre": "retribución o por contrata en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "48100",
+                      "nombre": "Venta al por menor a cambio de una"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "codigo": "482",
+              "nombre": "Venta al por menor de materias primas agropecuarias y animales vivos en Zonas Francas",
+              "clases": [
+                {
+                  "codigo": "4820",
+                  "nombre": "agropecuarias y animales vivos en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "48200",
+                      "nombre": "Venta al por menor de materias primas"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "codigo": "483",
+              "nombre": "Venta al por menor de alimentos, bebidas y tabaco en Zonas Francas",
+              "clases": [
+                {
+                  "codigo": "4830",
+                  "nombre": "y tabaco en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "48300",
+                      "nombre": "Venta al por menor de alimentos, bebidas"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "codigo": "484",
+              "nombre": "Venta al por menor de efectos personales, enseres domésticos, artículos de joyerías, relojes y productos diversos para el consumidor en Zonas Francas",
+              "clases": [
+                {
+                  "codigo": "4841",
+                  "nombre": "vestir, sus accesorios y calzado en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "48410",
+                      "nombre": "Venta al por menor de textiles, prendas de"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4842",
+                  "nombre": "domésticos en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "48420",
+                      "nombre": "Venta al por menor de enseres"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4843",
+                  "nombre": "y relojes en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "48430",
+                      "nombre": "Venta al por menor de artículos de joyería"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4849",
+                  "nombre": "personales y productos diversos para el consumidor en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "48490",
+                      "nombre": "Venta al por menor de otros efectos"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "codigo": "485",
+              "nombre": "Venta al por menor de maquinaria, equipos y materiales; vehículos automotores, motocicletas, sus partes, piezas y accesorios en Zonas Francas",
+              "clases": [
+                {
+                  "codigo": "4851",
+                  "nombre": "equipo informático, periféricos y programas informáticos en Zonas francas",
+                  "subclases": [
+                    {
+                      "codigo": "48510",
+                      "nombre": "Venta al por menor de computadoras,"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4852",
+                  "nombre": "de telecomunicaciones, sus partes y piezas en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "48520",
+                      "nombre": "Venta al por menor de equipo electrónico,"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4853",
+                  "nombre": "agrícola, sus partes, piezas y accesorios en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "48530",
+                      "nombre": "Venta al por menor de maquinaria, equipo"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4854",
+                  "nombre": "automotores en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "48540",
+                      "nombre": "Venta al por menor de vehículos"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4855",
+                  "nombre": "accesorios de vehículos automotores en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "48550",
+                      "nombre": "Venta al por menor de partes, piezas y"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4856",
+                  "nombre": "partes, piezas y accesorios en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "48560",
+                      "nombre": "Venta al por menor de motocicletas; sus"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4859",
+                  "nombre": "maquinaria y equipo en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "48590",
+                      "nombre": "Venta al por menor de otro tipo de"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "codigo": "486",
+              "nombre": "Venta al por menor especializada en Zonas Francas",
+              "clases": [
+                {
+                  "codigo": "4861",
+                  "nombre": "sólidos, líquidos, gaseosos y de productos conexos en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "48610",
+                      "nombre": "Venta al por menor de combustibles"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4862",
+                  "nombre": "minerales metalíferos en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "48620",
+                      "nombre": "Venta al por menor de metales y de"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4863",
+                  "nombre": "equipo y materiales de fontanería y calefacción en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "48630",
+                      "nombre": "Venta al por menor de materiales de construcción, artículos de ferretería,"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "4869",
+                  "nombre": "otros productos, n.c.p. en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "48690",
+                      "nombre": "Venta al por menor de basura, desecho y"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "codigo": "489",
+              "nombre": "Venta al por menor de otros productos no especializada en Zonas Francas",
+              "clases": [
+                {
+                  "codigo": "4890",
+                  "nombre": "Venta al por menor de otros productos no especializada en Zonas Francas",
+                  "subclases": [
+                    {
+                      "codigo": "48900",
+                      "nombre": "Venta al por menor de otros productos no especializada en Zonas Francas"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "codigo": "H",
+      "nombre": "TRANSPORTE, ALMACENAMIENTO Y CORREO",
+      "divisiones": [
+        {
+          "codigo": "49",
+          "nombre": "Transporte por vía terrestre; transporte por tuberías",
+          "grupos": [
+            {
+              "codigo": "491",
+              "nombre": "Transporte por vía férrea",
+              "clases": [
+                {
+                  "codigo": "4911",
+                  "nombre": "Transporte de pasajeros por vía férrea"
+                },
+                {
+                  "codigo": "4912",
+                  "nombre": "Transporte de carga por vía férrea"
+                }
+              ]
+            },
+            {
+              "codigo": "492",
+              "nombre": "Otros tipos de transporte por vía terrestre",
+              "clases": [
+                {
+                  "codigo": "4921",
+                  "nombre": "Transporte terrestre de pasajeros del área urbana, suburbana o metropolitana"
+                },
+                {
+                  "codigo": "4922",
+                  "nombre": "Otros transporte terrestre de pasajeros"
+                },
+                {
+                  "codigo": "4923",
+                  "nombre": "Transporte de carga por carretera"
+                },
+                {
+                  "codigo": "4924",
+                  "nombre": "Transporte de carga por carretera en Zonas Francas"
+                }
+              ]
+            },
+            {
+              "codigo": "493",
+              "nombre": "Transporte por tuberías",
+              "clases": [
+                {
+                  "codigo": "4930",
+                  "nombre": "Transporte por tuberías Transporte por vía acuática"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "50",
+          "nombre": "Transporte por vía acuática",
+          "grupos": [
+            {
+              "codigo": "501",
+              "nombre": "Transporte marítimo y de cabotaje",
+              "clases": [
+                {
+                  "codigo": "5011",
+                  "nombre": "Transporte marítimo y de cabotaje de pasajeros"
+                },
+                {
+                  "codigo": "5012",
+                  "nombre": "Transporte marítimo y de cabotaje de carga"
+                }
+              ]
+            },
+            {
+              "codigo": "502",
+              "nombre": "Transporte por vías de navegación interiores",
+              "clases": [
+                {
+                  "codigo": "5021",
+                  "nombre": "Transporte de pasajeros por vías de navegación interiores"
+                },
+                {
+                  "codigo": "5022",
+                  "nombre": "Transporte de carga, por vías de navegación interiores"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "51",
+          "nombre": "Transporte por vía aérea",
+          "grupos": [
+            {
+              "codigo": "511",
+              "nombre": "Transporte de pasajeros por vía aérea",
+              "clases": [
+                {
+                  "codigo": "5110",
+                  "nombre": "Transporte de pasajeros por vía aérea"
+                }
+              ]
+            },
+            {
+              "codigo": "512",
+              "nombre": "Transporte de carga por vía aérea",
+              "clases": [
+                {
+                  "codigo": "5120",
+                  "nombre": "Transporte de carga por vía aérea"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "52",
+          "nombre": "Depósito y actividades de transporte complementarias",
+          "grupos": [
+            {
+              "codigo": "521",
+              "nombre": "Depósito y almacenaje",
+              "clases": [
+                {
+                  "codigo": "5211",
+                  "nombre": "Depósito y almacenaje"
+                },
+                {
+                  "codigo": "5212",
+                  "nombre": "Depósitos y almacenaje en Zonas Francas"
+                }
+              ]
+            },
+            {
+              "codigo": "522",
+              "nombre": "Actividades complementarias de transporte",
+              "clases": [
+                {
+                  "codigo": "5221",
+                  "nombre": "Actividades de servicio secundario de transporte por vía terrestre"
+                },
+                {
+                  "codigo": "5222",
+                  "nombre": "Actividades de servicio secundario de transporte por vía acuática"
+                },
+                {
+                  "codigo": "5223",
+                  "nombre": "Actividades de servicio secundario de transporte por vía aérea"
+                },
+                {
+                  "codigo": "5224",
+                  "nombre": "Manipulación de carga"
+                },
+                {
+                  "codigo": "5225",
+                  "nombre": "Manipulación de carga en Zonas Francas"
+                },
+                {
+                  "codigo": "5226",
+                  "nombre": "Autoridad del Canal de Panamá (ACP)"
+                },
+                {
+                  "codigo": "5227",
+                  "nombre": "Actividades de otras agencias de transporte realizadas en Zonas Francas"
+                },
+                {
+                  "codigo": "5229",
+                  "nombre": "Otras actividades complementarias de transporte: terrestre, marítimo (navieras) y aéreos"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "53",
+          "nombre": "Correo y servicios de mensajería",
+          "grupos": [
+            {
+              "codigo": "531",
+              "nombre": "Correo",
+              "clases": [
+                {
+                  "codigo": "5310",
+                  "nombre": "Correo"
+                }
+              ]
+            },
+            {
+              "codigo": "532",
+              "nombre": "Servicio de mensajería",
+              "clases": [
+                {
+                  "codigo": "5320",
+                  "nombre": "Servicio de mensajería"
+                }
+              ]
+            },
+            {
+              "codigo": "533",
+              "nombre": "Correo y encomiendas en Zonas Francas",
+              "clases": [
+                {
+                  "codigo": "5330",
+                  "nombre": "Correo y encomiendas en Zonas Francas"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "codigo": "I",
+      "nombre": "HOTELES Y RESTAURANTES",
+      "divisiones": [
+        {
+          "codigo": "55",
+          "nombre": "Hoteles, campamentos y otros tipos de hospedajes temporales",
+          "grupos": [
+            {
+              "codigo": "551",
+              "nombre": "Actividades de alojamiento temporales",
+              "clases": [
+                {
+                  "codigo": "5510",
+                  "nombre": "Actividades de alojamiento temporales",
+                  "subclases": [
+                    {
+                      "codigo": "55101",
+                      "nombre": "Servicio de alojamiento en hoteles"
+                    },
+                    {
+                      "codigo": "55102",
+                      "nombre": "Servicio de alojamiento en pensiones y residenciales"
+                    },
+                    {
+                      "codigo": "55103",
+                      "nombre": "Servicios de alojamiento en hostales"
+                    },
+                    {
+                      "codigo": "55109",
+                      "nombre": "Otros servicios de alojamiento (Push Bottom)"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "codigo": "552",
+              "nombre": "Los terrenos para acampar, parques de vehículos recreativos y parques remolques",
+              "clases": [
+                {
+                  "codigo": "5520",
+                  "nombre": "Los terrenos para acampar, parques de vehículos recreativos y parques remolques"
+                }
+              ]
+            },
+            {
+              "codigo": "559",
+              "nombre": "Otros alojamientos",
+              "clases": [
+                {
+                  "codigo": "5590",
+                  "nombre": "Otros alojamientos"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "56",
+          "nombre": "Restaurantes, bares y cantinas",
+          "grupos": [
+            {
+              "codigo": "561",
+              "nombre": "Restaurantes, bares y cantinas",
+              "clases": [
+                {
+                  "codigo": "5611",
+                  "nombre": "Restaurantes",
+                  "subclases": [
+                    {
+                      "codigo": "56111",
+                      "nombre": "Servicios en restaurantes"
+                    },
+                    {
+                      "codigo": "56112",
+                      "nombre": "Servicios en restaurantes de comida rápida"
+                    }
+                  ]
+                },
+                {
+                  "codigo": "5612",
+                  "nombre": "Preparación y ventas de alimentos en la vía pública y puestos improvisados"
+                }
+              ]
+            },
+            {
+              "codigo": "562",
+              "nombre": "Abastecimientos de eventos y otras actividades de servicio de alimentos",
+              "clases": [
+                {
+                  "codigo": "5621",
+                  "nombre": "Abastecimientos de eventos"
+                },
+                {
+                  "codigo": "5629",
+                  "nombre": "Otras actividades de servicio de alimentación"
+                }
+              ]
+            },
+            {
+              "codigo": "563",
+              "nombre": "Actividades vinculadas al servicio de bebidas",
+              "clases": [
+                {
+                  "codigo": "5631",
+                  "nombre": "Actividades vinculadas al servicio de bebidas",
+                  "subclases": [
+                    {
+                      "codigo": "56311",
+                      "nombre": "Servicios en bares, cantinas, discotecas y jardines"
+                    },
+                    {
+                      "codigo": "56312",
+                      "nombre": "Servicios de refresquerías"
+                    },
+                    {
+                      "codigo": "56319",
+                      "nombre": "Otros servicios de bebidas, n.c.p."
+                    }
+                  ]
+                },
+                {
+                  "codigo": "5632",
+                  "nombre": "Preparación y venta de bebidas en la vía pública y puestos improvisados"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "codigo": "J",
+      "nombre": "INFORMACIÓN Y COMUNICACIÓN",
+      "divisiones": [
+        {
+          "codigo": "58",
+          "nombre": "Actividades de Edición",
+          "grupos": [
+            {
+              "codigo": "581",
+              "nombre": "Edición de libros, periódicos y otras actividades de publicación",
+              "clases": [
+                {
+                  "codigo": "5811",
+                  "nombre": "Edición de libros"
+                },
+                {
+                  "codigo": "5812",
+                  "nombre": "Edición de directorios y de listas de envío"
+                },
+                {
+                  "codigo": "5813",
+                  "nombre": "Edición de periódicos, diarios y revistas"
+                },
+                {
+                  "codigo": "5819",
+                  "nombre": "Otras Ediciones"
+                }
+              ]
+            },
+            {
+              "codigo": "582",
+              "nombre": "Edición de programas informáticos",
+              "clases": [
+                {
+                  "codigo": "5820",
+                  "nombre": "Edición de programas informáticos"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "59",
+          "nombre": "Actividades de producción de películas, videocintas, programas de televisión, grabación, publicación de música y sonido",
+          "grupos": [
+            {
+              "codigo": "591",
+              "nombre": "Actividades de producción de películas, videocintas y programas de televisión",
+              "clases": [
+                {
+                  "codigo": "5911",
+                  "nombre": "Actividades de producción de películas, videocintas y programas de televisión"
+                },
+                {
+                  "codigo": "5912",
+                  "nombre": "Actividades posteriores a la producción de películas, video0 y programas de televisión"
+                },
+                {
+                  "codigo": "5913",
+                  "nombre": "Actividades de distribución de películas, video y programas de televisión"
+                },
+                {
+                  "codigo": "5914",
+                  "nombre": "Actividades de proyección de películas (salas de cine)"
+                }
+              ]
+            },
+            {
+              "codigo": "592",
+              "nombre": "Actividades de grabación y publicación de grabaciones sonoras",
+              "clases": [
+                {
+                  "codigo": "5920",
+                  "nombre": "Actividades de grabación y publicación de grabaciones sonoras"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "60",
+          "nombre": "Actividades de Programación y difusión",
+          "grupos": [
+            {
+              "codigo": "601",
+              "nombre": "Difusión de radio",
+              "clases": [
+                {
+                  "codigo": "6010",
+                  "nombre": "Difusión de radio"
+                }
+              ]
+            },
+            {
+              "codigo": "602",
+              "nombre": "Programación y actividades de producción y difusión de televisión",
+              "clases": [
+                {
+                  "codigo": "6021",
+                  "nombre": "Difusión de televisión"
+                },
+                {
+                  "codigo": "6022",
+                  "nombre": "Programación y actividades de producción y difusión de televisión"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "61",
+          "nombre": "Telecomunicaciones",
+          "grupos": [
+            {
+              "codigo": "611",
+              "nombre": "Actividades de telecomunicaciones por cable",
+              "clases": [
+                {
+                  "codigo": "6110",
+                  "nombre": "Actividades de telecomunicaciones por cable"
+                }
+              ]
+            },
+            {
+              "codigo": "612",
+              "nombre": "Actividades de telecomunicaciones inalámbricas",
+              "clases": [
+                {
+                  "codigo": "6120",
+                  "nombre": "Actividades de telecomunicaciones inalámbricas"
+                }
+              ]
+            },
+            {
+              "codigo": "613",
+              "nombre": "Actividades de telecomunicaciones por satélite",
+              "clases": [
+                {
+                  "codigo": "6130",
+                  "nombre": "Actividades de telecomunicaciones por satélite"
+                }
+              ]
+            },
+            {
+              "codigo": "619",
+              "nombre": "Otras actividades de telecomunicación",
+              "clases": [
+                {
+                  "codigo": "6190",
+                  "nombre": "Otras actividades de telecomunicación"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "62",
+          "nombre": "Actividades de la tecnología de información y del servicio informático",
+          "grupos": [
+            {
+              "codigo": "620",
+              "nombre": "Actividades de la tecnología de información y del servicio informático",
+              "clases": [
+                {
+                  "codigo": "6201",
+                  "nombre": "Actividades de programación informática"
+                },
+                {
+                  "codigo": "6202",
+                  "nombre": "Actividades de consultoría informática y actividades de administración de medios informáticos"
+                },
+                {
+                  "codigo": "6209",
+                  "nombre": "Otras actividades de tecnología de información y servicio de computadoras"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "63",
+          "nombre": "Actividades del servicio informático e informativo",
+          "grupos": [
+            {
+              "codigo": "631",
+              "nombre": "Portales Web, procesamiento de datos, hospedaje y actividades conexas",
+              "clases": [
+                {
+                  "codigo": "6311",
+                  "nombre": "Procesamiento de datos, hospedaje y actividades conexas"
+                },
+                {
+                  "codigo": "6312",
+                  "nombre": "Portales Web"
+                }
+              ]
+            },
+            {
+              "codigo": "639",
+              "nombre": "Otras actividades del servicio de información",
+              "clases": [
+                {
+                  "codigo": "6391",
+                  "nombre": "Actividades de agencias de noticias"
+                },
+                {
+                  "codigo": "6399",
+                  "nombre": "Otros servicios de información, n.c.p."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "codigo": "K",
+      "nombre": "ACTIVIDADES FINANCIERAS Y DE SEGUROS",
+      "divisiones": [
+        {
+          "codigo": "64",
+          "nombre": "Servicios financieros, excepto seguros y fondos de pensiones",
+          "grupos": [
+            {
+              "codigo": "641",
+              "nombre": "Intermediación monetaria",
+              "clases": [
+                {
+                  "codigo": "6411",
+                  "nombre": "Banca Central"
+                },
+                {
+                  "codigo": "6412",
+                  "nombre": "Otros tipos de intermediación monetaria en establecimientos ubicados en Zonas Francas"
+                },
+                {
+                  "codigo": "6419",
+                  "nombre": "Otros tipos de intermediación monetaria (Banco Nacional de Panamá)"
+                }
+              ]
+            },
+            {
+              "codigo": "642",
+              "nombre": "Actividades de sociedades de control (holding)",
+              "clases": [
+                {
+                  "codigo": "6420",
+                  "nombre": "Actividades de sociedades de control (holding)"
+                }
+              ]
+            },
+            {
+              "codigo": "643",
+              "nombre": "Fideicomisos, fondos y otras fuentes de financiamiento",
+              "clases": [
+                {
+                  "codigo": "6430",
+                  "nombre": "Fideicomisos, fondos y otras fuentes de financiamiento"
+                }
+              ]
+            },
+            {
+              "codigo": "649",
+              "nombre": "Otras actividades financieras, excepto seguros y actividades de fondo de pensiones n.c.p.",
+              "clases": [
+                {
+                  "codigo": "6491",
+                  "nombre": "Arrendamiento financiero (Leasing)"
+                },
+                {
+                  "codigo": "6492",
+                  "nombre": "Otros tipos de crédito (casas de empeños, financieras)"
+                },
+                {
+                  "codigo": "6499",
+                  "nombre": "Otras actividades financieras, excepto seguros y fondos de pensiones"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "65",
+          "nombre": "Seguros, reaseguros y fondos de pensiones, excepto los planes de seguridad social de afiliación obligatoria",
+          "grupos": [
+            {
+              "codigo": "651",
+              "nombre": "Seguros",
+              "clases": [
+                {
+                  "codigo": "6511",
+                  "nombre": "Seguros de vida"
+                },
+                {
+                  "codigo": "6512",
+                  "nombre": "Seguros generales"
+                },
+                {
+                  "codigo": "6513",
+                  "nombre": "Seguros generales en Zonas Francas"
+                }
+              ]
+            },
+            {
+              "codigo": "652",
+              "nombre": "Reaseguros",
+              "clases": [
+                {
+                  "codigo": "6520",
+                  "nombre": "Reaseguros"
+                }
+              ]
+            },
+            {
+              "codigo": "653",
+              "nombre": "Fondos de pensión",
+              "clases": [
+                {
+                  "codigo": "6530",
+                  "nombre": "Fondos de pensión"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "66",
+          "nombre": "Actividades financieras a los servicios financieros y actividades de seguros",
+          "grupos": [
+            {
+              "codigo": "661",
+              "nombre": "Actividades auxiliares de la Intermediación financiera, excepto seguros y fondos de pensiones",
+              "clases": [
+                {
+                  "codigo": "6611",
+                  "nombre": "Administración de mercados financieros"
+                },
+                {
+                  "codigo": "6612",
+                  "nombre": "Títulos de valor y contratos de corretaje de materias primas"
+                },
+                {
+                  "codigo": "6619",
+                  "nombre": "Otras actividades auxiliares a las actividades de servicios financieros"
+                }
+              ]
+            },
+            {
+              "codigo": "662",
+              "nombre": "Actividades auxiliares de seguros y fondos de pensiones",
+              "clases": [
+                {
+                  "codigo": "6621",
+                  "nombre": "Evaluación de riesgos y daños"
+                },
+                {
+                  "codigo": "6622",
+                  "nombre": "Actividades de los agentes y corredores de seguro"
+                },
+                {
+                  "codigo": "6629",
+                  "nombre": "Otras actividades auxiliares de seguros y fondos de pensiones"
+                }
+              ]
+            },
+            {
+              "codigo": "663",
+              "nombre": "Actividades de administración de fondos",
+              "clases": [
+                {
+                  "codigo": "6630",
+                  "nombre": "Actividades de administración de fondos"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "codigo": "L",
+      "nombre": "ACTIVIDADES INMOBILIARIAS",
+      "divisiones": [
+        {
+          "codigo": "68",
+          "nombre": "Actividades inmobiliarias",
+          "grupos": [
+            {
+              "codigo": "681",
+              "nombre": "propios o arrendados",
+              "clases": [
+                {
+                  "codigo": "6810",
+                  "nombre": "Actividades inmobiliarias con bienes propios o arrendados"
+                }
+              ]
+            },
+            {
+              "codigo": "682",
+              "nombre": "Actividades inmobiliarias realizadas a cambio de una retribución o por contrata",
+              "clases": [
+                {
+                  "codigo": "6821",
+                  "nombre": "Actividades inmobiliarias realizadas a cambio de una retribución o por contrata"
+                },
+                {
+                  "codigo": "6822",
+                  "nombre": "Actividades inmobiliarias realizadas a cambio de una retribución o por contrata en Zonas Francas"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "codigo": "M",
+      "nombre": "ACTIVIDADES PROFESIONALES, CIENTÍFICAS Y TÉCNICAS",
+      "divisiones": [
+        {
+          "codigo": "69",
+          "nombre": "Actividades jurídicas y de contabilidad",
+          "grupos": [
+            {
+              "codigo": "691",
+              "nombre": "Actividades jurídicas",
+              "clases": [
+                {
+                  "codigo": "6910",
+                  "nombre": "Actividades jurídicas"
+                }
+              ]
+            },
+            {
+              "codigo": "692",
+              "nombre": "Actividades de contabilidad, teneduría de libros y auditorias; asesoramiento en materia de impuestos",
+              "clases": [
+                {
+                  "codigo": "6921",
+                  "nombre": "Actividades de contabilidad, teneduría de libros y auditorias; asesoramiento en materia de impuestos"
+                },
+                {
+                  "codigo": "6922",
+                  "nombre": "Actividades de contabilidad, teneduría de libros y auditorias; asesoramiento en materia de impuestos en Zonas Francas Actividades de oficinas centrales,"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "70",
+          "nombre": "actividades de administración de empresas y de consultoría sobre administración de empresas",
+          "grupos": [
+            {
+              "codigo": "701",
+              "nombre": "Actividades de oficinas centrales",
+              "clases": [
+                {
+                  "codigo": "7010",
+                  "nombre": "Actividades de oficinas centrales"
+                }
+              ]
+            },
+            {
+              "codigo": "702",
+              "nombre": "Actividades de administración de empresas y de consultoría sobre administración de empresas.",
+              "clases": [
+                {
+                  "codigo": "7021",
+                  "nombre": "Actividades de administración de empresas y de consultoría sobre administración de empresas"
+                },
+                {
+                  "codigo": "7022",
+                  "nombre": "Actividades de administración de empresas y de consultoría sobre administración de empresas en Zonas Francas"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "71",
+          "nombre": "Actividades de arquitectura e ingeniería, ensayos y análisis técnicos",
+          "grupos": [
+            {
+              "codigo": "711",
+              "nombre": "Actividades de arquitectura e ingeniería y actividades conexas de asesoramiento técnico",
+              "clases": [
+                {
+                  "codigo": "7110",
+                  "nombre": "Actividades de arquitectura e ingeniería y actividades conexas de asesoramiento técnico"
+                }
+              ]
+            },
+            {
+              "codigo": "712",
+              "nombre": "Ensayos y análisis técnicos",
+              "clases": [
+                {
+                  "codigo": "7120",
+                  "nombre": "Ensayos y análisis técnicos"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "72",
+          "nombre": "Investigación y desarrollo científicos",
+          "grupos": [
+            {
+              "codigo": "721",
+              "nombre": "Investigación y desarrollo experimental en el campo de las ciencias naturales y la ingeniería",
+              "clases": [
+                {
+                  "codigo": "7210",
+                  "nombre": "Investigación y desarrollo experimental en el campo de las ciencias naturales y la ingeniería"
+                }
+              ]
+            },
+            {
+              "codigo": "722",
+              "nombre": "Investigación y desarrollo experimental en el campo de las ciencias sociales y las humanidades",
+              "clases": [
+                {
+                  "codigo": "7220",
+                  "nombre": "Investigación y desarrollo experimental en el campo de las ciencias sociales y las humanidades"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "73",
+          "nombre": "Publicidad e investigación de mercados",
+          "grupos": [
+            {
+              "codigo": "731",
+              "nombre": "Publicidad",
+              "clases": [
+                {
+                  "codigo": "7310",
+                  "nombre": "Publicidad"
+                }
+              ]
+            },
+            {
+              "codigo": "732",
+              "nombre": "Investigación de mercados y encuestas de opinión pública",
+              "clases": [
+                {
+                  "codigo": "7320",
+                  "nombre": "Investigación de mercados y encuestas de opinión pública"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "74",
+          "nombre": "Otras actividades profesionales, científicas y técnicas",
+          "grupos": [
+            {
+              "codigo": "741",
+              "nombre": "Actividades especializadas de diseño",
+              "clases": [
+                {
+                  "codigo": "7410",
+                  "nombre": "Actividades especializadas de diseño"
+                }
+              ]
+            },
+            {
+              "codigo": "742",
+              "nombre": "Actividades de fotografía",
+              "clases": [
+                {
+                  "codigo": "7420",
+                  "nombre": "Actividades de fotografía"
+                }
+              ]
+            },
+            {
+              "codigo": "749",
+              "nombre": "Otras actividades profesionales, científicas y técnicas, n.c.p.",
+              "clases": [
+                {
+                  "codigo": "7490",
+                  "nombre": "Otras actividades profesionales, científicas y técnicas, n.c.p."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "75",
+          "nombre": "Actividades veterinarias",
+          "grupos": [
+            {
+              "codigo": "750",
+              "nombre": "Actividades veterinarias",
+              "clases": [
+                {
+                  "codigo": "7500",
+                  "nombre": "Actividades veterinarias"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "codigo": "N",
+      "nombre": "ACTIVIDADES ADMINISTRATIVAS Y SERVICIOS DE APOYO",
+      "divisiones": [
+        {
+          "codigo": "77",
+          "nombre": "Actividades del alquiler y arrendamiento",
+          "grupos": [
+            {
+              "codigo": "771",
+              "nombre": "Renta y alquiler de vehículos automotores",
+              "clases": [
+                {
+                  "codigo": "7710",
+                  "nombre": "Renta y alquiler de vehículos automotores sin conductor"
+                }
+              ]
+            },
+            {
+              "codigo": "772",
+              "nombre": "enseres domésticos, n.c.p.",
+              "clases": [
+                {
+                  "codigo": "7721",
+                  "nombre": "Renta y alquiler de equipo de recreo y deportivo"
+                },
+                {
+                  "codigo": "7722",
+                  "nombre": "Alquiler de cintas de vídeo y discos"
+                },
+                {
+                  "codigo": "7729",
+                  "nombre": "Alquiler de otros efectos personales y enseres domésticos, n.c.p."
+                }
+              ]
+            },
+            {
+              "codigo": "773",
+              "nombre": "Alquiler de otro tipo de maquinaria, equipo sin operador y mercancías tangibles",
+              "clases": [
+                {
+                  "codigo": "7731",
+                  "nombre": "Alquiler de otro tipo de maquinaria, equipo sin operador y mercancías tangibles"
+                },
+                {
+                  "codigo": "7732",
+                  "nombre": "Alquiler de otro tipo de maquinaria, equipo sin operador y mercancías tangibles en Zonas Francas"
+                }
+              ]
+            },
+            {
+              "codigo": "774",
+              "nombre": "Arrendamiento de propiedad intelectual y productos similares excepto derechos de autor",
+              "clases": [
+                {
+                  "codigo": "7740",
+                  "nombre": "Arrendamiento de propiedad intelectual y productos similares excepto derechos de autor"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "78",
+          "nombre": "Actividades de las agencias de empleo",
+          "grupos": [
+            {
+              "codigo": "781",
+              "nombre": "Actividades de agencias de colocación de empleados",
+              "clases": [
+                {
+                  "codigo": "7810",
+                  "nombre": "Actividades de agencias de colocación de empleados"
+                }
+              ]
+            },
+            {
+              "codigo": "782",
+              "nombre": "Actividades de agencias de trabajo temporal",
+              "clases": [
+                {
+                  "codigo": "7820",
+                  "nombre": "Actividades de agencias de trabajo temporal"
+                }
+              ]
+            },
+            {
+              "codigo": "783",
+              "nombre": "Otro suministro de recursos humanos",
+              "clases": [
+                {
+                  "codigo": "7830",
+                  "nombre": "Otro suministro de recursos humanos"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "79",
+          "nombre": "Actividades de las agencias de viajes, operadores turísticos y servicios de reserva relacionados",
+          "grupos": [
+            {
+              "codigo": "791",
+              "nombre": "Actividades de agencia de viajes y operadores turísticos",
+              "clases": [
+                {
+                  "codigo": "7911",
+                  "nombre": "Actividades de agencias de viajes"
+                },
+                {
+                  "codigo": "7912",
+                  "nombre": "Actividades de operadores turísticos"
+                },
+                {
+                  "codigo": "7913",
+                  "nombre": "Actividades de agencias de viajes y operadores turísticos en Zonas Francas"
+                }
+              ]
+            },
+            {
+              "codigo": "799",
+              "nombre": "Otros servicios de reserva y actividades relacionadas",
+              "clases": [
+                {
+                  "codigo": "7990",
+                  "nombre": "Otros servicios de reserva y actividades relacionadas"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "80",
+          "nombre": "Actividades de seguridad e investigación",
+          "grupos": [
+            {
+              "codigo": "801",
+              "nombre": "Actividades de seguridad privada",
+              "clases": [
+                {
+                  "codigo": "8010",
+                  "nombre": "Actividades de seguridad privada"
+                }
+              ]
+            },
+            {
+              "codigo": "802",
+              "nombre": "Actividades de servicio de sistemas de seguridad",
+              "clases": [
+                {
+                  "codigo": "8020",
+                  "nombre": "Actividades de servicio de sistemas de seguridad"
+                }
+              ]
+            },
+            {
+              "codigo": "803",
+              "nombre": "Actividades de investigación",
+              "clases": [
+                {
+                  "codigo": "8030",
+                  "nombre": "Actividades de investigación"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "81",
+          "nombre": "Actividades de servicio a edificios y paisajes (jardines, áreas verdes)",
+          "grupos": [
+            {
+              "codigo": "811",
+              "nombre": "Actividades combinadas de apoyo a instalaciones",
+              "clases": [
+                {
+                  "codigo": "8110",
+                  "nombre": "Actividades combinadas de apoyo a instalaciones"
+                }
+              ]
+            },
+            {
+              "codigo": "812",
+              "nombre": "Actividades de limpieza",
+              "clases": [
+                {
+                  "codigo": "8121",
+                  "nombre": "Limpieza general de edificios"
+                },
+                {
+                  "codigo": "8122",
+                  "nombre": "Limpieza general de edificios en Zonas Francas"
+                },
+                {
+                  "codigo": "8129",
+                  "nombre": "Otras actividades de limpieza industrial y de edificios (fumigación)"
+                }
+              ]
+            },
+            {
+              "codigo": "813",
+              "nombre": "Actividades de servicio de mantenimiento y cuidado de paisajes (jardines, áreas verdes)",
+              "clases": [
+                {
+                  "codigo": "8130",
+                  "nombre": "Actividades de servicio de mantenimiento y cuidado de paisajes (jardines, áreas verdes)"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "82",
+          "nombre": "Actividades de oficinas administrativas, soporte de oficinas y otras actividades de soporte de negocios",
+          "grupos": [
+            {
+              "codigo": "821",
+              "nombre": "Actividades de oficinas administrativas y de apoyo",
+              "clases": [
+                {
+                  "codigo": "8211",
+                  "nombre": "Actividades combinadas de servicios administrativos de oficina"
+                },
+                {
+                  "codigo": "8219",
+                  "nombre": "Fotocopiado, preparación de documentos y otro apoyo especializado de oficinas"
+                }
+              ]
+            },
+            {
+              "codigo": "822",
+              "nombre": "Actividades de centros de llamadas",
+              "clases": [
+                {
+                  "codigo": "8220",
+                  "nombre": "Actividades de centros de llamadas (call center)"
+                }
+              ]
+            },
+            {
+              "codigo": "823",
+              "nombre": "Organización de convenciones y eventos comerciales",
+              "clases": [
+                {
+                  "codigo": "8230",
+                  "nombre": "Organización de convenciones y eventos comerciales"
+                }
+              ]
+            },
+            {
+              "codigo": "829",
+              "nombre": "Actividades de servicio de apoyo a los negocios, n.c.p.",
+              "clases": [
+                {
+                  "codigo": "8291",
+                  "nombre": "Actividades de agencias de cobranza y oficinas de crédito"
+                },
+                {
+                  "codigo": "8292",
+                  "nombre": "Actividades de envase y empaque"
+                },
+                {
+                  "codigo": "8299",
+                  "nombre": "Otras actividades de servicio de apoyo a los negocios, n.c.p."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "codigo": "O",
+      "nombre": "ADMINISTRACIÓN PÚBLICA Y DEFENSA; PLANES DE SEGURIDAD SOCIAL DE AFILIACIÓN OBLIGATORIA",
+      "divisiones": [
+        {
+          "codigo": "84",
+          "nombre": "Administración pública y defensa; planes de seguridad social de afiliación obligatoria",
+          "grupos": [
+            {
+              "codigo": "841",
+              "nombre": "Administración del Estado y aplicación de la política económica y social de la comunidad",
+              "clases": [
+                {
+                  "codigo": "8411",
+                  "nombre": "Actividades de la administración pública en general Regulación de las actividades de"
+                },
+                {
+                  "codigo": "8412",
+                  "nombre": "organismos que prestan servicios sanitarios, educativos, culturales y otros servicios sociales, excepto servicios de"
+                },
+                {
+                  "codigo": "8413",
+                  "nombre": "seguridad social Regulación y facilitación de la actividad económica"
+                }
+              ]
+            },
+            {
+              "codigo": "842",
+              "nombre": "Prestación de servicios a la comunidad en general",
+              "clases": [
+                {
+                  "codigo": "8421",
+                  "nombre": "Relaciones exteriores"
+                },
+                {
+                  "codigo": "8422",
+                  "nombre": "Actividades de defensa"
+                },
+                {
+                  "codigo": "8423",
+                  "nombre": "Actividades de mantenimiento del orden público y de seguridad"
+                }
+              ]
+            },
+            {
+              "codigo": "843",
+              "nombre": "Actividades de planes de seguridad social de afiliación obligatoria",
+              "clases": [
+                {
+                  "codigo": "8430",
+                  "nombre": "Actividades de planes de seguridad social de afiliación obligatoria"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "codigo": "P",
+      "nombre": "ENSEÑANZA",
+      "divisiones": [
+        {
+          "codigo": "85",
+          "nombre": "Enseñanza",
+          "grupos": [
+            {
+              "codigo": "851",
+              "nombre": "Enseñanza preprimaria y primaria",
+              "clases": [
+                {
+                  "codigo": "8510",
+                  "nombre": "Enseñanza preprimaria y primaria"
+                }
+              ]
+            },
+            {
+              "codigo": "852",
+              "nombre": "Enseñanza secundaria",
+              "clases": [
+                {
+                  "codigo": "8521",
+                  "nombre": "Enseñanza secundaria de formación general"
+                },
+                {
+                  "codigo": "8522",
+                  "nombre": "Enseñanza secundaria de formación técnica y profesional"
+                }
+              ]
+            },
+            {
+              "codigo": "853",
+              "nombre": "Enseñanza superior",
+              "clases": [
+                {
+                  "codigo": "8530",
+                  "nombre": "Enseñanza superior"
+                }
+              ]
+            },
+            {
+              "codigo": "854",
+              "nombre": "Otros tipos de enseñanza",
+              "clases": [
+                {
+                  "codigo": "8541",
+                  "nombre": "Educación deportiva y recreativa"
+                },
+                {
+                  "codigo": "8542",
+                  "nombre": "Educación cultural"
+                },
+                {
+                  "codigo": "8549",
+                  "nombre": "Otros tipos de enseñanza, n.c.p."
+                }
+              ]
+            },
+            {
+              "codigo": "855",
+              "nombre": "Servicios de apoyo educativo",
+              "clases": [
+                {
+                  "codigo": "8550",
+                  "nombre": "Servicios de apoyo educativo"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "codigo": "Q",
+      "nombre": "SERVICIOS SOCIALES Y RELACIONADOS CON LA SALUD HUMANA",
+      "divisiones": [
+        {
+          "codigo": "86",
+          "nombre": "Actividades relacionadas con la salud humana",
+          "grupos": [
+            {
+              "codigo": "861",
+              "nombre": "Actividades de hospitales",
+              "clases": [
+                {
+                  "codigo": "8610",
+                  "nombre": "Actividades de hospitales"
+                }
+              ]
+            },
+            {
+              "codigo": "862",
+              "nombre": "Actividades de médicos y odontólogos",
+              "clases": [
+                {
+                  "codigo": "8620",
+                  "nombre": "Actividades de médicos y odontólogos"
+                }
+              ]
+            },
+            {
+              "codigo": "869",
+              "nombre": "Otras actividades relacionadas con la salud humana",
+              "clases": [
+                {
+                  "codigo": "8690",
+                  "nombre": "Otras actividades relacionadas con la salud humana (laboratorio clínico)"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "87",
+          "nombre": "Instituciones residenciales de cuidado",
+          "grupos": [
+            {
+              "codigo": "871",
+              "nombre": "Instalaciones de residencias con cuidado de enfermería",
+              "clases": [
+                {
+                  "codigo": "8710",
+                  "nombre": "Instalaciones de residencias con cuidado de enfermería"
+                }
+              ]
+            },
+            {
+              "codigo": "872",
+              "nombre": "Instituciones dedicadas al tratamiento del retraso mental, los problemas de salud mental y el uso indebido de sustancias nocivas",
+              "clases": [
+                {
+                  "codigo": "8720",
+                  "nombre": "Instituciones dedicadas al tratamiento del retraso mental, los problemas de salud mental y el uso indebido de sustancias nocivas"
+                }
+              ]
+            },
+            {
+              "codigo": "873",
+              "nombre": "Instituciones dedicadas al cuidado del adulto mayor y discapacitados",
+              "clases": [
+                {
+                  "codigo": "8730",
+                  "nombre": "Instituciones dedicadas al cuidado del adulto mayor y discapacitados"
+                }
+              ]
+            },
+            {
+              "codigo": "879",
+              "nombre": "Otras instituciones residenciales de cuidado",
+              "clases": [
+                {
+                  "codigo": "8790",
+                  "nombre": "Otras instituciones residenciales de cuidado"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "88",
+          "nombre": "Servicios sociales sin alojamiento",
+          "grupos": [
+            {
+              "codigo": "881",
+              "nombre": "Servicios sociales sin alojamiento para el adulto mayor y discapacitados",
+              "clases": [
+                {
+                  "codigo": "8810",
+                  "nombre": "Servicios sociales sin alojamiento para el adulto mayor y discapacitados"
+                }
+              ]
+            },
+            {
+              "codigo": "889",
+              "nombre": "alojamiento, n.c.p.",
+              "clases": [
+                {
+                  "codigo": "8890",
+                  "nombre": "Otras actividades de trabajo social sin alojamiento, n.c.p."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "codigo": "R",
+      "nombre": "ARTES, ENTRETENIMIENTO Y CREATIVIDAD",
+      "divisiones": [
+        {
+          "codigo": "90",
+          "nombre": "Actividades de arte, entretenimiento y creatividad",
+          "grupos": [
+            {
+              "codigo": "900",
+              "nombre": "Actividades de arte, entretenimiento y creatividad",
+              "clases": [
+                {
+                  "codigo": "9000",
+                  "nombre": "Actividades de arte, entretenimiento y creatividad"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "91",
+          "nombre": "Bibliotecas, archivos, museos y otras actividades culturales",
+          "grupos": [
+            {
+              "codigo": "910",
+              "nombre": "Bibliotecas, archivos, museos y otras actividades culturales",
+              "clases": [
+                {
+                  "codigo": "9101",
+                  "nombre": "Actividades de Bibliotecas y archivos"
+                },
+                {
+                  "codigo": "9102",
+                  "nombre": "Actividades de museos y preservación de lugares históricos"
+                },
+                {
+                  "codigo": "9103",
+                  "nombre": "Actividades de jardines botánicos, zoológicos y parques naturales"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "92",
+          "nombre": "Actividades de juego de azar y apuestas",
+          "grupos": [
+            {
+              "codigo": "920",
+              "nombre": "Actividades de juego de azar y apuestas",
+              "clases": [
+                {
+                  "codigo": "9200",
+                  "nombre": "Actividades de juego de azar y apuestas"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "93",
+          "nombre": "Actividades deportivas, de diversión y esparcimiento",
+          "grupos": [
+            {
+              "codigo": "931",
+              "nombre": "Actividades deportivas",
+              "clases": [
+                {
+                  "codigo": "9311",
+                  "nombre": "Administración de instalaciones deportivas"
+                },
+                {
+                  "codigo": "9312",
+                  "nombre": "Actividades de clubes deportivos"
+                },
+                {
+                  "codigo": "9319",
+                  "nombre": "Otras actividades deportivas"
+                }
+              ]
+            },
+            {
+              "codigo": "932",
+              "nombre": "Otras actividades de diversión y esparcimiento",
+              "clases": [
+                {
+                  "codigo": "9321",
+                  "nombre": "Actividades de parques de atracciones y parques temáticos"
+                },
+                {
+                  "codigo": "9329",
+                  "nombre": "Otras actividades de diversión y esparcimiento n.c.p."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "codigo": "S",
+      "nombre": "OTRAS ACTIVIDADES DE SERVICIO",
+      "divisiones": [
+        {
+          "codigo": "94",
+          "nombre": "Actividades de asociaciones u organizaciones",
+          "grupos": [
+            {
+              "codigo": "941",
+              "nombre": "Actividades de organizaciones empresariales, profesionales y de empleadores",
+              "clases": [
+                {
+                  "codigo": "9411",
+                  "nombre": "Actividades de organizaciones empresariales y de empleadores"
+                },
+                {
+                  "codigo": "9412",
+                  "nombre": "Actividades de organizaciones profesionales"
+                },
+                {
+                  "codigo": "9413",
+                  "nombre": "Actividades de organizaciones empresariales y de empleadores en Zonas Francas"
+                }
+              ]
+            },
+            {
+              "codigo": "942",
+              "nombre": "Actividades de sindicatos",
+              "clases": [
+                {
+                  "codigo": "9420",
+                  "nombre": "Actividades de sindicatos"
+                }
+              ]
+            },
+            {
+              "codigo": "949",
+              "nombre": "Actividades de otras asociaciones",
+              "clases": [
+                {
+                  "codigo": "9491",
+                  "nombre": "Actividades de organizaciones religiosas"
+                },
+                {
+                  "codigo": "9492",
+                  "nombre": "Actividades de organizaciones políticas"
+                },
+                {
+                  "codigo": "9499",
+                  "nombre": "Actividades de otras asociaciones, n.c.p. (clubes cívicos)"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "95",
+          "nombre": "Reparación y mantenimiento de computadoras y enseres de uso personal y doméstico",
+          "grupos": [
+            {
+              "codigo": "951",
+              "nombre": "Reparación y mantenimiento de computadoras y equipos comunicacionales",
+              "clases": [
+                {
+                  "codigo": "9511",
+                  "nombre": "Reparación y mantenimiento de computadoras y equipo periférico"
+                },
+                {
+                  "codigo": "9512",
+                  "nombre": "Reparación y mantenimiento de equipos comunicacionales"
+                }
+              ]
+            },
+            {
+              "codigo": "952",
+              "nombre": "Reparación y mantenimiento de enseres de uso personal y doméstico",
+              "clases": [
+                {
+                  "codigo": "9521",
+                  "nombre": "Reparación y mantenimiento de aparatos de consumo eléctrico"
+                },
+                {
+                  "codigo": "9522",
+                  "nombre": "Reparación y mantenimiento de aparatos domésticos, equipamiento de hogar y jardín"
+                },
+                {
+                  "codigo": "9523",
+                  "nombre": "Reparación y mantenimiento de calzado y artículos de cuero"
+                },
+                {
+                  "codigo": "9524",
+                  "nombre": "Reparación y mantenimiento de muebles y accesorios para el hogar"
+                },
+                {
+                  "codigo": "9529",
+                  "nombre": "Reparación y mantenimiento de otros bienes personales y domésticos, n.c.p."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "96",
+          "nombre": "Otras actividades de servicios",
+          "grupos": [
+            {
+              "codigo": "960",
+              "nombre": "Otras actividades de servicios",
+              "clases": [
+                {
+                  "codigo": "9601",
+                  "nombre": "Lavado, secado y limpieza de prendas de tela y de piel"
+                },
+                {
+                  "codigo": "9602",
+                  "nombre": "Actividades de peluquería y otros tratamientos de belleza"
+                },
+                {
+                  "codigo": "9603",
+                  "nombre": "Funerales y actividades conexas"
+                },
+                {
+                  "codigo": "9609",
+                  "nombre": "Otras actividades de servicios, n.c.p."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "codigo": "T",
+      "nombre": "CALIDAD DE EMPLEADORES, ACTIVIDADES INDIFERENCIADAS DE PRODUCCIÓN DE BIENES Y SERVICIOS DE LOS HOGARES PARA",
+      "divisiones": [
+        {
+          "codigo": "97",
+          "nombre": "USO PROPIO Actividades de los hogares en calidad de empleadores de personal doméstico",
+          "grupos": [
+            {
+              "codigo": "970",
+              "nombre": "Actividades de los hogares en calidad de empleadores de personal doméstico",
+              "clases": [
+                {
+                  "codigo": "9700",
+                  "nombre": "Actividades de los hogares en calidad de empleadores de personal doméstico"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "codigo": "98",
+          "nombre": "Actividades indiferenciadas de producción de bienes y servicios de los hogares privados para uso propio",
+          "grupos": [
+            {
+              "codigo": "981",
+              "nombre": "Actividades indiferenciadas de producción de bienes de los hogares privados para uso propio",
+              "clases": [
+                {
+                  "codigo": "9810",
+                  "nombre": "Actividades indiferenciadas de producción de bienes de los hogares privados para uso propio"
+                }
+              ]
+            },
+            {
+              "codigo": "982",
+              "nombre": "Actividades indiferenciadas de producción de servicios de los hogares privados para uso propio",
+              "clases": [
+                {
+                  "codigo": "9820",
+                  "nombre": "Actividades indiferenciadas de producción de servicios de los hogares privados para uso propio"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "codigo": "U",
+      "nombre": "ACTIVIDADES DE ORGANIZACIONES Y ÓRGANOS EXTRATERRITORIALES Y ACTIVIDADES NO DECLARADAS",
+      "divisiones": [
+        {
+          "codigo": "99",
+          "nombre": "Actividades de organizaciones y órganos extraterritoriales y actividades no declaradas",
+          "grupos": [
+            {
+              "codigo": "991",
+              "nombre": "Actividades de organizaciones y órganos extraterritoriales",
+              "clases": [
+                {
+                  "codigo": "9910",
+                  "nombre": "Actividades de organizaciones y órganos extraterritoriales"
+                }
+              ]
+            },
+            {
+              "codigo": "999",
+              "nombre": "Actividades no declaradas o no bien especificadas",
+              "clases": [
+                {
+                  "codigo": "9990",
+                  "nombre": "Actividades no declaradas o no bien especificadas"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

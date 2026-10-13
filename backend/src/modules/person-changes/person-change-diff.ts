@@ -23,6 +23,7 @@ type PersonEntitySnapshot = {
     businessName?: string | null;
     economicActivity?: string | null;
     hasArtisanCard?: boolean | null;
+    hasNoticeOfOperation?: boolean | null;
   } | null;
   contacts?: Array<{
     contactType?: string | null;
@@ -213,6 +214,7 @@ export function snapshotPersonFields(entity: PersonEntitySnapshot): Record<strin
     birthDate: dateOnly(p?.birthDate),
     nationalityCode: p?.nationalityCode ?? null,
     hasArtisanCard: p?.hasArtisanCard ?? null,
+    hasNoticeOfOperation: p?.hasNoticeOfOperation ?? null,
     educationLevel: p?.educationLevel ?? null,
     occupation: p?.occupation ?? null,
     businessName: p?.businessName ?? null,
@@ -251,6 +253,7 @@ export function flattenPersonInput(input: Record<string, unknown>): Record<strin
     'birthDate',
     'nationalityCode',
     'hasArtisanCard',
+    'hasNoticeOfOperation',
     'educationLevel',
     'occupation',
     'businessName',

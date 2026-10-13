@@ -7,18 +7,18 @@ import jwt, { SignOptions } from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { config } from '../../config/environment';
 import { authRepository, SafeUser } from './auth.repository';
-import { adLogin, adGetMe } from './ad-user-api.client';
+import { exchangeEntraCode } from './entra-user-api.client';
 import {
   resolveEmailForLocalUser,
   resolveUsername,
-  namesFromAdProfile,
+  namesFromDirectoryProfile,
   hasAnyRequiredAdRole,
   mapAdRolesToCrmRole,
   isFullAccessRole,
 } from './ad-auth.mapper';
 import { UserRole } from '@prisma/client';
 import {
-  LoginInput,
+  ExchangeInput,
   RegisterInput,
   RefreshInput,
   ChangePasswordInput,
@@ -125,8 +125,8 @@ function toAuthUser(user: SafeUser): AuthUser {
 // ── Servicio exportado ──────────────────────────────────────────
 
 /**
- * Sincroniza el rol CRM desde AD.
- * Si AD solo mapea a EMPREND_OPERADOR, no degrada un usuario local con acceso total.
+ * Sincroniza el rol CRM desde Entra.
+ * Si Entra solo mapea a EMPREND_OPERADOR, no degrada un usuario local con acceso total.
  */
 function resolveAdRoleSync(adRoles: string[], currentRole: UserRole): UserRole | undefined {
   const mapped = mapAdRolesToCrmRole(adRoles) as UserRole;
@@ -138,83 +138,73 @@ function resolveAdRoleSync(adRoles: string[], currentRole: UserRole): UserRole |
 
 export const authService = {
   /**
-   * Login exclusivo vía Active Directory (AD-userAPI).
-   * No hay autenticación local por contraseña en el CRM.
+   * Canjea el código de un solo uso de Entra y abre la sesión propia del CRM.
+   * El navegador no habla con /api/auth/exchange: el secreto queda en este backend.
    */
-  async login(input: LoginInput): Promise<AuthTokenResponse> {
-    const identifier = input.email;
-
-    if (!config.adApiBaseUrl) {
+  async exchange(input: ExchangeInput): Promise<AuthTokenResponse> {
+    if (!config.entraApiBaseUrl || !config.entraClientId || !config.entraClientSecret) {
       throw new UnauthorizedError(
-        'Autenticación no disponible: configure AD_API_BASE_URL (solo login corporativo).'
+        'Autenticación no disponible: configure ENTRA_API_BASE_URL, EMPRENDEDORES_CLIENT_ID y EMPRENDEDORES_APP_SECRET.'
       );
     }
 
-    const adOutcome = await adLogin(config.adApiBaseUrl, identifier, input.password);
+    const outcome = await exchangeEntraCode(
+      config.entraApiBaseUrl,
+      input.code,
+      config.entraClientId,
+      config.entraClientSecret
+    );
 
-    if (adOutcome.kind === 'invalid_credentials') {
-      throw new UnauthorizedError('Credenciales inválidas');
+    if (outcome.kind === 'invalid_code') {
+      throw new UnauthorizedError('El código de ingreso es inválido o ya venció. Vuelva a entrar.');
     }
 
-    if (adOutcome.kind === 'unavailable') {
+    if (outcome.kind === 'unavailable') {
       throw new UnauthorizedError(
-        'No se pudo contactar el servicio de autenticación corporativa. Intente más tarde.'
+        'No se pudo contactar el servicio de identidad. Intente más tarde.'
       );
     }
 
-    const adTokens = adOutcome.tokens;
-    const me = await adGetMe(config.adApiBaseUrl, adTokens.accessToken);
-    if (!me) {
-      throw new UnauthorizedError(
-        'No se pudo obtener el perfil desde la API de usuarios corporativa'
-      );
-    }
-
-    const adRoles = me.roleNames ?? [];
+    const profile = outcome.profile;
+    const directoryRoles = profile.roles ?? [];
     if (
-      !config.adSkipRoleCheck &&
-      !hasAnyRequiredAdRole(adRoles, config.adRequiredAppRoleSlugs)
+      !config.entraSkipRoleCheck &&
+      !hasAnyRequiredAdRole(directoryRoles, config.entraRequiredAppRoleSlugs)
     ) {
       throw new ForbiddenError(
-        'No tiene acceso a este sistema. Se requiere el rol de aplicación adecuado (Emprendedores CRM).'
+        'No tiene acceso a este sistema. Se requiere un rol de Entra habilitado para Emprendedores.'
       );
     }
 
-    const emailResolved = resolveEmailForLocalUser(
-      me,
-      identifier,
-      config.adEmailDomain
-    );
+    const emailResolved = resolveEmailForLocalUser(profile);
     if (!emailResolved) {
-      throw new UnauthorizedError(
-        'No se pudo determinar el correo del usuario. Configure AD_EMAIL_DOMAIN si usa solo nombre de usuario.'
-      );
+      throw new UnauthorizedError('El perfil de Entra no trae un correo válido.');
     }
 
+    const directoryUsername = resolveUsername(profile);
     let user = await authRepository.findByEmail(emailResolved);
 
     if (!user) {
-      if (!config.adAutoProvision) {
+      if (!config.entraAutoProvision) {
         throw new ForbiddenError(
           'Usuario no registrado en el CRM. Solicite acceso al administrador.'
         );
       }
-      const { firstName, lastName } = namesFromAdProfile(me);
-      const adUsername = resolveUsername(me, identifier);
+      const { firstName, lastName } = namesFromDirectoryProfile(profile);
       const placeholderHash = await bcrypt.hash(randomUUID(), 12);
-      const crmRole = mapAdRolesToCrmRole(adRoles);
+      const crmRole = mapAdRolesToCrmRole(directoryRoles);
       const created = await authRepository.create({
         email: emailResolved,
         passwordHash: placeholderHash,
         firstName,
         lastName,
-        username: adUsername,
+        username: directoryUsername,
         role: crmRole,
       });
-      const safe = await authRepository.updateLastLogin(created.id, undefined, adUsername);
+      const safe = await authRepository.updateLastLogin(created.id, undefined, directoryUsername);
       const accessToken = generateAccessToken(safe);
       const refreshToken = generateRefreshToken(safe);
-      logger.info('Login exitoso (AD + alta automática)', {
+      logger.info('Login exitoso (Entra + alta automática)', {
         userId: safe.id,
         email: safe.email,
       });
@@ -223,7 +213,6 @@ export const authService = {
         user: toAuthUser(safe),
         accessToken,
         refreshToken,
-        adAccessToken: adTokens.accessToken,
       };
     }
 
@@ -231,27 +220,25 @@ export const authService = {
       throw new ForbiddenError('Cuenta desactivada. Contacte al administrador');
     }
 
-    const roleSync = resolveAdRoleSync(adRoles, user.role);
-    const adUsername = resolveUsername(me, identifier);
-    const safeUser = await authRepository.updateLastLogin(user.id, roleSync, adUsername);
+    const roleSync = resolveAdRoleSync(directoryRoles, user.role);
+    const safeUser = await authRepository.updateLastLogin(user.id, roleSync, directoryUsername);
     const accessToken = generateAccessToken(safeUser);
     const refreshToken = generateRefreshToken(safeUser);
-    logger.info('Login exitoso (AD)', { userId: user.id, email: user.email });
+    logger.info('Login exitoso (Entra)', { userId: user.id, email: user.email });
     await logLogin(safeUser);
     return {
       user: toAuthUser(safeUser),
       accessToken,
       refreshToken,
-      adAccessToken: adTokens.accessToken,
     };
   },
 
   /**
-   * Registro local deshabilitado: el alta de usuarios es vía AD + provisionamiento.
+   * Registro local deshabilitado: el alta es vía Entra y provisionamiento.
    */
   async register(_input: RegisterInput): Promise<AuthTokenResponse> {
     throw new ForbiddenError(
-      'El registro local está deshabilitado. Use el inicio de sesión corporativo (Active Directory).'
+      'El registro local está deshabilitado. Use el inicio de sesión con Microsoft Entra ID.'
     );
   },
 
@@ -299,11 +286,11 @@ export const authService = {
   },
 
   /**
-   * Cambio de contraseña deshabilitado: la contraseña se gestiona en Active Directory.
+   * Cambio de contraseña deshabilitado: la contraseña se gestiona en Microsoft Entra ID.
    */
   async changePassword(_userId: string, _input: ChangePasswordInput): Promise<void> {
     throw new ForbiddenError(
-      'La contraseña se gestiona en Active Directory. No se puede cambiar desde el CRM.'
+      'La contraseña se gestiona en Microsoft Entra ID. No se puede cambiar desde el CRM.'
     );
   },
 

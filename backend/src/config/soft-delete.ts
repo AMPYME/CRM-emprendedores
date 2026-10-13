@@ -15,6 +15,7 @@ const SOFT_DELETE_MODELS = new Set([
   'EntityRelationship',
   'PortfolioRecord',
   'CapitalSemilla',
+  'EntityEconomicActivity',
   'Sede',
   'Departamento',
 ]);

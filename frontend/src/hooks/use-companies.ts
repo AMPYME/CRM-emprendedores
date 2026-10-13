@@ -7,10 +7,11 @@ import toast from 'react-hot-toast';
 
 const COMPANIES_KEY = 'companies';
 
-export function useCompanies(filters: CompanyFilters = {}) {
+export function useCompanies(filters: CompanyFilters = {}, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: [COMPANIES_KEY, filters],
     queryFn: () => companiesService.list(filters),
+    enabled: options?.enabled ?? true,
   });
 }
 

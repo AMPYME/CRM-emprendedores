@@ -34,7 +34,6 @@ const companySchema = z.object({
   notes: z.string().optional(),
   email: z.string().email('Correo inválido').optional().or(z.literal('')),
   phone: z.string().optional(),
-  economicActivity: z.string().max(128, 'Máximo 128 caracteres').optional(),
 });
 
 type CompanyForm = z.infer<typeof companySchema>;
@@ -88,11 +87,8 @@ export function CompanyFormModal({ isOpen, onClose, editId }: CompanyFormModalPr
         corregimiento: corregimientoCode,
         address: data.address || '',
         notes: data.notes || '',
-        email: data.contacts?.find((co) => co.contactType === 'EMAIL')?.contactValue || '',
-        phone:
-          data.contacts?.find((co) => co.contactType === 'PHONE' || co.contactType === 'MOBILE')
-            ?.contactValue || '',
-        economicActivity: data.actEc || c?.economicActivity || '',
+        email: '',
+        phone: '',
       });
     } else if (!isEdit) {
       reset({
@@ -110,15 +106,16 @@ export function CompanyFormModal({ isOpen, onClose, editId }: CompanyFormModalPr
         notes: '',
         email: '',
         phone: '',
-        economicActivity: '',
       });
     }
   }, [isEdit, companyQuery.data, reset]);
 
   const onSubmit = async (formData: CompanyForm) => {
     const contacts: Array<{ contactType: string; contactValue: string; isPrimary?: boolean }> = [];
-    if (formData.email) contacts.push({ contactType: 'EMAIL', contactValue: formData.email, isPrimary: true });
-    if (formData.phone) contacts.push({ contactType: 'MOBILE', contactValue: formData.phone });
+    if (!isEdit) {
+      if (formData.email) contacts.push({ contactType: 'EMAIL', contactValue: formData.email, isPrimary: true });
+      if (formData.phone) contacts.push({ contactType: 'MOBILE', contactValue: formData.phone });
+    }
 
     const payload = {
       legalName: formData.legalName,
@@ -133,8 +130,7 @@ export function CompanyFormModal({ isOpen, onClose, editId }: CompanyFormModalPr
       corregimiento: formData.corregimiento || undefined,
       address: formData.address || undefined,
       notes: formData.notes || undefined,
-      economicActivity: formData.economicActivity?.trim() || undefined,
-      contacts: contacts.length > 0 ? contacts : undefined,
+      ...(contacts.length > 0 ? { contacts } : {}),
     };
 
     try {
@@ -186,16 +182,13 @@ export function CompanyFormModal({ isOpen, onClose, editId }: CompanyFormModalPr
             {...register('companySizeClass')}
           />
           <Input label="Fecha de Inscripción" type="date" {...register('foundedDate')} />
-          <Input
-            label="Actividad económica"
-            maxLength={128}
-            error={errors.economicActivity?.message}
-            {...register('economicActivity')}
-            className="sm:col-span-2"
-          />
           <LocationCascadeFields register={register} watch={watch} setValue={setValue} />
-          <Input label="Correo electrónico" type="email" error={errors.email?.message} {...register('email')} />
-          <Input label="Teléfono" {...register('phone')} />
+          {!isEdit && (
+            <>
+              <Input label="Correo electrónico" type="email" error={errors.email?.message} {...register('email')} />
+              <Input label="Teléfono" {...register('phone')} />
+            </>
+          )}
           <div className="sm:col-span-2">
             <Input label="Dirección" {...register('address')} />
           </div>

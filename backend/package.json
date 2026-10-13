@@ -12,6 +12,7 @@
     "prisma:migrate:prod": "prisma migrate deploy",
     "prisma:seed": "ts-node prisma/seed.ts",
     "import:capital-semilla": "ts-node --transpile-only scripts/import-capital-semilla.ts",
+    "import:cinu": "ts-node --transpile-only scripts/import-cinu-4-1.ts",
     "prisma:studio": "prisma studio",
     "lint": "eslint -c eslint.config.cjs src --ext .ts",
     "test": "jest --passWithNoTests",

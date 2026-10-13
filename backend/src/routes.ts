@@ -41,6 +41,10 @@ import { sedeRoutes } from './modules/sedes/sede.routes';
 import { demographicsRoutes } from './modules/stats/demographics.routes';
 import { departamentoRoutes } from './modules/departamentos/departamento.routes';
 import { userAdminRoutes } from './modules/users/user.routes';
+import {
+  economicActivitiesRoutes,
+  entityEconomicActivitiesRoutes,
+} from './modules/economic-activities';
 
 export const apiRouter = Router();
 
@@ -62,6 +66,10 @@ apiRouter.use('/users', userAdminRoutes);
 // Contactos: rutas anidadas bajo entidad + rutas directas
 apiRouter.use('/entities/:entityId/contacts', entityContactRoutes);
 apiRouter.use('/contacts', contactRoutes);
+
+// Actividades económicas CINU 4.1
+apiRouter.use('/economic-activities', economicActivitiesRoutes);
+apiRouter.use('/entities/:entityId/economic-activities', entityEconomicActivitiesRoutes);
 
 // ── Eventos e inscripciones (FASE 5) ────────────────────────────
 apiRouter.use('/events', eventRoutes);

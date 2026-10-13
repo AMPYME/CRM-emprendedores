@@ -3,19 +3,16 @@
  */
 import { z } from 'zod';
 
-// ── Login ───────────────────────────────────────────────────────
-// `email` en el JSON es el identificador de inicio de sesión: correo UPN o usuario AD (según integración).
-export const loginSchema = z.object({
-  email: z
+// ── Canje del código de Entra ───────────────────────────────────
+// El navegador recibe ?code= en la URL de retorno y lo envía aquí. El secreto no viaja.
+export const exchangeSchema = z.object({
+  code: z
     .string()
-    .min(1, 'Usuario o correo requerido')
-    .transform((v) => v.trim().toLowerCase()),
-  password: z
-    .string()
-    .min(1, 'La contraseña es requerida'),
+    .min(1, 'El código de ingreso es requerido')
+    .transform((v) => v.trim()),
 });
 
-export type LoginInput = z.infer<typeof loginSchema>;
+export type ExchangeInput = z.infer<typeof exchangeSchema>;
 
 // ── Registro de usuario ─────────────────────────────────────────
 export const registerSchema = z.object({

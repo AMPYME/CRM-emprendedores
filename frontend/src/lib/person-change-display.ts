@@ -21,6 +21,7 @@ export const PERSON_FIELD_LABELS: Record<string, string> = {
   birthDate: 'Fecha de nacimiento',
   nationalityCode: 'Nacionalidad',
   hasArtisanCard: 'Carnet de artesano',
+  hasNoticeOfOperation: 'Aviso de operación',
   educationLevel: 'Escolaridad',
   occupation: 'Ocupación',
   businessName: 'Nombre del negocio',

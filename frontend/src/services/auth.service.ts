@@ -1,14 +1,17 @@
 /**
- * Servicio de autenticación.
- * Maneja login, registro, refresh de tokens y perfil.
+ * Servicio de autenticación del CRM (JWT tras exchange con ENTRA).
+ * La sesión centralizada (cookie) se valida con entra-session.service.
  */
 import { apiClient } from './api-client';
 import type { ApiResponse } from '@/types/api.types';
-import type { AuthTokenResponse, AuthUser, LoginInput, RegisterInput } from '@/types/auth.types';
+import type { AuthTokenResponse, AuthUser, RegisterInput } from '@/types/auth.types';
+import { entraSessionService } from './entra-session.service';
+import { useAuthStore } from '@/stores/auth.store';
+import { clearPrivateQueryCache } from '@/lib/query-client';
 
 export const authService = {
-  async login(data: LoginInput): Promise<AuthTokenResponse> {
-    const res = await apiClient.post<ApiResponse<AuthTokenResponse>>('/auth/login', data);
+  async exchange(code: string): Promise<AuthTokenResponse> {
+    const res = await apiClient.post<ApiResponse<AuthTokenResponse>>('/auth/exchange', { code });
     return res.data.data;
   },
 
@@ -34,5 +37,17 @@ export const authService = {
 
   async changePassword(data: { currentPassword: string; newPassword: string }): Promise<void> {
     await apiClient.post('/auth/change-password', data);
+  },
+
+  /** Cierra sesión central ENTRA + limpia JWT local. */
+  async logoutCentral(): Promise<void> {
+    const csrf = useAuthStore.getState().csrfToken;
+    try {
+      await entraSessionService.logout(csrf);
+    } catch {
+      /* continuar limpieza local */
+    }
+    useAuthStore.getState().clearLocalSession();
+    clearPrivateQueryCache();
   },
 };

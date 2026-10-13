@@ -1,0 +1,780 @@
+{
+  "fuente": "Manual CINU 4.1, INEC Panama, octubre 2018",
+  "version": "CINU-4.1",
+  "counts": {
+    "categories": 21,
+    "divisions": 89,
+    "groups": 250,
+    "classes": 489,
+    "subclasses": 226,
+    "errors": 0,
+    "warnings": 93
+  },
+  "imported": {
+    "categories": 21,
+    "divisions": 89,
+    "groups": 250,
+    "classes": 489,
+    "subclasses": 226,
+    "inserted": {
+      "categories": 21,
+      "divisions": 89,
+      "groups": 250,
+      "classes": 489,
+      "subclasses": 226
+    },
+    "updated": {
+      "categories": 0,
+      "divisions": 0,
+      "groups": 0,
+      "classes": 0,
+      "subclasses": 0
+    }
+  },
+  "issues": [
+    {
+      "severity": "warning",
+      "level": "division",
+      "code": "09",
+      "path": "categoria B > division 09",
+      "nombre": "de minas",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "1702",
+      "path": "categoria C > division 17 > grupo 170 > clase 1702",
+      "nombre": "envases de papel y cartón",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "grupo",
+      "code": "241",
+      "path": "categoria C > division 24 > grupo 241",
+      "nombre": "básicos",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "division",
+      "code": "39",
+      "path": "categoria E > division 39",
+      "nombre": "servicios de gestión de desechos",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "categoria",
+      "code": "G",
+      "path": "categoria G",
+      "nombre": "MENOR (INCLUYE ZONAS FRANCAS), REPARACIÓN DE VEHÍCULOS DE MOTOR Y MOTOCICLETAS",
+      "message": "El nombre de la categoría parece truncado al inicio. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "45421",
+      "path": "categoria G > division 45 > grupo 454 > clase 4542 > subclase 45421",
+      "nombre": "electrodomésticos: (radios, equipos de TV, grabadoras, reproductores de CD y DVD, estéreos, videojuegos) y equipo de iluminación",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4543",
+      "path": "categoria G > division 45 > grupo 454 > clase 4543",
+      "nombre": "relojes y fantasía fina en Zonas Francas",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "45495",
+      "path": "categoria G > division 45 > grupo 454 > clase 4549 > subclase 45495",
+      "nombre": "fotográficos y ópticos (lentes de sol, binoculares y lupas)",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4552",
+      "path": "categoria G > division 45 > grupo 455 > clase 4552",
+      "nombre": "telecomunicaciones sus partes y piezas en Zonas Francas",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4554",
+      "path": "categoria G > division 45 > grupo 455 > clase 4554",
+      "nombre": "automotores en Zonas Francas",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4555",
+      "path": "categoria G > division 45 > grupo 455 > clase 4555",
+      "nombre": "accesorios de vehículos automotores en Zonas Francas",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "45550",
+      "path": "categoria G > division 45 > grupo 455 > clase 4555 > subclase 45550",
+      "nombre": "Venta al por mayor de partes, piezas y",
+      "message": "El nombre termina en una palabra inconclusa. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4556",
+      "path": "categoria G > division 45 > grupo 455 > clase 4556",
+      "nombre": "partes, piezas y accesorios en Zonas Francas",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "45596",
+      "path": "categoria G > division 45 > grupo 455 > clase 4559 > subclase 45596",
+      "nombre": "herramientas de cualquier tipo y para cualquier material",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4561",
+      "path": "categoria G > division 45 > grupo 456 > clase 4561",
+      "nombre": "sólidos, líquidos y gaseosos y de productos conexos en Zonas Francas",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "45621",
+      "path": "categoria G > division 45 > grupo 456 > clase 4562 > subclase 45621",
+      "nombre": "y no ferrosos; metales ferrosos y no ferrosos en forma primarias; productos metálicos semiterminados ferrosos y no",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "45622",
+      "path": "categoria G > division 45 > grupo 456 > clase 4562 > subclase 45622",
+      "nombre": "ferrosos Venta al por mayor de oro y otros metales preciosos",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4569",
+      "path": "categoria G > division 45 > grupo 456 > clase 4569",
+      "nombre": "otros productos, n.c.p. en Zonas Francas",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "45690",
+      "path": "categoria G > division 45 > grupo 456 > clase 4569 > subclase 45690",
+      "nombre": "Venta al por mayor de basura, desecho y",
+      "message": "El nombre termina en una palabra inconclusa. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4590",
+      "path": "categoria G > division 45 > grupo 459 > clase 4590",
+      "nombre": "especializado en Zonas Francas",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "46421",
+      "path": "categoria G > division 46 > grupo 464 > clase 4642 > subclase 46421",
+      "nombre": "electrodomésticos, radios, equipos de TV, grabadoras, reproductores de CD, DVD y MP4, estéreos, videojuegos y equipo de iluminación, etc.",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4652",
+      "path": "categoria G > division 46 > grupo 465 > clase 4652",
+      "nombre": "de telecomunicaciones, sus partes y piezas",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4655",
+      "path": "categoria G > division 46 > grupo 465 > clase 4655",
+      "nombre": "accesorios de vehículos automotores",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "46550",
+      "path": "categoria G > division 46 > grupo 465 > clase 4655 > subclase 46550",
+      "nombre": "Venta al por mayor de partes, piezas y",
+      "message": "El nombre termina en una palabra inconclusa. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4656",
+      "path": "categoria G > division 46 > grupo 465 > clase 4656",
+      "nombre": "partes, piezas y accesorios",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4661",
+      "path": "categoria G > division 46 > grupo 466 > clase 4661",
+      "nombre": "sólidos, líquidos y gaseosos y de productos conexos",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "46621",
+      "path": "categoria G > division 46 > grupo 466 > clase 4662 > subclase 46621",
+      "nombre": "y no ferrosos; metales ferrosos y no ferrosos en forma primarias; productos metálicos semiterminados ferrosos y no",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "46622",
+      "path": "categoria G > division 46 > grupo 466 > clase 4662 > subclase 46622",
+      "nombre": "ferrosos Venta al por mayor de oro y otros metales preciosos",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "46632",
+      "path": "categoria G > division 46 > grupo 466 > clase 4663 > subclase 46632",
+      "nombre": "ferretería y accesorios eléctricos",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "46900",
+      "path": "categoria G > division 46 > grupo 469 > clase 4690 > subclase 46900",
+      "nombre": "Venta al por mayor no especializados de",
+      "message": "El nombre termina en una palabra inconclusa. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4722",
+      "path": "categoria G > division 47 > grupo 472 > clase 4722",
+      "nombre": "almacenes especializados",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "47220",
+      "path": "categoria G > division 47 > grupo 472 > clase 4722 > subclase 47220",
+      "nombre": "Venta al por menor de bebidas en",
+      "message": "El nombre termina en una palabra inconclusa. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4723",
+      "path": "categoria G > division 47 > grupo 472 > clase 4723",
+      "nombre": "almacenes especializados",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "47230",
+      "path": "categoria G > division 47 > grupo 472 > clase 4723 > subclase 47230",
+      "nombre": "Venta al por menor de tabaco en",
+      "message": "El nombre termina en una palabra inconclusa. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "47300",
+      "path": "categoria G > division 47 > grupo 473 > clase 4730 > subclase 47300",
+      "nombre": "Venta al por menor de combustible para",
+      "message": "El nombre termina en una palabra inconclusa. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "47341",
+      "path": "categoria G > division 47 > grupo 473 > clase 4734 > subclase 47341",
+      "nombre": "ciclomotores, sus partes, piezas y accesorios",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4741",
+      "path": "categoria G > division 47 > grupo 474 > clase 4741",
+      "nombre": "unidades periféricas, equipo de software y telecomunicaciones",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4742",
+      "path": "categoria G > division 47 > grupo 474 > clase 4742",
+      "nombre": "video en almacenes especializados",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "47420",
+      "path": "categoria G > division 47 > grupo 474 > clase 4742 > subclase 47420",
+      "nombre": "Venta al por menor de equipo de audio y",
+      "message": "El nombre termina en una palabra inconclusa. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4751",
+      "path": "categoria G > division 47 > grupo 475 > clase 4751",
+      "nombre": "almacenes especializados",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "47510",
+      "path": "categoria G > division 47 > grupo 475 > clase 4751 > subclase 47510",
+      "nombre": "Venta al por menor de textiles en",
+      "message": "El nombre termina en una palabra inconclusa. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4752",
+      "path": "categoria G > division 47 > grupo 475 > clase 4752",
+      "nombre": "ferretería, pinturas y productos de vidrio en almacenes especializados",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "47520",
+      "path": "categoria G > division 47 > grupo 475 > clase 4752 > subclase 47520",
+      "nombre": "Venta al por menor de artículos de",
+      "message": "El nombre termina en una palabra inconclusa. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4753",
+      "path": "categoria G > division 47 > grupo 475 > clase 4753",
+      "nombre": "cubiertas de pared y piso en almacenes especializados",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "47612",
+      "path": "categoria G > division 47 > grupo 476 > clase 4761 > subclase 47612",
+      "nombre": "materiales y equipo de oficina",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4762",
+      "path": "categoria G > division 47 > grupo 476 > clase 4762",
+      "nombre": "audio y video en almacenes especializados",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "47620",
+      "path": "categoria G > division 47 > grupo 476 > clase 4762 > subclase 47620",
+      "nombre": "Venta al por menor de grabaciones de",
+      "message": "El nombre termina en una palabra inconclusa. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4763",
+      "path": "categoria G > division 47 > grupo 476 > clase 4763",
+      "nombre": "en almacenes especializados",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4764",
+      "path": "categoria G > division 47 > grupo 476 > clase 4764",
+      "nombre": "juguetes en almacenes especializados",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "47640",
+      "path": "categoria G > division 47 > grupo 476 > clase 4764 > subclase 47640",
+      "nombre": "Venta al por menor de juegos y de",
+      "message": "El nombre termina en una palabra inconclusa. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "47734",
+      "path": "categoria G > division 47 > grupo 477 > clase 4773 > subclase 47734",
+      "nombre": "recuerdos religiosos y artesanías; actividades de galerías de arte comerciales",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4774",
+      "path": "categoria G > division 47 > grupo 477 > clase 4774",
+      "nombre": "almacenes de artículos usados (Productos no alimenticios)",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "47740",
+      "path": "categoria G > division 47 > grupo 477 > clase 4774 > subclase 47740",
+      "nombre": "Venta al por menor de mercancías en",
+      "message": "El nombre termina en una palabra inconclusa. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "47750",
+      "path": "categoria G > division 47 > grupo 477 > clase 4775 > subclase 47750",
+      "nombre": "Venta al por menor de relojes, joyas y",
+      "message": "El nombre termina en una palabra inconclusa. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4776",
+      "path": "categoria G > division 47 > grupo 477 > clase 4776",
+      "nombre": "puestos improvisados y en la vivienda de productos no alimenticios",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4781",
+      "path": "categoria G > division 47 > grupo 478 > clase 4781",
+      "nombre": "y mercados de alimentos, bebidas y de productos del tabaco",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4782",
+      "path": "categoria G > division 47 > grupo 478 > clase 4782",
+      "nombre": "y mercados de artículos, textiles, ropa,. Calzado y otras mercancías",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4789",
+      "path": "categoria G > division 47 > grupo 478 > clase 4789",
+      "nombre": "y mercados de lotería y periódicos",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "47910",
+      "path": "categoria G > division 47 > grupo 479 > clase 4791 > subclase 47910",
+      "nombre": "Venta al por menor a través de pedido por",
+      "message": "El nombre termina en una palabra inconclusa. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4799",
+      "path": "categoria G > division 47 > grupo 479 > clase 4799",
+      "nombre": "realizada en almacenes, puestos de ventas y mercados, n.c.p.",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4810",
+      "path": "categoria G > division 48 > grupo 481 > clase 4810",
+      "nombre": "retribución o por contrata en Zonas Francas",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4820",
+      "path": "categoria G > division 48 > grupo 482 > clase 4820",
+      "nombre": "agropecuarias y animales vivos en Zonas Francas",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4830",
+      "path": "categoria G > division 48 > grupo 483 > clase 4830",
+      "nombre": "y tabaco en Zonas Francas",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4841",
+      "path": "categoria G > division 48 > grupo 484 > clase 4841",
+      "nombre": "vestir, sus accesorios y calzado en Zonas Francas",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "48410",
+      "path": "categoria G > division 48 > grupo 484 > clase 4841 > subclase 48410",
+      "nombre": "Venta al por menor de textiles, prendas de",
+      "message": "El nombre termina en una palabra inconclusa. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4842",
+      "path": "categoria G > division 48 > grupo 484 > clase 4842",
+      "nombre": "domésticos en Zonas Francas",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4843",
+      "path": "categoria G > division 48 > grupo 484 > clase 4843",
+      "nombre": "y relojes en Zonas Francas",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4849",
+      "path": "categoria G > division 48 > grupo 484 > clase 4849",
+      "nombre": "personales y productos diversos para el consumidor en Zonas Francas",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4851",
+      "path": "categoria G > division 48 > grupo 485 > clase 4851",
+      "nombre": "equipo informático, periféricos y programas informáticos en Zonas francas",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4852",
+      "path": "categoria G > division 48 > grupo 485 > clase 4852",
+      "nombre": "de telecomunicaciones, sus partes y piezas en Zonas Francas",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4853",
+      "path": "categoria G > division 48 > grupo 485 > clase 4853",
+      "nombre": "agrícola, sus partes, piezas y accesorios en Zonas Francas",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4854",
+      "path": "categoria G > division 48 > grupo 485 > clase 4854",
+      "nombre": "automotores en Zonas Francas",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4855",
+      "path": "categoria G > division 48 > grupo 485 > clase 4855",
+      "nombre": "accesorios de vehículos automotores en Zonas Francas",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "48550",
+      "path": "categoria G > division 48 > grupo 485 > clase 4855 > subclase 48550",
+      "nombre": "Venta al por menor de partes, piezas y",
+      "message": "El nombre termina en una palabra inconclusa. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4856",
+      "path": "categoria G > division 48 > grupo 485 > clase 4856",
+      "nombre": "partes, piezas y accesorios en Zonas Francas",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4859",
+      "path": "categoria G > division 48 > grupo 485 > clase 4859",
+      "nombre": "maquinaria y equipo en Zonas Francas",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "48590",
+      "path": "categoria G > division 48 > grupo 485 > clase 4859 > subclase 48590",
+      "nombre": "Venta al por menor de otro tipo de",
+      "message": "El nombre termina en una palabra inconclusa. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4861",
+      "path": "categoria G > division 48 > grupo 486 > clase 4861",
+      "nombre": "sólidos, líquidos, gaseosos y de productos conexos en Zonas Francas",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4862",
+      "path": "categoria G > division 48 > grupo 486 > clase 4862",
+      "nombre": "minerales metalíferos en Zonas Francas",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "48620",
+      "path": "categoria G > division 48 > grupo 486 > clase 4862 > subclase 48620",
+      "nombre": "Venta al por menor de metales y de",
+      "message": "El nombre termina en una palabra inconclusa. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4863",
+      "path": "categoria G > division 48 > grupo 486 > clase 4863",
+      "nombre": "equipo y materiales de fontanería y calefacción en Zonas Francas",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "4869",
+      "path": "categoria G > division 48 > grupo 486 > clase 4869",
+      "nombre": "otros productos, n.c.p. en Zonas Francas",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "subclase",
+      "code": "48690",
+      "path": "categoria G > division 48 > grupo 486 > clase 4869 > subclase 48690",
+      "nombre": "Venta al por menor de basura, desecho y",
+      "message": "El nombre termina en una palabra inconclusa. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "grupo",
+      "code": "681",
+      "path": "categoria L > division 68 > grupo 681",
+      "nombre": "propios o arrendados",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "division",
+      "code": "70",
+      "path": "categoria M > division 70",
+      "nombre": "actividades de administración de empresas y de consultoría sobre administración de empresas",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "grupo",
+      "code": "772",
+      "path": "categoria N > division 77 > grupo 772",
+      "nombre": "enseres domésticos, n.c.p.",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "8411",
+      "path": "categoria O > division 84 > grupo 841 > clase 8411",
+      "nombre": "Actividades de la administración pública en general Regulación de las actividades de",
+      "message": "El nombre termina en una palabra inconclusa. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "8412",
+      "path": "categoria O > division 84 > grupo 841 > clase 8412",
+      "nombre": "organismos que prestan servicios sanitarios, educativos, culturales y otros servicios sociales, excepto servicios de",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "8412",
+      "path": "categoria O > division 84 > grupo 841 > clase 8412",
+      "nombre": "organismos que prestan servicios sanitarios, educativos, culturales y otros servicios sociales, excepto servicios de",
+      "message": "El nombre termina en una palabra inconclusa. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "clase",
+      "code": "8413",
+      "path": "categoria O > division 84 > grupo 841 > clase 8413",
+      "nombre": "seguridad social Regulación y facilitación de la actividad económica",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "grupo",
+      "code": "889",
+      "path": "categoria Q > division 88 > grupo 889",
+      "nombre": "alojamiento, n.c.p.",
+      "message": "El nombre parece iniciar a mitad de una palabra. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "categoria",
+      "code": "T",
+      "path": "categoria T",
+      "nombre": "CALIDAD DE EMPLEADORES, ACTIVIDADES INDIFERENCIADAS DE PRODUCCIÓN DE BIENES Y SERVICIOS DE LOS HOGARES PARA",
+      "message": "El nombre termina en una palabra inconclusa. Se conserva el texto original."
+    },
+    {
+      "severity": "warning",
+      "level": "categoria",
+      "code": "T",
+      "path": "categoria T",
+      "nombre": "CALIDAD DE EMPLEADORES, ACTIVIDADES INDIFERENCIADAS DE PRODUCCIÓN DE BIENES Y SERVICIOS DE LOS HOGARES PARA",
+      "message": "El nombre de la categoría parece truncado al inicio. Se conserva el texto original."
+    }
+  ]
+}

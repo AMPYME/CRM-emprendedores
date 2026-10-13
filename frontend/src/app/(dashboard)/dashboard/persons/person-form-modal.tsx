@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -36,6 +36,7 @@ const personSchema = z
     documentNumber: z.string().min(1, 'Ingrese el número de documento'),
     birthDate: z.string().optional(),
     nationalityCode: z.string().length(3, 'Seleccione la nacionalidad'),
+    educationLevel: z.string().optional(),
     hasArtisanCard: z.string().optional(),
     province: z.string().optional(),
     district: z.string().optional(),
@@ -44,7 +45,6 @@ const personSchema = z
     notes: z.string().optional(),
     email: z.string().email('Correo inválido').optional().or(z.literal('')),
     phone: z.string().optional(),
-    economicActivity: z.string().max(128, 'Máximo 128 caracteres').optional(),
   })
   .superRefine((data, ctx) => {
     const err = validateDocumentNumber(
@@ -83,6 +83,17 @@ const yesNoOptions = [
   { value: 'false', label: 'No' },
 ];
 
+const educationLevelOptions = [
+  { value: '', label: 'Seleccionar' },
+  { value: 'Ninguno', label: 'Ninguno' },
+  { value: 'Primaria', label: 'Primaria' },
+  { value: 'Secundaria', label: 'Secundaria' },
+  { value: 'Bachiller', label: 'Bachiller' },
+  { value: 'Técnico', label: 'Técnico' },
+  { value: 'Universitario', label: 'Universitario' },
+  { value: 'Postgrado', label: 'Postgrado' },
+];
+
 export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProps) {
   const isEdit = !!editId;
   const personQuery = usePerson(editId ?? undefined);
@@ -107,6 +118,7 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
       documentNumber: '',
       birthDate: '',
       nationalityCode: DEFAULT_NATIONALITY_CODE,
+      educationLevel: '',
       hasArtisanCard: '',
       province: '',
       district: '',
@@ -115,7 +127,6 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
       notes: '',
       email: '',
       phone: '',
-      economicActivity: '',
     },
   });
 
@@ -139,6 +150,7 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
         documentNumber: p?.documentNumber || p?.cedula || '',
         birthDate: p?.birthDate?.split('T')[0] || '',
         nationalityCode: p?.nationalityCode || DEFAULT_NATIONALITY_CODE,
+        educationLevel: p?.educationLevel || '',
         hasArtisanCard:
           p?.hasArtisanCard === true ? 'true' : p?.hasArtisanCard === false ? 'false' : '',
         province: provinceCode,
@@ -146,12 +158,8 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
         corregimiento: corregimientoCode,
         address: data.address || '',
         notes: data.notes || '',
-        email: data.contacts?.find((c) => c.contactType === 'EMAIL')?.contactValue || '',
-        phone:
-          data.contacts?.find(
-            (c) => c.contactType === 'PHONE' || c.contactType === 'MOBILE'
-          )?.contactValue || '',
-        economicActivity: data.actEc || p?.economicActivity || '',
+        email: '',
+        phone: '',
       });
     } else if (!isEdit) {
       reset();
@@ -160,11 +168,13 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
 
   const onSubmit = async (formData: PersonForm) => {
     const contacts: Array<{ contactType: string; contactValue: string; isPrimary?: boolean }> = [];
-    if (formData.email) {
-      contacts.push({ contactType: 'EMAIL', contactValue: formData.email, isPrimary: true });
-    }
-    if (formData.phone) {
-      contacts.push({ contactType: 'MOBILE', contactValue: formData.phone });
+    if (!isEdit) {
+      if (formData.email) {
+        contacts.push({ contactType: 'EMAIL', contactValue: formData.email, isPrimary: true });
+      }
+      if (formData.phone) {
+        contacts.push({ contactType: 'MOBILE', contactValue: formData.phone });
+      }
     }
 
     const payload = {
@@ -176,6 +186,7 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
       documentNumber: formData.documentNumber || undefined,
       birthDate: formData.birthDate || undefined,
       nationalityCode: formData.nationalityCode,
+      educationLevel: formData.educationLevel || undefined,
       hasArtisanCard:
         formData.hasArtisanCard === 'true'
           ? true
@@ -187,8 +198,7 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
       corregimiento: formData.corregimiento || undefined,
       address: formData.address || undefined,
       notes: formData.notes || undefined,
-      economicActivity: formData.economicActivity?.trim() || undefined,
-      contacts: contacts.length > 0 ? contacts : undefined,
+      ...(contacts.length > 0 ? { contacts } : {}),
     };
 
     try {
@@ -205,6 +215,13 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
 
   const isBusy = createMutation.isPending || updateMutation.isPending;
   const documentType = watch('documentType');
+  const educationLevel = watch('educationLevel');
+  const educationOptions = useMemo(() => {
+    if (!educationLevel || educationLevelOptions.some((o) => o.value === educationLevel)) {
+      return educationLevelOptions;
+    }
+    return [...educationLevelOptions, { value: educationLevel, label: educationLevel }];
+  }, [educationLevel]);
 
   return (
     <Modal
@@ -261,23 +278,25 @@ export function PersonFormModal({ isOpen, onClose, editId }: PersonFormModalProp
             error={errors.nationalityCode?.message}
             {...register('nationalityCode')}
           />
+          <Select
+            label="Nivel educativo"
+            options={educationOptions}
+            {...register('educationLevel')}
+          />
           <Select label="Carnet de artesano" options={yesNoOptions} {...register('hasArtisanCard')} />
-          <Input
-            label="Actividad económica"
-            maxLength={128}
-            error={errors.economicActivity?.message}
-            {...register('economicActivity')}
-            className="sm:col-span-2"
-          />
           <LocationCascadeFields register={register} watch={watch} setValue={setValue} />
-          <Input
-            label="Correo electrónico"
-            type="email"
-            error={errors.email?.message}
-            {...register('email')}
-            className="sm:col-span-2"
-          />
-          <Input label="Teléfono / Celular" {...register('phone')} />
+          {!isEdit && (
+            <>
+              <Input
+                label="Correo electrónico"
+                type="email"
+                error={errors.email?.message}
+                {...register('email')}
+                className="sm:col-span-2"
+              />
+              <Input label="Teléfono / Celular" {...register('phone')} />
+            </>
+          )}
           <Input label="Dirección" {...register('address')} />
           <div className="sm:col-span-2">
             <Input label="Notas" {...register('notes')} />

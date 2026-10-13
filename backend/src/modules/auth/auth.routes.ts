@@ -2,14 +2,14 @@
  * Rutas del módulo de autenticación.
  *
  * Rutas públicas:
- *   POST /auth/login     → solo Active Directory
+ *   POST /auth/exchange  → canje del código de Entra
  *   POST /auth/register  → deshabilitado (403)
  *   POST /auth/refresh
  *
  * Rutas protegidas:
  *   GET    /auth/profile
  *   PUT    /auth/profile
- *   POST   /auth/change-password → deshabilitado (403; contraseña en AD)
+ *   POST   /auth/change-password → deshabilitado (403; contraseña en Entra)
  */
 import { Router } from 'express';
 import { authController } from './auth.controller';
@@ -17,7 +17,7 @@ import { asyncHandler } from '../../shared/middlewares/async-handler.middleware'
 import { validate } from '../../shared/middlewares/validate.middleware';
 import { protect } from './auth.middleware';
 import {
-  loginSchema,
+  exchangeSchema,
   registerSchema,
   refreshSchema,
   changePasswordSchema,
@@ -29,9 +29,9 @@ export const authRoutes = Router();
 // ── Rutas públicas ──────────────────────────────────────────────
 
 authRoutes.post(
-  '/login',
-  validate(loginSchema, 'body'),
-  asyncHandler(authController.login)
+  '/exchange',
+  validate(exchangeSchema, 'body'),
+  asyncHandler(authController.exchange)
 );
 
 authRoutes.post(

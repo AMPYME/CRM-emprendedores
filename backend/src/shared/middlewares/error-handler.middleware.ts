@@ -11,6 +11,20 @@ import { ApiResponse } from '../types/api-response.types';
 
 function prismaToAppError(err: unknown): AppError | null {
   if (!(err instanceof Prisma.PrismaClientKnownRequestError)) return null;
+  // RAISE EXCEPTION desde api.fn_* (queryRaw)
+  if (err.code === 'P2010') {
+    const raw = String(err.meta?.message ?? err.message ?? '');
+    const msg = raw.replace(/^Error occurred during query execution:.*?Message:\s*/is, '').trim() || raw;
+    if (/no encontrada|no encontrado|inexistente/i.test(msg)) {
+      return new AppError(msg, 404, 'NOT_FOUND');
+    }
+    if (/ya tiene|solo puede existir|duplicad/i.test(msg)) {
+      return new ConflictError(msg);
+    }
+    if (/inválid|requiere|no pertenece|misma versión|formato|búsqueda/i.test(msg)) {
+      return new BadRequestError(msg);
+    }
+  }
   if (err.code === 'P2002') {
     return new ConflictError('Ya existe un registro con esos datos únicos.');
   }

@@ -64,6 +64,8 @@ export interface Person {
   educationLevel: string | null;
   economicActivity: string | null;
   hasArtisanCard: boolean | null;
+  /** Aviso de operación: true = Sí, false = No, null = sin dato */
+  hasNoticeOfOperation: boolean | null;
   seedCapital: number | null;
   seedCapitalDate: string | null;
   entity?: Entity;

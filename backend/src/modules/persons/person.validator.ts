@@ -64,6 +64,8 @@ const personBodySchema = z.object({
   businessName: z.string().max(200).trim().optional(),
   economicActivity: z.string().max(128).trim().optional(),
   hasArtisanCard: z.boolean().optional(),
+  /** Aviso de operación: true = Sí, false = No */
+  hasNoticeOfOperation: z.boolean().optional(),
 
   contacts: z.array(contactSchema).optional(),
 });
@@ -122,6 +124,8 @@ export const personQuerySchema = z.object({
   cedula: z.string().optional(),
   gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional(),
   economicActivity: z.string().optional(),
+  cinuCategoryId: z.string().uuid().optional(),
+  cinuDivisionId: z.string().uuid().optional(),
   hasArtisanCard: z.coerce.boolean().optional(),
   seedCapital: z.enum(['0', '1']).optional().transform((value) => (
     value === undefined ? undefined : Number(value) as 0 | 1

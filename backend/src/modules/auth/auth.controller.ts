@@ -6,7 +6,7 @@ import { Request, Response } from 'express';
 import { authService } from './auth.service';
 import { sendSuccess, sendCreated, sendNoContent } from '../../shared/utils/response.utils';
 import {
-  LoginInput,
+  ExchangeInput,
   RegisterInput,
   RefreshInput,
   ChangePasswordInput,
@@ -15,12 +15,12 @@ import {
 
 export const authController = {
   /**
-   * POST /auth/login
-   * Autentica un usuario con email y contraseña.
+   * POST /auth/exchange
+   * Canjea el código de un solo uso de Entra por la sesión del CRM.
    */
-  async login(req: Request, res: Response): Promise<void> {
-    const input = req.body as LoginInput;
-    const result = await authService.login(input);
+  async exchange(req: Request, res: Response): Promise<void> {
+    const input = req.body as ExchangeInput;
+    const result = await authService.exchange(input);
     sendSuccess(res, result);
   },
 

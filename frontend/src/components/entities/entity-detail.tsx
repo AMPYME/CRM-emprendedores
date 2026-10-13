@@ -20,7 +20,6 @@ import { Select } from '@/components/ui/select';
 import { nationalityLabel } from '@/lib/nationalities';
 import { companyTypeLabel } from '@/lib/company-types';
 import { companySizeClassLabel } from '@/lib/company-size-class';
-import { EntitySearchSelect, type EntityOption } from '@/components/ui/entity-search-select';
 import {
   Table, TableHead, TableBody, TableRow, TableHeaderCell, TableCell,
 } from '@/components/ui/table';
@@ -28,16 +27,13 @@ import { useEntity, useEntityContacts } from '@/hooks/use-entities';
 import { useEntityRelationships } from '@/hooks/use-relationships';
 import { useCreatePortfolio, useEntityPortfolios } from '@/hooks/use-portfolio';
 import { portfolioCategoryOptions } from '@/lib/portfolio.constants';
-import { formatDate, formatDateShort, cn } from '@/lib/utils';
+import { formatDate, formatDateShort, formatDateShortOnly, cn } from '@/lib/utils';
 import {
   provinciaNombre,
   distritoNombre,
   corregimientoNombre,
 } from '@/lib/division-politica';
-import {
-  relationshipTargetsBySource,
-  relationshipTargetPlaceholder,
-} from '@/lib/relationship-rules';
+import { relationshipTargetsBySource } from '@/lib/relationship-rules';
 import type {
   EntityContact,
   EntityRelationship,
@@ -47,7 +43,9 @@ import type {
 import { contactsService } from '@/services/contacts.service';
 import { entitiesService } from '@/services/entities.service';
 import { EntityHistorialPanel } from '@/components/entities/entity-historial';
+import { EntityEconomicActivitiesPanel } from '@/components/entities/entity-economic-activities';
 import { personsService, type CapitalSemillaRecord } from '@/services/persons.service';
+import { economicActivitiesService } from '@/services/economic-activities.service';
 import { isReadOnlyRole } from '@/lib/roles';
 import { registroEmpresarialTexto } from '@/lib/registro-empresarial';
 import { useAuthStore } from '@/stores/auth.store';
@@ -57,6 +55,8 @@ import toast from 'react-hot-toast';
 import { personChangesService } from '@/services/person-changes.service';
 import { useDeletePerson } from '@/hooks/use-persons';
 import { useDeleteCompany } from '@/hooks/use-companies';
+import type { EntityEconomicActivity } from '@/services/economic-activities.service';
+import styles from './entity-detail.module.css';
 
 /* ──────────────────────────────────────────────── */
 /* Types                                            */
@@ -97,16 +97,19 @@ const relationshipTypeLabel: Record<RelationshipType, string> = {
   OTHER: 'Otra',
 };
 const relationshipTypeOptions = [
+  { value: '', label: 'Seleccionar *' },
   { value: 'OWNER', label: relationshipTypeLabel.OWNER },
   { value: 'EMPLOYEE', label: relationshipTypeLabel.EMPLOYEE },
   { value: 'PARTNER', label: relationshipTypeLabel.PARTNER },
-  { value: 'BRANCH', label: relationshipTypeLabel.BRANCH },
   { value: 'REPRESENTATIVE', label: relationshipTypeLabel.REPRESENTATIVE },
-  { value: 'RELATED', label: relationshipTypeLabel.RELATED },
-  { value: 'SUBSIDIARY', label: relationshipTypeLabel.SUBSIDIARY },
-  { value: 'AFFILIATED', label: relationshipTypeLabel.AFFILIATED },
   { value: 'OTHER', label: relationshipTypeLabel.OTHER },
 ];
+
+type VerifiedEntity = {
+  id: string;
+  displayName: string;
+  entityType: EntityType;
+};
 
 /** Mapa de tipo de entidad → segmento de ruta para navegación */
 const entityRouteMap: Record<EntityType, string> = {
@@ -152,6 +155,11 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
     queryFn: () => personsService.listCapitalSemilla(entityId),
     enabled: entityType === 'PERSON',
   });
+  const economicActivities = useQuery({
+    queryKey: ['economic-activities', entityId],
+    queryFn: () => economicActivitiesService.listByEntity(entityId),
+    enabled: !!entityId,
+  });
   const pendingQuery = useQuery({
     queryKey: ['person-change-pending', entityId],
     queryFn: () => personChangesService.hasPending(entityId),
@@ -174,12 +182,15 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
   const [contactForm, setContactForm] = useState({ contactType: 'EMAIL', contactValue: '', label: '' });
   const [savingContact, setSavingContact] = useState(false);
   const [addRelationshipOpen, setAddRelationshipOpen] = useState(false);
-  const [selectedEntity, setSelectedEntity] = useState<EntityOption | null>(null);
+  const [selectedEntity, setSelectedEntity] = useState<VerifiedEntity | null>(null);
+  const [relationshipDocumento, setRelationshipDocumento] = useState('');
+  const [verifyingRelationship, setVerifyingRelationship] = useState(false);
+  const [relationshipVerifyMessage, setRelationshipVerifyMessage] = useState('');
   const [relationshipForm, setRelationshipForm] = useState<{
-    relationshipType: RelationshipType;
+    relationshipType: RelationshipType | '';
     role: string;
   }>({
-    relationshipType: 'OWNER',
+    relationshipType: '',
     role: '',
   });
   const [savingRelationship, setSavingRelationship] = useState(false);
@@ -216,7 +227,7 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
       return;
     }
     try {
-      const record = await createPortfolio.mutateAsync({
+      await createPortfolio.mutateAsync({
         entityId,
         subject: portfolioForm.subject.trim(),
         category: portfolioForm.category || undefined,
@@ -224,7 +235,7 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
         nextFollowUpDate: portfolioForm.nextFollowUpDate || undefined,
       });
       setPortfolioOpen(false);
-      router.push(`/dashboard/portfolio/${record.id}`);
+      await qc.invalidateQueries({ queryKey: ['portfolio', 'entity', entityId] });
     } catch {
       /* el hook ya muestra el error */
     }
@@ -290,12 +301,73 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
     }
   };
 
+  const resetRelationshipModal = () => {
+    setSelectedEntity(null);
+    setRelationshipDocumento('');
+    setRelationshipVerifyMessage('');
+    setRelationshipForm({ relationshipType: '', role: '' });
+  };
+
+  const handleVerifyRelationshipEntity = async () => {
+    const documento = relationshipDocumento.trim();
+    if (!documento) {
+      toast.error('Indique la cédula');
+      return;
+    }
+    setVerifyingRelationship(true);
+    setSelectedEntity(null);
+    setRelationshipVerifyMessage('');
+    try {
+      const matches = await entitiesService.verificar(documento);
+      const allowed = relationshipTargetsBySource[entityType];
+      const linkedIds = new Set(
+        (relationships.data ?? []).flatMap((rel) =>
+          [rel.fromEntityId, rel.toEntityId].filter((id) => id !== entityId)
+        )
+      );
+      const candidates = matches.filter(
+        (m) =>
+          m.id !== entityId &&
+          allowed.includes(m.entityType) &&
+          !linkedIds.has(m.id)
+      );
+      if (candidates.length === 0) {
+        setRelationshipVerifyMessage('No se encontró una entidad válida con esa cédula.');
+        return;
+      }
+      if (candidates.length > 1) {
+        setRelationshipVerifyMessage(
+          `Hay ${candidates.length} coincidencias. Use una cédula más precisa.`
+        );
+        return;
+      }
+      const match = candidates[0];
+      setSelectedEntity({
+        id: match.id,
+        displayName: match.displayName,
+        entityType: match.entityType,
+      });
+      setRelationshipVerifyMessage(`${match.displayName} (${match.entityType === 'PERSON' ? 'Persona' : 'Empresa'})`);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err) || 'No se pudo verificar la cédula');
+    } finally {
+      setVerifyingRelationship(false);
+    }
+  };
+
   const handleAddRelationship = async () => {
     if (hasPending) {
       toast.error('Hay cambios pendientes de confirmación. Confírmelos o cancele antes de editar.');
       return;
     }
-    if (!selectedEntity) return;
+    if (!selectedEntity) {
+      toast.error('Verifique la cédula de la entidad destino');
+      return;
+    }
+    if (!relationshipForm.relationshipType) {
+      toast.error('Seleccione el tipo de relación');
+      return;
+    }
     setSavingRelationship(true);
     try {
       const { relationshipsService } = await import('@/services/relationships.service');
@@ -310,10 +382,8 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
       }
       toast.success('Relación creada');
       setAddRelationshipOpen(false);
-      setSelectedEntity(null);
-      setRelationshipForm({ relationshipType: 'OWNER', role: '' });
+      resetRelationshipModal();
     } catch (err) {
-      const { getApiErrorMessage } = await import('@/services/api-client');
       toast.error(getApiErrorMessage(err) || 'Error al crear relación');
     } finally {
       setSavingRelationship(false);
@@ -407,11 +477,21 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
   };
 
   // ── Tabs ──────────────────────────────────────
+  const cinuActivities = economicActivities.data ?? [];
+  const primaryCinu = cinuActivities.find((a) => a.isPrimary) ?? cinuActivities[0];
+  const cinuActivityFallback =
+    entity.actEc || person?.economicActivity || company?.economicActivity || null;
+
   const tabs = [
     { id: 'info', label: 'Información' },
     { id: 'historial', label: 'Historial' },
     { id: 'contacts', label: 'Contactos', count: contacts.data?.length },
     { id: 'relationships', label: 'Relaciones', count: relationships.data?.length },
+    {
+      id: 'actividades',
+      label: 'Actividades económicas',
+      count: economicActivities.data?.length,
+    },
     { id: 'portfolio', label: 'Seguimiento', count: portfolios.data?.length },
     ...(entityType === 'PERSON'
       ? [{
@@ -422,53 +502,76 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
       : []),
   ];
 
+  const isActiveStatus = entity.status === 'ACTIVE';
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start gap-4">
-        <Button variant="ghost" size="sm" onClick={() => router.push(backHref)}>
+    <div className={styles.expediente}>
+      <header className={styles.header}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className={styles.backBtn}
+          onClick={() => router.push(backHref)}
+          aria-label="Volver al listado"
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div className="flex-1 min-w-0">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <h1 className="truncate text-2xl font-bold text-[#0F172A]">{entity.displayName}</h1>
-              <p className="mt-1 text-sm text-[#64748B]">
-                Estado: {statusLabel[entity.status] || entity.status}
-              </p>
-              <p className="text-sm text-[#64748B]">
-                Creado el {formatDate(entity.createdAt)}
-              </p>
-              {hasPending && (
-                <p className="mt-2 text-sm font-medium text-amber-700">
-                  Hay cambios pendientes de confirmación. No se puede editar hasta confirmar o cancelar.
-                </p>
-              )}
+        <div className={styles.headerMain}>
+          <div className={styles.headerIdentity}>
+            <h1 className={styles.title}>{entity.displayName}</h1>
+            <div className={styles.metaRow}>
+              <span
+                className={cn(styles.statusPill, isActiveStatus && styles.statusPillActive)}
+              >
+                <span
+                  className={cn(styles.statusDot, isActiveStatus && styles.statusDotActive)}
+                  aria-hidden
+                />
+                {statusLabel[entity.status] || entity.status}
+              </span>
+              <p className={styles.metaText}>Creado el {formatDate(entity.createdAt)}</p>
             </div>
-            {!readOnly && (
+            {hasPending && (
+              <p className={styles.pendingNotice}>
+                Hay cambios pendientes de confirmación. No se puede editar hasta confirmar o cancelar.
+              </p>
+            )}
+          </div>
+          {!readOnly && (
+            <div className={styles.headerActions}>
               <Button
                 variant="outline"
                 size="sm"
-                className="shrink-0 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                className={cn(
+                  styles.deleteBtn,
+                  'border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700'
+                )}
                 disabled={hasPending || deletePersonMutation.isPending || deleteCompanyMutation.isPending}
                 onClick={handleDeleteEntity}
               >
                 Eliminar
               </Button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
+      </header>
+
+      <div className={styles.tabsWrap}>
+        <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} className="!border-b-0" />
       </div>
 
-      {/* Tabs */}
-      <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
-
+      <div className={styles.tabPanel}>
       {/* ── TAB: INFO ──────────────────────────────── */}
       {activeTab === 'info' && (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          {/* Entity-specific info */}
-          <Card title={entityType === 'PERSON' ? 'Datos personales' : 'Datos de empresa'}>
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+        <div className={styles.infoLayout}>
+          <section className={styles.surface} aria-labelledby="ex-datos-title">
+            <div className={styles.surfaceHeader}>
+              <h2 id="ex-datos-title" className={styles.surfaceTitle}>
+                {entityType === 'PERSON' ? 'Datos personales' : 'Datos de empresa'}
+              </h2>
+            </div>
+            <div className={styles.surfaceBody}>
+              <dl className={styles.fieldGrid}>
               {entityType === 'PERSON' && person && (
                 <>
                   <InfoRow label="Nombre" value={`${person.firstName} ${person.lastName}${person.secondLastName ? ' ' + person.secondLastName : ''}`} />
@@ -510,9 +613,14 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                   />
                   <InfoRow label="Registro empresarial" value={registroEmpresarialTexto(entity.registroEmpresarialFecha)} span2 />
                   <InfoRow
-                    label="Actividad económica"
-                    value={entity.actEc || person?.economicActivity}
-                    span2
+                    label="Aviso de operación"
+                    value={
+                      primaryCinu?.hasNoticeOfOperation === true
+                        ? 'Sí'
+                        : primaryCinu?.hasNoticeOfOperation === false
+                          ? 'No'
+                          : null
+                    }
                   />
                 </>
               )}
@@ -527,18 +635,29 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                   <InfoRow label="Fecha de Inscripción" value={company.foundedDate ? formatDateShort(company.foundedDate) : null} />
                   <InfoRow label="Registro empresarial" value={registroEmpresarialTexto(entity.registroEmpresarialFecha)} span2 />
                   <InfoRow
-                    label="Actividad económica"
-                    value={entity.actEc || company?.economicActivity}
-                    span2
+                    label="Aviso de operación"
+                    value={
+                      primaryCinu?.hasNoticeOfOperation === true
+                        ? 'Sí'
+                        : primaryCinu?.hasNoticeOfOperation === false
+                          ? 'No'
+                          : null
+                    }
                   />
                 </>
               )}
-            </dl>
-          </Card>
+              </dl>
+            </div>
+          </section>
 
-          {/* Location / General info */}
-          <Card title="Ubicación y notas">
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+          <section className={styles.surface} aria-labelledby="ex-ubicacion-title">
+            <div className={styles.surfaceHeader}>
+              <h2 id="ex-ubicacion-title" className={styles.surfaceTitle}>
+                Ubicación y notas
+              </h2>
+            </div>
+            <div className={styles.surfaceBody}>
+              <dl className={styles.fieldGrid}>
               <InfoRow label="Provincia" value={provinciaNombre(entity.province)} />
               <InfoRow label="Distrito" value={distritoNombre(entity.province, entity.district)} />
               <InfoRow
@@ -546,10 +665,24 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                 value={corregimientoNombre(entity.province, entity.district, entity.corregimiento)}
               />
               <InfoRow label="Dirección" value={entity.address} span2 />
-              <InfoRow label="Origen de datos" value={entity.sourceOrigin} />
               <InfoRow label="Notas" value={entity.notes} span2 />
-            </dl>
-          </Card>
+              </dl>
+            </div>
+          </section>
+
+          <section
+            className={cn(styles.surface, styles.cinuSection)}
+            aria-labelledby="ex-cinu-title"
+          >
+            <div className={styles.surfaceHeader}>
+              <h2 id="ex-cinu-title" className={styles.surfaceTitle}>
+                Actividades económicas (CINU)
+              </h2>
+            </div>
+            <div className={styles.surfaceBody}>
+              <CinuActivitiesInfo rows={cinuActivities} fallback={cinuActivityFallback} />
+            </div>
+          </section>
         </div>
       )}
 
@@ -565,6 +698,10 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
             onPageChange={setHistorialPage}
           />
         )
+      )}
+
+      {activeTab === 'actividades' && (
+        <EntityEconomicActivitiesPanel entityId={entityId} readOnly={editBlocked} />
       )}
 
       {activeTab === 'capital-semilla' && entityType === 'PERSON' && (
@@ -813,7 +950,7 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {rec.nextFollowUpDate ? formatDateShort(rec.nextFollowUpDate) : '—'}
+                      {rec.nextFollowUpDate ? formatDateShortOnly(rec.nextFollowUpDate) : '—'}
                     </TableCell>
                     <TableCell align="right">
                       <Button
@@ -1001,8 +1138,7 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
             isOpen={addRelationshipOpen}
             onClose={() => {
               setAddRelationshipOpen(false);
-              setSelectedEntity(null);
-              setRelationshipForm({ relationshipType: 'OWNER', role: '' });
+              resetRelationshipModal();
             }}
             title="Agregar relación"
             description="Vincula esta ficha con otra entidad ya creada en el CRM."
@@ -1013,8 +1149,7 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                   variant="outline"
                   onClick={() => {
                     setAddRelationshipOpen(false);
-                    setSelectedEntity(null);
-                    setRelationshipForm({ relationshipType: 'OWNER', role: '' });
+                    resetRelationshipModal();
                   }}
                 >
                   Cancelar
@@ -1022,7 +1157,7 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
                 <Button
                   onClick={handleAddRelationship}
                   isLoading={savingRelationship}
-                  disabled={!selectedEntity}
+                  disabled={!selectedEntity || !relationshipForm.relationshipType}
                 >
                   Guardar
                 </Button>
@@ -1030,26 +1165,46 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
             }
           >
             <div className="space-y-4">
-              <EntitySearchSelect
-                label="Entidad destino *"
-                placeholder={relationshipTargetPlaceholder[entityType]}
-                value={selectedEntity}
-                onSelect={setSelectedEntity}
-                allowedEntityTypes={relationshipTargetsBySource[entityType]}
-                excludeEntityId={entityId}
-                excludeEntityIds={(relationships.data ?? []).flatMap((rel) =>
-                  [rel.fromEntityId, rel.toEntityId].filter((id) => id !== entityId)
-                )}
-                error={!selectedEntity && savingRelationship ? 'Selecciona una entidad' : undefined}
-              />
+              <div className="flex items-end gap-2">
+                <div className="min-w-0 flex-1">
+                  <Input
+                    label="Cédula *"
+                    placeholder="Ej. 8-888-888"
+                    value={relationshipDocumento}
+                    onChange={(e) => {
+                      setRelationshipDocumento(e.target.value);
+                      setSelectedEntity(null);
+                      setRelationshipVerifyMessage('');
+                    }}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleVerifyRelationshipEntity}
+                  isLoading={verifyingRelationship}
+                >
+                  Verificar
+                </Button>
+              </div>
+              {relationshipVerifyMessage ? (
+                <p
+                  className={cn(
+                    'text-sm',
+                    selectedEntity ? 'text-emerald-700' : 'text-amber-700'
+                  )}
+                >
+                  {relationshipVerifyMessage}
+                </p>
+              ) : null}
               <Select
-                label="Tipo de relación"
+                label="Tipo de relación *"
                 options={relationshipTypeOptions}
                 value={relationshipForm.relationshipType}
                 onChange={(e) =>
                   setRelationshipForm((p) => ({
                     ...p,
-                    relationshipType: e.target.value as RelationshipType,
+                    relationshipType: e.target.value as RelationshipType | '',
                   }))
                 }
               />
@@ -1065,6 +1220,7 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
           </Modal>
         </Card>
       )}
+      </div>
     </div>
   );
 }
@@ -1072,13 +1228,86 @@ export function EntityDetail({ entityId, backHref, entityType }: EntityDetailPro
 /* ──────────────────────────────────────────────── */
 /* Info Row helper                                  */
 /* ──────────────────────────────────────────────── */
-function InfoRow({ label, value, mono, span2 }: { label: string; value: string | number | null | undefined; mono?: boolean; span2?: boolean }) {
+function InfoRow({
+  label,
+  value,
+  mono,
+  span2,
+}: {
+  label: string;
+  value: string | number | null | undefined;
+  mono?: boolean;
+  span2?: boolean;
+}) {
+  const hasValue = value !== null && value !== undefined && value !== '';
   return (
-    <div className={span2 ? 'col-span-2' : ''}>
-      <dt className="text-xs font-medium uppercase tracking-wider text-gray-400">{label}</dt>
-      <dd className={cn('mt-0.5 text-gray-900', mono && 'font-mono text-sm')}>
-        {value !== null && value !== undefined && value !== '' ? value : <span className="text-gray-300">—</span>}
+    <div className={cn(styles.field, span2 && styles.fieldSpan2)}>
+      <dt className={styles.fieldLabel}>{label}</dt>
+      <dd
+        className={cn(
+          styles.fieldValue,
+          mono && styles.fieldValueMono,
+          !hasValue && styles.fieldEmpty
+        )}
+      >
+        {hasValue ? value : 'No registrado'}
       </dd>
     </div>
+  );
+}
+
+function CinuActivitiesInfo({
+  rows,
+  fallback,
+}: {
+  rows: EntityEconomicActivity[];
+  fallback: string | null;
+}) {
+  if (rows.length === 0) {
+    return (
+      <p className={styles.cinuEmpty}>
+        {fallback || 'No registrado'}
+      </p>
+    );
+  }
+
+  return (
+    <ul className={styles.cinuList}>
+      {rows.map((a) => {
+        const code = a.subclassCode || a.classCode;
+        const name = a.subclassName || a.className;
+        const hierarchy = [
+          a.categoryCode && a.categoryName ? `${a.categoryCode} ${a.categoryName}` : null,
+          a.divisionCode && a.divisionName ? `${a.divisionCode} ${a.divisionName}` : null,
+          a.groupCode && a.groupName ? `${a.groupCode} ${a.groupName}` : null,
+          a.subclassCode
+            ? `${a.classCode} ${a.className}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(' · ');
+
+        return (
+          <li key={a.id} className={styles.cinuItem}>
+            <div className={styles.cinuCode}>{code}</div>
+            <div className={styles.cinuBody}>
+              <p className={styles.cinuSpecific}>
+                <span className={styles.fieldLabel}>Actividad específica</span>
+                <span className={cn(styles.fieldValue, !a.specificActivity && styles.fieldEmpty)}>
+                  {a.specificActivity || 'No registrado'}
+                </span>
+              </p>
+              <div className={styles.cinuNameRow}>
+                <span className={styles.cinuName}>{name}</span>
+                {a.isPrimary ? (
+                  <span className={styles.cinuPrimaryMark}>Principal</span>
+                ) : null}
+              </div>
+              {hierarchy ? <p className={styles.cinuHierarchy}>{hierarchy}</p> : null}
+            </div>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

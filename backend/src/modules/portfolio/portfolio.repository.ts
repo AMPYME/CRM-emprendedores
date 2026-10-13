@@ -104,15 +104,22 @@ export type PortfolioDetail = Prisma.PortfolioRecordGetPayload<{
 function buildOrderBy(
   sortBy: string | undefined,
   sortOrder: 'asc' | 'desc'
-): Prisma.PortfolioRecordOrderByWithRelationInput {
+): Prisma.PortfolioRecordOrderByWithRelationInput | Prisma.PortfolioRecordOrderByWithRelationInput[] {
   const map: Record<string, Prisma.PortfolioRecordOrderByWithRelationInput> = {
     createdAt: { createdAt: sortOrder },
     updatedAt: { updatedAt: sortOrder },
-    nextFollowUpDate: { nextFollowUpDate: sortOrder },
+    nextFollowUpDate: { nextFollowUpDate: { sort: sortOrder, nulls: 'last' } },
     priority: { priority: sortOrder },
     status: { status: sortOrder },
   };
-  return map[sortBy || ''] || { createdAt: sortOrder };
+  // Por defecto: próximos a vencer primero (fecha más cercana / ya vencida).
+  if (!sortBy) {
+    return [
+      { nextFollowUpDate: { sort: 'asc', nulls: 'last' } },
+      { createdAt: 'desc' },
+    ];
+  }
+  return map[sortBy] || { createdAt: sortOrder };
 }
 
 // ── Repository ────────────────────────────────────────────────────
@@ -194,7 +201,10 @@ export const portfolioRepository = {
     return prisma.portfolioRecord.findMany({
       where: { entityId },
       include: PORTFOLIO_LIST_INCLUDES,
-      orderBy: { createdAt: 'desc' },
+      orderBy: [
+        { nextFollowUpDate: { sort: 'asc', nulls: 'last' } },
+        { createdAt: 'desc' },
+      ],
     });
   },
 

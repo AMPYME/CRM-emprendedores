@@ -18,7 +18,7 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { isLoading, user } = useAuth({ requireAuth: true });
+  const { isLoading, user, status } = useAuth({ requireAuth: true });
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -31,7 +31,7 @@ export default function DashboardLayout({
     }
   }, [user, pathname, router]);
 
-  if (isLoading) {
+  if (isLoading || status === 'loading') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <PageLoading text="Cargando sistema..." />
@@ -39,7 +39,19 @@ export default function DashboardLayout({
     );
   }
 
-  if (!user) {
+  if (status === 'error') {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-gray-50 px-4 text-center">
+        <PageLoading text="No se pudo confirmar la sesión centralizada..." />
+        <p className="max-w-md text-sm text-slate-600">
+          El servicio de identidad no respondió. No se mostrará información privada hasta
+          validar la sesión. Recargue la página o intente más tarde.
+        </p>
+      </div>
+    );
+  }
+
+  if (!user || status === 'unauthenticated') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <PageLoading text="Sesión no disponible. Redirigiendo a inicio de sesión..." />

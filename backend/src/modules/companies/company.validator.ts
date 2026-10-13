@@ -61,6 +61,8 @@ export const companyQuerySchema = z.object({
   ruc: z.string().optional(),
   companyType: z.string().optional(),
   companySizeClass: z.enum(['MICRO', 'PEQUENA', 'MEDIANA']).optional(),
+  cinuCategoryId: z.string().uuid().optional(),
+  cinuDivisionId: z.string().uuid().optional(),
 });
 
 export type CompanyQueryInput = z.infer<typeof companyQuerySchema>;

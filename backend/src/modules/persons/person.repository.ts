@@ -11,6 +11,7 @@ import {
   PERSON_LIST_INCLUDES,
 } from '../../shared/types/entity.types';
 import { PaginatedResult } from '../../shared/types/api-response.types';
+import { economicActivitiesRepository } from '../economic-activities/economic-activities.repository';
 
 const detailIncludes = {
   person: true,
@@ -78,6 +79,14 @@ export const personRepository = {
       personWhere.seedCapital = filters.seedCapital;
     }
     if (Object.keys(personWhere).length > 0) where.person = personWhere;
+
+    if (filters.cinuDivisionId || filters.cinuCategoryId) {
+      const entityIds = await economicActivitiesRepository.listEntityIdsByCinuFilter({
+        categoryId: filters.cinuCategoryId,
+        divisionId: filters.cinuDivisionId,
+      });
+      where.id = { in: entityIds.length > 0 ? entityIds : ['__none__'] };
+    }
 
     // Búsqueda por nombre, cédula, negocio, contacto
     if (filters.search) {

@@ -105,6 +105,9 @@ export const personService = {
     if (input.birthDate) personData.birthDate = new Date(input.birthDate);
     if (input.nationalityCode) personData.nationalityCode = input.nationalityCode;
     if (input.hasArtisanCard !== undefined) personData.hasArtisanCard = input.hasArtisanCard;
+    if (input.hasNoticeOfOperation !== undefined) {
+      personData.hasNoticeOfOperation = input.hasNoticeOfOperation;
+    }
     if (input.educationLevel) personData.educationLevel = input.educationLevel;
     if (input.occupation) personData.occupation = input.occupation;
     if (input.businessName) personData.businessName = input.businessName;
@@ -205,6 +208,9 @@ export const personService = {
       personData.legacyBusinessName = input.businessName;
     }
     if (input.hasArtisanCard !== undefined) personData.hasArtisanCard = input.hasArtisanCard;
+    if (input.hasNoticeOfOperation !== undefined) {
+      personData.hasNoticeOfOperation = input.hasNoticeOfOperation;
+    }
     if (loc) {
       entityData.province = loc.province ?? null;
       entityData.district = loc.district ?? null;

@@ -18,7 +18,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import {
   usePortfolio, useUpdatePortfolio, usePortfolioActions, useAddPortfolioAction,
 } from '@/hooks/use-portfolio';
-import { formatDate, formatDateShort, cn } from '@/lib/utils';
+import { formatDate, formatDateOnly, toDateOnlyString, cn } from '@/lib/utils';
 import { isReadOnlyRole } from '@/lib/roles';
 import { useAuthStore } from '@/stores/auth.store';
 import { provinciaNombre } from '@/lib/division-politica';
@@ -89,7 +89,7 @@ export default function PortfolioDetailPage() {
     if (!record) return;
     setEditForm({
       status: record.status,
-      nextFollowUpDate: record.nextFollowUpDate ? record.nextFollowUpDate.slice(0, 10) : '',
+      nextFollowUpDate: record.nextFollowUpDate ? toDateOnlyString(record.nextFollowUpDate) : '',
     });
     setEditOpen(true);
   };
@@ -142,7 +142,9 @@ export default function PortfolioDetailPage() {
     );
   }
 
-  const isOverdue = record.nextFollowUpDate && new Date(record.nextFollowUpDate) < new Date();
+  const todayYmd = toDateOnlyString(new Date());
+  const followUpYmd = record.nextFollowUpDate ? toDateOnlyString(record.nextFollowUpDate) : '';
+  const isOverdue = Boolean(followUpYmd && followUpYmd < todayYmd);
   const actionsData: PortfolioAction[] = actions.data ?? [];
 
   const tabs = [
@@ -209,7 +211,7 @@ export default function PortfolioDetailPage() {
                 <InfoRow label="Descripción" value={record.description} span2 />
                 <InfoRow label="Categoría" value={record.category} />
                 <InfoRow label="Estado" value={statusLabel[record.status]} />
-                <InfoRow label="Próximo seguimiento" value={record.nextFollowUpDate ? formatDate(record.nextFollowUpDate) : null} />
+                <InfoRow label="Próximo seguimiento" value={record.nextFollowUpDate ? formatDateOnly(record.nextFollowUpDate) : null} />
                 {record.closedAt && (
                   <>
                     <InfoRow label="Cerrado el" value={formatDate(record.closedAt)} />
@@ -274,7 +276,7 @@ export default function PortfolioDetailPage() {
                   <div>
                     <p className="text-xs text-gray-400">Próximo seguimiento</p>
                     <p className={cn('font-medium', isOverdue ? 'text-red-600' : 'text-gray-900')}>
-                      {formatDate(record.nextFollowUpDate)}
+                      {formatDateOnly(record.nextFollowUpDate)}
                     </p>
                   </div>
                 </div>

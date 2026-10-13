@@ -215,6 +215,9 @@ model User {
   importsDeleted            ImportBatch[]      @relation("ImportDeletedBy")
   intakeSessionsDeleted     IntakeSession[]    @relation("IntakeDeletedBy")
   personChangeRequests      PersonChangeRequest[] @relation("PersonChangeRequestedBy")
+  economicActivitiesCreated EntityEconomicActivity[] @relation("EconActivityCreatedBy")
+  economicActivitiesUpdated EntityEconomicActivity[] @relation("EconActivityUpdatedBy")
+  economicActivitiesDeleted EntityEconomicActivity[] @relation("EconActivityDeletedBy")
 
   @@index([username])
   @@index([deletedAt])
@@ -303,6 +306,7 @@ model Entity {
   provinciaCatalog     Provincia?     @relation("EntityProvincia", fields: [province], references: [codProv], onDelete: Restrict)
   distritoCatalog      Distrito?      @relation("EntityDistrito", fields: [district], references: [codDist], onDelete: Restrict)
   corregimientoCatalog Corregimiento? @relation("EntityCorregimiento", fields: [corregimiento], references: [codCorr], onDelete: Restrict)
+  economicActivities   EntityEconomicActivity[]
 
   @@index([entityType])
   @@index([status])
@@ -339,6 +343,8 @@ model Person {
   legacyBusinessName String? @map("legacy_business_name") @db.VarChar(200)
   economicActivity String?  @map("economic_activity") @db.VarChar(128)
   hasArtisanCard   Boolean?  @map("has_artisan_card")
+  /// Aviso de operación: true = Sí, false = No, null = sin dato
+  hasNoticeOfOperation Boolean? @map("has_notice_of_operation")
   /// Legacy; canónico = capital_semilla 1:N
   seedCapital      Int?      @map("seed_capital")
   seedCapitalDate  String?   @map("seed_capital_date") @db.VarChar(7)
@@ -1059,4 +1065,145 @@ model PersonChangeRequest {
   @@index([status])
   @@index([entityId])
   @@map("person_change_requests")
+}
+
+// ============================================================================
+// CINU 4.1 — actividades económicas
+// Catálogo versionado. La API opera solo vía api.fn_* (sin DML directo).
+// ============================================================================
+
+/// Versión del clasificador. Permite convivir catálogos futuros con clasificaciones históricas.
+model CinuVersion {
+  id         String   @id @default(uuid())
+  code       String   @unique @db.VarChar(32)
+  name       String   @db.VarChar(200)
+  source     String?  @db.VarChar(400)
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  categories CinuCategory[]
+
+  @@map("cinu_versions")
+}
+
+model CinuCategory {
+  id        String   @id @default(uuid())
+  versionId String   @map("version_id")
+  code      String   @db.VarChar(16)
+  name      String   @db.VarChar(300)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  version   CinuVersion    @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  divisions CinuDivision[]
+
+  @@unique([id, versionId])
+  @@unique([versionId, code])
+  @@index([versionId])
+  @@map("cinu_categories")
+}
+
+model CinuDivision {
+  id         String   @id @default(uuid())
+  versionId  String   @map("version_id")
+  categoryId String   @map("category_id")
+  code       String   @db.VarChar(16)
+  name       String   @db.VarChar(300)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  category CinuCategory @relation(fields: [categoryId, versionId], references: [id, versionId], onDelete: Restrict)
+  groups   CinuGroup[]
+
+  @@unique([id, versionId])
+  @@unique([versionId, code])
+  @@index([categoryId])
+  @@map("cinu_divisions")
+}
+
+model CinuGroup {
+  id         String   @id @default(uuid())
+  versionId  String   @map("version_id")
+  divisionId String   @map("division_id")
+  code       String   @db.VarChar(16)
+  name       String   @db.VarChar(300)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  division CinuDivision @relation(fields: [divisionId, versionId], references: [id, versionId], onDelete: Restrict)
+  classes  CinuClass[]
+
+  @@unique([id, versionId])
+  @@unique([versionId, code])
+  @@index([divisionId])
+  @@map("cinu_groups")
+}
+
+model CinuClass {
+  id        String   @id @default(uuid())
+  versionId String   @map("version_id")
+  groupId   String   @map("group_id")
+  code      String   @db.VarChar(16)
+  name      String   @db.VarChar(300)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  group      CinuGroup      @relation(fields: [groupId, versionId], references: [id, versionId], onDelete: Restrict)
+  subclasses CinuSubclass[]
+  activities EntityEconomicActivity[]
+
+  @@unique([id, versionId])
+  @@unique([versionId, code])
+  @@index([groupId])
+  @@map("cinu_classes")
+}
+
+model CinuSubclass {
+  id        String   @id @default(uuid())
+  versionId String   @map("version_id")
+  classId   String   @map("class_id")
+  code      String   @db.VarChar(16)
+  name      String   @db.VarChar(300)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  class      CinuClass @relation(fields: [classId, versionId], references: [id, versionId], onDelete: Restrict)
+  activities EntityEconomicActivity[]
+
+  @@unique([versionId, code])
+  @@index([classId])
+  @@map("cinu_subclasses")
+}
+
+/// Actividades económicas de una entidad (persona o empresa). Borrado solo lógico.
+model EntityEconomicActivity {
+  id             String    @id @default(uuid())
+  entityId       String    @map("entity_id")
+  cinuClassId    String    @map("cinu_class_id")
+  cinuSubclassId String?   @map("cinu_subclass_id")
+  /// Descripción libre de la actividad específica (máx. 25).
+  specificActivity String? @map("specific_activity") @db.VarChar(25)
+  /// Aviso de operación de esta actividad: true = Sí, false = No, null = sin dato.
+  hasNoticeOfOperation Boolean? @map("has_notice_of_operation")
+  isPrimary      Boolean   @default(false) @map("is_primary")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+  createdById    String?   @map("created_by_id")
+  updatedById    String?   @map("updated_by_id")
+  deletedById    String?   @map("deleted_by_id")
+
+  entity       Entity        @relation(fields: [entityId], references: [id], onDelete: Restrict)
+  cinuClass    CinuClass     @relation(fields: [cinuClassId], references: [id], onDelete: Restrict)
+  cinuSubclass CinuSubclass? @relation(fields: [cinuSubclassId], references: [id], onDelete: Restrict)
+  createdBy    User?         @relation("EconActivityCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy    User?         @relation("EconActivityUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  deletedBy    User?         @relation("EconActivityDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
+
+  @@index([entityId])
+  @@index([cinuClassId])
+  @@index([cinuSubclassId])
+  @@index([deletedAt])
+  @@map("entity_economic_activities")
 }

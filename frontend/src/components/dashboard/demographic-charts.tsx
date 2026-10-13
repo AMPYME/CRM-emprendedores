@@ -54,10 +54,7 @@ export function DemographicCharts() {
 
   return (
     <section className="mb-8">
-      <h2 className="text-[22px] font-bold text-[#0f172a]">Padrón de personas</h2>
-      <p className="mt-1 mb-4 text-sm text-[#64748b]">
-        Conteos calculados en una vista materializada. El tablero lee el resultado ya guardado.
-      </p>
+      <h2 className="mb-4 text-[22px] font-bold text-[#0f172a]">Padrón de personas</h2>
       {query.isLoading ? (
         <div className="flex justify-center py-8">
           <LoadingSpinner text="Cargando gráficas..." />

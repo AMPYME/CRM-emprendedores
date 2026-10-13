@@ -1,9 +1,16 @@
 /**
- * Cliente HTTP base para comunicación con el backend.
- * Centraliza configuración de Axios, interceptores y manejo de tokens.
+ * Cliente HTTP base para comunicación con el backend del CRM.
+ * Centraliza configuración de Axios, interceptores y manejo de tokens JWT.
+ *
+ * Ante 401: se consulta ENTRA /api/auth/me.
+ * - Si la sesión central murió → cierre local + login.
+ * - Si la sesión central sigue viva → se intenta refresh JWT del CRM (no se cierra ENTRA).
  */
 import axios, { type AxiosError } from 'axios';
 import { publicApiBaseUrl } from '@/lib/public-urls';
+import { entraSessionService } from '@/services/entra-session.service';
+import { clearPrivateQueryCache } from '@/lib/query-client';
+import { useAuthStore } from '@/stores/auth.store';
 
 function apiBaseUrl(): string {
   return publicApiBaseUrl();
@@ -18,7 +25,6 @@ export const apiClient = axios.create({
   },
 });
 
-// Interceptor para agregar token de autenticación
 apiClient.interceptors.request.use((config) => {
   config.baseURL = apiBaseUrl();
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
@@ -28,7 +34,6 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// Flag para evitar múltiples intentos de refresh simultáneos
 let isRefreshing = false;
 let failedQueue: Array<{
   resolve: (value: unknown) => void;
@@ -46,23 +51,50 @@ const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue = [];
 };
 
-// Interceptor para manejo global de errores + auto-refresh
+function forceLocalLogout(): void {
+  if (typeof window === 'undefined') return;
+  useAuthStore.getState().clearLocalSession();
+  clearPrivateQueryCache();
+  if (window.location.pathname !== '/login') {
+    window.location.replace('/login');
+  }
+}
+
+async function centralSessionAlive(): Promise<boolean | null> {
+  const result = await entraSessionService.me();
+  if (result.kind === 'unauthorized' || result.kind === 'forbidden') return false;
+  if (result.kind === 'ok') {
+    useAuthStore.getState().setCsrfToken(result.data.csrfToken ?? null);
+    return true;
+  }
+  return null;
+}
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const originalRequest = error.config as typeof error.config & { _retry?: boolean };
 
-    // Si es 401 y no es un retry, intentar refresh
     if (error.response?.status === 401 && !originalRequest?._retry) {
-      const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
+      if (
+        originalRequest?.url?.includes('/auth/exchange') ||
+        originalRequest?.url?.includes('/auth/refresh')
+      ) {
+        return Promise.reject(error);
+      }
 
-      // Si no hay refresh token o la petición original era al endpoint de refresh/login, ir a login
-      if (!refreshToken || originalRequest?.url?.includes('/auth/login') || originalRequest?.url?.includes('/auth/refresh')) {
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('token');
-          localStorage.removeItem('refreshToken');
-          window.location.href = '/login';
-        }
+      // Si la sesión central murió, cerrar CRM. Si sigue viva, el 401 es del JWT del CRM.
+      const central = await centralSessionAlive();
+      if (central === false) {
+        forceLocalLogout();
+        return Promise.reject(error);
+      }
+
+      const refreshToken =
+        typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
+
+      if (!refreshToken) {
+        forceLocalLogout();
         return Promise.reject(error);
       }
 
@@ -99,11 +131,9 @@ apiClient.interceptors.response.use(
         }
       } catch (refreshError) {
         processQueue(refreshError, null);
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('token');
-          localStorage.removeItem('refreshToken');
-          window.location.href = '/login';
-        }
+        // JWT del CRM irrecuperable: limpiar tokens locales.
+        // Si central === true, no implica revocar cookie ENTRA (solo UX de CRM).
+        forceLocalLogout();
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

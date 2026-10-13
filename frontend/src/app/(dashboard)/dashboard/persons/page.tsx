@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Users, Plus } from 'lucide-react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
+import { Search, Users, Plus } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -21,14 +23,21 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import { usePersons } from '@/hooks/use-persons';
-import { usePagination } from '@/hooks/use-pagination';
 import { PersonFormModal } from './person-form-modal';
-import { getProvinciaOptions, getDistritoOptions, getCorregimientoOptions, provinciaNombre } from '@/lib/division-politica';
+import {
+  getProvinciaOptions,
+  getDistritoOptions,
+  getCorregimientoOptions,
+  provinciaNombre,
+} from '@/lib/division-politica';
 import { isReadOnlyRole } from '@/lib/roles';
 import { useAuthStore } from '@/stores/auth.store';
 import { personChangesService } from '@/services/person-changes.service';
+import { economicActivitiesService } from '@/services/economic-activities.service';
 import toast from 'react-hot-toast';
 import { getApiErrorMessage } from '@/services/api-client';
+
+const LIMIT = 20;
 
 const provinciaOptions = [
   { value: '', label: 'Todas las provincias' },
@@ -41,32 +50,137 @@ const artisanOptions = [
   { value: 'false', label: 'Sin carnet de artesano' },
 ];
 
+type DraftFilters = {
+  search: string;
+  province: string;
+  district: string;
+  corregimiento: string;
+  hasArtisanCard: string;
+  cinuCategoryId: string;
+  cinuDivisionId: string;
+};
+
+function readDraft(sp: URLSearchParams): DraftFilters {
+  return {
+    search: sp.get('q') || '',
+    province: sp.get('province') || '',
+    district: sp.get('district') || '',
+    corregimiento: sp.get('corregimiento') || '',
+    hasArtisanCard: sp.get('artisan') || '',
+    cinuCategoryId: sp.get('cinuCategoryId') || '',
+    cinuDivisionId: sp.get('cinuDivisionId') || '',
+  };
+}
+
+function hasAdvancedFilters(d: DraftFilters): boolean {
+  return Boolean(
+    d.province ||
+      d.district ||
+      d.corregimiento ||
+      d.hasArtisanCard ||
+      d.cinuCategoryId ||
+      d.cinuDivisionId
+  );
+}
+
+function buildSearchParams(draft: DraftFilters, page: number): URLSearchParams {
+  const p = new URLSearchParams();
+  p.set('run', '1');
+  if (page > 1) p.set('page', String(page));
+  if (draft.search.trim()) p.set('q', draft.search.trim());
+  if (draft.province) p.set('province', draft.province);
+  if (draft.district) p.set('district', draft.district);
+  if (draft.corregimiento) p.set('corregimiento', draft.corregimiento);
+  if (draft.hasArtisanCard) p.set('artisan', draft.hasArtisanCard);
+  if (draft.cinuCategoryId) p.set('cinuCategoryId', draft.cinuCategoryId);
+  if (draft.cinuDivisionId) p.set('cinuDivisionId', draft.cinuDivisionId);
+  return p;
+}
+
+function optionLabel(code: string, name: string) {
+  return `${code} — ${name}`;
+}
+
 export default function PersonsPage() {
   const user = useAuthStore((s) => s.user);
   const readOnly = isReadOnlyRole(user?.role);
-  const { page, limit, setPage, searchQuery, setSearchQuery } = usePagination();
-  const [province, setProvince] = useState('');
-  const [district, setDistrict] = useState('');
-  const [corregimiento, setCorregimiento] = useState('');
-  const [hasArtisanCard, setHasArtisanCard] = useState('');
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const applied = useMemo(() => readDraft(searchParams), [searchParams]);
+  const hasSearched = searchParams.get('run') === '1';
+  const page = Math.max(1, Number(searchParams.get('page') || '1') || 1);
+
+  const [draft, setDraft] = useState<DraftFilters>(() => readDraft(searchParams));
+  const [showAdvanced, setShowAdvanced] = useState(() => hasAdvancedFilters(readDraft(searchParams)));
   const [editId, setEditId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const { data, isLoading, error } = usePersons({
-    page,
-    limit,
-    search: searchQuery || undefined,
-    province: province || undefined,
-    district: district || undefined,
-    corregimiento: corregimiento || undefined,
-    hasArtisanCard: hasArtisanCard === '' ? undefined : hasArtisanCard === 'true',
+  const replaceFilters = useCallback(
+    (nextDraft: DraftFilters, nextPage: number) => {
+      const qs = buildSearchParams(nextDraft, nextPage).toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname);
+    },
+    [pathname, router]
+  );
+
+  const handleSearch = () => {
+    replaceFilters(draft, 1);
+  };
+
+  const setPage = (nextPage: number) => {
+    replaceFilters(applied, nextPage);
+  };
+
+  const categoriesQuery = useQuery({
+    queryKey: ['cinu-categories'],
+    queryFn: () => economicActivitiesService.listCategories(),
   });
 
-  const handleSearch = useCallback((q: string) => {
-    setSearchQuery(q);
-    setPage(1);
-  }, [setSearchQuery, setPage]);
+  const divisionsQuery = useQuery({
+    queryKey: ['cinu-divisions', draft.cinuCategoryId],
+    queryFn: () => economicActivitiesService.listDivisions(draft.cinuCategoryId),
+    enabled: Boolean(draft.cinuCategoryId),
+  });
+
+  const categoryOptions = useMemo(
+    () => [
+      { value: '', label: 'Categoría: todas' },
+      ...(categoriesQuery.data ?? []).map((c) => ({
+        value: c.id,
+        label: optionLabel(c.code, c.name),
+      })),
+    ],
+    [categoriesQuery.data]
+  );
+
+  const divisionOptions = useMemo(
+    () => [
+      { value: '', label: 'División: todas' },
+      ...(divisionsQuery.data ?? []).map((c) => ({
+        value: c.id,
+        label: optionLabel(c.code, c.name),
+      })),
+    ],
+    [divisionsQuery.data]
+  );
+
+  const { data, isLoading, error, isFetching } = usePersons(
+    {
+      page,
+      limit: LIMIT,
+      search: applied.search || undefined,
+      province: applied.province || undefined,
+      district: applied.district || undefined,
+      corregimiento: applied.corregimiento || undefined,
+      hasArtisanCard:
+        applied.hasArtisanCard === '' ? undefined : applied.hasArtisanCard === 'true',
+      cinuCategoryId: applied.cinuCategoryId || undefined,
+      cinuDivisionId: applied.cinuDivisionId || undefined,
+    },
+    { enabled: hasSearched }
+  );
 
   const openCreate = () => {
     setEditId(null);
@@ -96,6 +210,7 @@ export default function PersonsPage() {
 
   const persons = data?.data ?? [];
   const meta = data?.meta;
+  const showLoading = hasSearched && (isLoading || isFetching);
 
   return (
     <div className="space-y-6">
@@ -111,61 +226,110 @@ export default function PersonsPage() {
         }
       />
 
-      {/* Filters */}
       <Card>
-        <div className="flex flex-col gap-4">
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSearch();
+          }}
+        >
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
             <div className="flex-1">
               <SearchBar
                 placeholder="Buscar por nombre, cédula, correo..."
-                onSearch={handleSearch}
-                initialQuery={searchQuery}
+                value={draft.search}
+                onChange={(q) => setDraft((prev) => ({ ...prev, search: q }))}
+                debounceMs={0}
               />
             </div>
-            <div className="w-full sm:w-56">
-              <Select
-                options={provinciaOptions}
-                value={province}
-                onChange={(e) => {
-                  setProvince(e.target.value);
-                  setDistrict('');
-                  setCorregimiento('');
-                  setPage(1);
-                }}
-                placeholder="Provincia"
-              />
-            </div>
-            <Button variant="outline" onClick={() => setShowAdvanced(!showAdvanced)}>
+            <Button type="submit" icon={<Search className="h-4 w-4" />}>
+              Buscar
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setShowAdvanced(!showAdvanced)}>
               Filtros avanzados
             </Button>
           </div>
           {showAdvanced && (
-            <div className="grid gap-3 sm:grid-cols-3 border-t pt-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 border-t pt-4">
               <Select
-                options={[{ value: '', label: 'Todos los distritos' }, ...getDistritoOptions(province).filter((o) => o.value)]}
-                value={district}
-                disabled={!province}
-                onChange={(e) => { setDistrict(e.target.value); setCorregimiento(''); setPage(1); }}
+                options={provinciaOptions}
+                value={draft.province}
+                onChange={(e) =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    province: e.target.value,
+                    district: '',
+                    corregimiento: '',
+                  }))
+                }
+                placeholder="Provincia"
               />
               <Select
-                options={[{ value: '', label: 'Todos los corregimientos' }, ...getCorregimientoOptions(province, district).filter((o) => o.value)]}
-                value={corregimiento}
-                disabled={!district}
-                onChange={(e) => { setCorregimiento(e.target.value); setPage(1); }}
+                options={[
+                  { value: '', label: 'Todos los distritos' },
+                  ...getDistritoOptions(draft.province).filter((o) => o.value),
+                ]}
+                value={draft.district}
+                disabled={!draft.province}
+                onChange={(e) =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    district: e.target.value,
+                    corregimiento: '',
+                  }))
+                }
+              />
+              <Select
+                options={[
+                  { value: '', label: 'Todos los corregimientos' },
+                  ...getCorregimientoOptions(draft.province, draft.district).filter((o) => o.value),
+                ]}
+                value={draft.corregimiento}
+                disabled={!draft.district}
+                onChange={(e) =>
+                  setDraft((prev) => ({ ...prev, corregimiento: e.target.value }))
+                }
               />
               <Select
                 options={artisanOptions}
-                value={hasArtisanCard}
-                onChange={(e) => { setHasArtisanCard(e.target.value); setPage(1); }}
+                value={draft.hasArtisanCard}
+                onChange={(e) =>
+                  setDraft((prev) => ({ ...prev, hasArtisanCard: e.target.value }))
+                }
+              />
+              <Select
+                options={categoryOptions}
+                value={draft.cinuCategoryId}
+                onChange={(e) =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    cinuCategoryId: e.target.value,
+                    cinuDivisionId: '',
+                  }))
+                }
+              />
+              <Select
+                options={divisionOptions}
+                value={draft.cinuDivisionId}
+                disabled={!draft.cinuCategoryId}
+                onChange={(e) =>
+                  setDraft((prev) => ({ ...prev, cinuDivisionId: e.target.value }))
+                }
               />
             </div>
           )}
-        </div>
+        </form>
       </Card>
 
-      {/* Table */}
       <Card className="p-0">
-        {isLoading ? (
+        {!hasSearched ? (
+          <EmptyState
+            icon={Search}
+            title="Buscar personas"
+            description="Configure los filtros y pulse Buscar para ver resultados."
+          />
+        ) : showLoading ? (
           <div className="flex items-center justify-center py-16">
             <LoadingSpinner size="lg" text="Cargando personas..." />
           </div>
@@ -176,10 +340,10 @@ export default function PersonsPage() {
         ) : persons.length === 0 ? (
           <EmptyState
             icon={Users}
-            title="No hay personas registradas"
-            description={searchQuery ? 'No se encontraron resultados para tu búsqueda.' : 'Comienza registrando un nuevo emprendedor.'}
+            title="No se encontraron personas"
+            description="No hay resultados para los filtros aplicados."
             action={
-              !readOnly && !searchQuery ? (
+              !readOnly ? (
                 <Button icon={<Plus className="h-4 w-4" />} onClick={openCreate}>
                   Nueva persona
                 </Button>
@@ -222,9 +386,7 @@ export default function PersonsPage() {
                       <TableCell>
                         <span className="font-mono text-sm">{p?.cedula || '—'}</span>
                       </TableCell>
-                      <TableCell>
-                        {provinciaNombre(item.province) || '—'}
-                      </TableCell>
+                      <TableCell>{provinciaNombre(item.province) || '—'}</TableCell>
                       <TableCell>
                         <div className="space-y-0.5">
                           {email && <p className="text-xs text-gray-600">{email.contactValue}</p>}
@@ -233,9 +395,7 @@ export default function PersonsPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          variant={item.status === 'ACTIVE' ? 'success' : 'default'}
-                        >
+                        <Badge variant={item.status === 'ACTIVE' ? 'success' : 'default'}>
                           {item.status === 'ACTIVE' ? 'Activo' : item.status || '—'}
                         </Badge>
                       </TableCell>
@@ -247,11 +407,7 @@ export default function PersonsPage() {
                             </Button>
                           </Link>
                           {!readOnly && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openEdit(item.id)}
-                            >
+                            <Button variant="ghost" size="sm" onClick={() => openEdit(item.id)}>
                               Editar
                             </Button>
                           )}
@@ -282,11 +438,7 @@ export default function PersonsPage() {
         )}
       </Card>
 
-      <PersonFormModal
-        isOpen={isModalOpen}
-        onClose={closeModal}
-        editId={editId}
-      />
+      <PersonFormModal isOpen={isModalOpen} onClose={closeModal} editId={editId} />
     </div>
   );
 }

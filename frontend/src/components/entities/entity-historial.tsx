@@ -19,6 +19,7 @@ const campoLabel: Record<string, string> = {
   businessName: 'Nombre del negocio',
   economicActivity: 'Actividad económica',
   hasArtisanCard: 'Carnet de artesano',
+  hasNoticeOfOperation: 'Aviso de operación',
   seedCapital: 'Capital semilla',
   seedCapitalDate: 'Fecha de capital semilla',
   legalName: 'Razón social',

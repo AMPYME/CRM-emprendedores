@@ -13,6 +13,8 @@ export interface PersonFilters extends PaginationParams {
   cedula?: string;
   gender?: string;
   economicActivity?: string;
+  cinuCategoryId?: string;
+  cinuDivisionId?: string;
   hasArtisanCard?: boolean;
   seedCapital?: 0 | 1;
 }
@@ -59,6 +61,7 @@ export interface CreatePersonInput {
   businessName?: string;
   economicActivity?: string;
   hasArtisanCard?: boolean;
+  hasNoticeOfOperation?: boolean;
   notes?: string;
   contacts?: Array<{
     contactType: string;

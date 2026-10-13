@@ -47,8 +47,6 @@ export interface AuthTokenResponse {
   user: AuthUser;
   accessToken: string;
   refreshToken: string;
-  /** Token AD-userAPI para consultar la API de formularios (admin). */
-  adAccessToken?: string;
 }
 
 // ── Augmentación de Express Request ─────────────────────────────

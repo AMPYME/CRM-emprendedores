@@ -2,13 +2,13 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Users, Building2, Calendar, Upload, ChevronRight } from 'lucide-react';
+import { Users, Building2, Calendar, ChevronRight } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { usePersons } from '@/hooks/use-persons';
 import { useCompanies } from '@/hooks/use-companies';
 import { useEvents } from '@/hooks/use-events';
 import { useAuthStore } from '@/stores/auth.store';
-import { canAccessImports, canAccessNav, isReadOnlyRole } from '@/lib/roles';
+import { canAccessNav } from '@/lib/roles';
 import { DemographicCharts } from '@/components/dashboard/demographic-charts';
 
 function DashboardScene() {
@@ -77,42 +77,10 @@ function MetricCard({
   );
 }
 
-interface ActionCardProps {
-  title: string;
-  description: string;
-  href: string;
-  icon: React.ElementType;
-  iconColor: string;
-  iconBg: string;
-}
-
-function ActionCard({ title, description, href, icon: Icon, iconColor, iconBg }: ActionCardProps) {
-  return (
-    <Link
-      href={href}
-      className="group flex min-h-[72px] items-center gap-4 rounded-[14px] border border-[#e2e8f0] bg-white px-4 py-4 shadow-[0_4px_14px_rgba(15,23,42,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(15,23,42,0.08)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-    >
-      <span
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
-        style={{ background: iconBg, color: iconColor }}
-      >
-        <Icon className="h-5 w-5" aria-hidden />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[15px] font-semibold text-slate-900">{title}</span>
-        <span className="mt-0.5 block text-[13px] leading-snug text-slate-500">{description}</span>
-      </span>
-      <ChevronRight className="h-5 w-5 shrink-0 text-slate-400 group-hover:text-slate-600" aria-hidden />
-    </Link>
-  );
-}
-
 export default function DashboardPage() {
   const { user } = useAuthStore();
   const role = user?.role;
   const showEvents = canAccessNav(role, 'events');
-  const showImports = canAccessImports(role);
-  const readOnly = isReadOnlyRole(role);
 
   const persons = usePersons({ limit: 1 });
   const companies = useCompanies({ limit: 1 });
@@ -183,54 +151,6 @@ export default function DashboardPage() {
         )}
 
         <DemographicCharts />
-
-        <hr className="mb-8 border-slate-200" />
-
-        <section>
-          <h2 className="text-[22px] font-bold text-[#0f172a]">Acciones principales</h2>
-          <p className="mt-1 text-sm text-[#64748b]">
-            Accede rápidamente a las funciones más utilizadas
-          </p>
-
-          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <ActionCard
-              title="Ver personas"
-              description="Consultar emprendedores registrados"
-              href="/dashboard/persons"
-              icon={Users}
-              iconColor="#2563eb"
-              iconBg="#dbeafe"
-            />
-            <ActionCard
-              title="Ver empresas"
-              description="Consultar empresas registradas"
-              href="/dashboard/companies"
-              icon={Building2}
-              iconColor="#10b981"
-              iconBg="#d1fae5"
-            />
-            {showEvents && !readOnly && (
-              <ActionCard
-                title="Crear evento"
-                description="Organizar un nuevo evento"
-                href="/dashboard/events?action=create"
-                icon={Calendar}
-                iconColor="#f59e0b"
-                iconBg="#fef3c7"
-              />
-            )}
-            {showImports && (
-              <ActionCard
-                title="Importar datos"
-                description="Carga masiva desde un archivo"
-                href="/dashboard/imports"
-                icon={Upload}
-                iconColor="#1d4ed8"
-                iconBg="#dbeafe"
-              />
-            )}
-          </div>
-        </section>
       </div>
     </div>
   );

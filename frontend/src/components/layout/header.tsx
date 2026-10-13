@@ -2,8 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { Bell, LogOut, Menu, Settings } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth.store';
+import { entraSessionService } from '@/services/entra-session.service';
+import { clearPrivateQueryCache } from '@/lib/query-client';
 
 const SECTION_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/dashboard/persons', title: 'Personas' },
@@ -53,12 +56,20 @@ interface HeaderProps {
 
 export function Header({ onMenuClick }: HeaderProps) {
   const pathname = usePathname();
-  const { user, logout } = useAuthStore();
+  const queryClient = useQueryClient();
+  const { user, csrfToken, clearLocalSession } = useAuthStore();
   const title = sectionTitle(pathname);
 
-  const handleLogout = () => {
-    logout();
-    window.location.href = '/login';
+  const handleLogout = async () => {
+    try {
+      await entraSessionService.logout(csrfToken);
+    } catch {
+      /* limpieza local de todos modos */
+    }
+    clearLocalSession();
+    clearPrivateQueryCache();
+    queryClient.clear();
+    window.location.replace('/login');
   };
 
   return (
@@ -111,7 +122,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
             <button
               type="button"
-              onClick={handleLogout}
+              onClick={() => void handleLogout()}
               className="rounded-lg p-2 text-red-600 hover:bg-red-50 hover:text-red-700"
               aria-label="Salir"
               title="Salir"

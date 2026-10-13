@@ -193,6 +193,11 @@ export const portfolioService = {
     if (input.status && input.status !== 'NEW') {
       await portfolioApiRepository.changeStatus(actor.userId, portfolioId, input.status);
     }
+    if (input.nextFollowUpDate) {
+      await portfolioRepository.update(portfolioId, {
+        nextFollowUpDate: parseDateOnly(input.nextFollowUpDate),
+      });
+    }
     const record = await portfolioRepository.findById(portfolioId);
     if (!record) throw new NotFoundError('Registro de cartera', portfolioId);
     return record;
@@ -241,7 +246,7 @@ export const portfolioService = {
 
     if (input.nextFollowUpDate !== undefined) {
       data.nextFollowUpDate = input.nextFollowUpDate
-        ? new Date(input.nextFollowUpDate)
+        ? parseDateOnly(input.nextFollowUpDate)
         : null;
     }
 
@@ -369,8 +374,32 @@ export const portfolioService = {
   },
 };
 
+/**
+ * Persiste campos de solo fecha en mediodía UTC para no correr el día
+ * al formatear en zonas UTC- (p. ej. América/Panamá).
+ */
+function parseDateOnly(value: string): Date {
+  const ymd = value.trim().slice(0, 10);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
+  if (!match) {
+    const fallback = new Date(value);
+    if (Number.isNaN(fallback.getTime())) {
+      throw new BadRequestError('Fecha de próximo seguimiento inválida');
+    }
+    return fallback;
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  return new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+}
+
 function fechaCorta(value: Date | string | null | undefined): string | null {
   if (!value) return null;
+  if (typeof value === 'string') {
+    const match = value.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (match) return match[1];
+  }
   const fecha = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(fecha.getTime())) return null;
   return fecha.toISOString().slice(0, 10);

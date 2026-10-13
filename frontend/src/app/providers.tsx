@@ -7,23 +7,25 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { useState } from 'react';
+import { setAppQueryClient } from '@/lib/query-client';
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 5 * 60 * 1000,     // 5 minutos
-            retry: 1,
-            refetchOnWindowFocus: false,
-          },
-          mutations: {
-            retry: 0,
-          },
+  const [queryClient] = useState(() => {
+    const client = new QueryClient({
+      defaultOptions: {
+        queries: {
+          staleTime: 5 * 60 * 1000, // 5 minutos
+          retry: 1,
+          refetchOnWindowFocus: false,
         },
-      })
-  );
+        mutations: {
+          retry: 0,
+        },
+      },
+    });
+    setAppQueryClient(client);
+    return client;
+  });
 
   return (
     <QueryClientProvider client={queryClient}>

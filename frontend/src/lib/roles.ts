@@ -6,7 +6,6 @@ const VIEWER_NAV = new Set([
   'persons',
   'companies',
   'siep',
-  'capital-semilla',
   'confirmacion',
   'events',
   'registro-empresarial',
@@ -69,7 +68,6 @@ export function canAccessPath(
     if (path.startsWith('/dashboard/persons')) return true;
     if (path.startsWith('/dashboard/companies')) return true;
     if (path.startsWith('/dashboard/siep')) return true;
-    if (path.startsWith('/dashboard/capital-semilla')) return true;
     if (path === '/confirmacion' || path.startsWith('/confirmacion/')) return true;
     if (path.startsWith('/dashboard/events')) return true;
     if (path === '/registro-empresarial' || path.startsWith('/registro-empresarial/')) return true;
