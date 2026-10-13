@@ -1,13 +1,10 @@
 /**
  * Cliente hacia ENTRA-userAPI (login central).
  *
- * Contrato documentado hoy: POST /api/auth/exchange (secreto de aplicación).
- * El frontend valida la cookie central con GET /api/auth/me (credentials).
- *
- * Las APIs del CRM siguen autorizando con JWT propio emitido tras el exchange.
- * No hay endpoint documentado para que el backend del CRM valide la sesión Redis
- * de ENTRA reenviando la cookie del navegador; no se inventa acceso directo a Redis.
- * Si ENTRA publica un contrato server-to-server de validación de sesión, integrar aquí.
+ * Contrato (AUTH_INTEGRATION.md):
+ * - POST /api/auth/exchange — perfil + sessionRef (S2S)
+ * - POST /api/auth/introspect — active sin renovar idle (S2S)
+ * - GET  /api/auth/me / POST /api/auth/logout — solo navegador (cookie)
  */
 import { logger } from '../../shared/logger/logger';
 
@@ -20,11 +17,23 @@ export interface EntraProfile {
   jobTitle: string;
   roles: string[];
   permissions: string[];
+  sessionRef?: string;
+  sessionAbsoluteExpiresAt?: string;
 }
 
 export type EntraExchangeOutcome =
   | { kind: 'success'; profile: EntraProfile }
   | { kind: 'invalid_code' }
+  | { kind: 'unavailable' };
+
+export type EntraIntrospectOutcome =
+  | {
+      kind: 'active';
+      userId: string;
+      absoluteExpiresAt?: string;
+    }
+  | { kind: 'inactive' }
+  | { kind: 'unauthorized' }
   | { kind: 'unavailable' };
 
 function joinUrl(base: string, path: string): string {
@@ -44,9 +53,6 @@ function readStrings(body: Record<string, unknown>, key: string): string[] {
   return value.filter((item): item is string => typeof item === 'string' && item.trim() !== '');
 }
 
-/**
- * POST /api/auth/exchange. El código se consume al leerlo.
- */
 export async function exchangeEntraCode(
   baseUrl: string,
   code: string,
@@ -87,10 +93,51 @@ export async function exchangeEntraCode(
         jobTitle: readString(data, 'jobTitle'),
         roles: readStrings(data, 'roles'),
         permissions: readStrings(data, 'permissions'),
+        sessionRef: readString(data, 'sessionRef') || undefined,
+        sessionAbsoluteExpiresAt: readString(data, 'sessionAbsoluteExpiresAt') || undefined,
       },
     };
   } catch (err) {
     logger.warn('Entra exchange: error de red o parseo', {
+      url,
+      message: err instanceof Error ? err.message : String(err),
+    });
+    return { kind: 'unavailable' };
+  }
+}
+
+/**
+ * POST /api/auth/introspect — no renueva idle en Redis.
+ */
+export async function introspectEntraSession(
+  baseUrl: string,
+  sessionRef: string,
+  clientId: string,
+  clientSecret: string
+): Promise<EntraIntrospectOutcome> {
+  const url = joinUrl(baseUrl, '/api/auth/introspect');
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ sessionRef, clientId, clientSecret }),
+    });
+
+    if (res.status === 401) return { kind: 'unauthorized' };
+    if (res.status === 503 || res.status >= 500) return { kind: 'unavailable' };
+    if (!res.ok) return { kind: 'unavailable' };
+
+    const data = (await res.json()) as Record<string, unknown>;
+    if (data.active === true) {
+      return {
+        kind: 'active',
+        userId: readString(data, 'userId'),
+        absoluteExpiresAt: readString(data, 'absoluteExpiresAt') || undefined,
+      };
+    }
+    return { kind: 'inactive' };
+  } catch (err) {
+    logger.warn('Entra introspect: error de red', {
       url,
       message: err instanceof Error ? err.message : String(err),
     });

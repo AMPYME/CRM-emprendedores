@@ -1,8 +1,8 @@
 /**
  * Middlewares de autenticación y autorización.
  *
- * - protect:   Verifica el Bearer token y adjunta req.user.
- * - authorize: Restringe acceso a roles específicos.
+ * - protect:   Verifica el Bearer token, sesión local (sid) y adjunta req.user.
+ * - authorize: Restringe acceso a roles específicos (rol fresco de BD).
  */
 import { Request, Response, NextFunction } from 'express';
 import { UserRole } from '@prisma/client';
@@ -16,7 +16,7 @@ import {
 
 /**
  * Middleware que protege rutas.
- * Extrae el JWT del header Authorization, lo valida, y adjunta el usuario a req.user.
+ * Extrae el JWT del header Authorization, valida firma/exp/sesión local, adjunta req.user.
  */
 export function protect(req: Request, _res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization;
@@ -36,22 +36,14 @@ export function protect(req: Request, _res: Response, next: NextFunction): void 
   authService
     .verifyAccessToken(token)
     .then((user) => {
-      req.user = user;
+      const { sessionId, ...authUser } = user;
+      req.user = authUser;
+      req.sessionId = sessionId;
       next();
     })
     .catch(next);
 }
 
-/**
- * Middleware de autorización por rol.
- * Debe usarse DESPUÉS de `protect`.
- *
- * @param allowedRoles - Roles que tienen acceso a la ruta.
- *
- * @example
- *   router.get('/admin-only', protect, authorize('ADMIN'), handler);
- *   router.get('/managers', protect, authorize('ADMIN', 'EMPREND_ADMIN'), handler);
- */
 export function authorize(...allowedRoles: UserRole[]) {
   return (req: Request, _res: Response, next: NextFunction): void => {
     if (!req.user) {

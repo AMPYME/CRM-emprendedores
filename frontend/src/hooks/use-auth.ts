@@ -2,24 +2,31 @@
 
 /**
  * Hook de autenticación.
- * Valida JWT del CRM y la sesión centralizada ENTRA (/api/auth/me).
- * ENTRA es la fuente de verdad: si la cookie central caduca o se revoca, se cierra el CRM.
- *
- * GET /api/auth/me renueva la inactividad en Redis; por eso no hay polling periódico
- * agresivo (p. ej. cada 60s). Se valida al iniciar, al volver a la pestaña y ante 401.
+ * ENTRA /api/auth/me es la comprobación UX del navegador.
+ * Indisponibilidad ≠ autenticado: status `error` y bloqueo de rutas/API.
+ * GET /me renueva idle en Redis: sin polling periódico agresivo.
  */
 import { useCallback, useEffect, useRef } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth.store';
 import { authService } from '@/services/auth.service';
 import { entraSessionService } from '@/services/entra-session.service';
 import { clearPrivateQueryCache } from '@/lib/query-client';
+import {
+  beginLogout,
+  closeAppWebSockets,
+  getAuthEpoch,
+  isStaleEpoch,
+  onAuthBroadcast,
+  markAuthenticatedReady,
+} from '@/lib/auth-session-control';
+import { rejectRefreshQueue } from '@/services/api-client';
 
 let checkSessionInFlight: Promise<'authenticated' | 'unauthenticated' | 'error'> | null = null;
-/** Evita revalidaciones en ráfaga (cada /me renueva idle en Redis). */
 let lastSuccessfulCheckAt = 0;
-const RECHECK_COOLDOWN_MS = 15_000;
+/** Cooldown largo: /me renueva idle; evitar mantener la sesión artificialmente. */
+const RECHECK_COOLDOWN_MS = 60_000;
 
 function goToLogin(): void {
   if (typeof window === 'undefined') return;
@@ -28,7 +35,6 @@ function goToLogin(): void {
 }
 
 export function useAuth({ requireAuth = true }: { requireAuth?: boolean } = {}) {
-  const router = useRouter();
   const pathname = usePathname();
   const queryClient = useQueryClient();
   const {
@@ -37,6 +43,7 @@ export function useAuth({ requireAuth = true }: { requireAuth?: boolean } = {}) 
     isLoading,
     status,
     csrfToken,
+    centralLogoutWarning,
     setAuth,
     setUser,
     setCsrfToken,
@@ -49,6 +56,9 @@ export function useAuth({ requireAuth = true }: { requireAuth?: boolean } = {}) 
   const abortRef = useRef<AbortController | null>(null);
 
   const invalidateLocal = useCallback(() => {
+    beginLogout();
+    rejectRefreshQueue();
+    closeAppWebSockets();
     abortRef.current?.abort();
     abortRef.current = null;
     clearLocalSession();
@@ -70,6 +80,8 @@ export function useAuth({ requireAuth = true }: { requireAuth?: boolean } = {}) 
       return 'authenticated';
     }
 
+    const epoch = getAuthEpoch();
+
     checkSessionInFlight = (async () => {
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
       const refreshToken =
@@ -85,24 +97,27 @@ export function useAuth({ requireAuth = true }: { requireAuth?: boolean } = {}) 
       abortRef.current = controller;
 
       const central = await entraSessionService.me(controller.signal);
-      if (controller.signal.aborted) return useAuthStore.getState().status === 'authenticated'
-        ? 'authenticated'
-        : 'unauthenticated';
+      if (controller.signal.aborted || isStaleEpoch(epoch)) {
+        return useAuthStore.getState().status === 'authenticated'
+          ? 'authenticated'
+          : 'unauthenticated';
+      }
 
-      if (central.kind === 'unauthorized' || central.kind === 'forbidden') {
+      if (central.kind === 'unauthorized') {
+        invalidateLocal();
+        return 'unauthenticated';
+      }
+
+      if (central.kind === 'forbidden') {
+        // Permisos ENTRA insuficientes: no mantener CRM autenticado.
         invalidateLocal();
         return 'unauthenticated';
       }
 
       if (central.kind === 'network' || central.kind === 'unavailable') {
-        // Fallo seguro solo si aún no hay usuario confirmado.
-        if (!useAuthStore.getState().user) {
-          setStatus('error');
-          setLoading(false);
-          return 'error';
-        }
-        // Recheck en segundo plano: no cerrar sesión por un fallo temporal.
-        return 'authenticated';
+        setStatus('error');
+        setLoading(false);
+        return 'error';
       }
 
       if (central.kind === 'ok') {
@@ -110,21 +125,20 @@ export function useAuth({ requireAuth = true }: { requireAuth?: boolean } = {}) 
       }
 
       try {
-        if (useAuthStore.getState().user) {
-          setStatus('authenticated');
-          setLoading(false);
-          lastSuccessfulCheckAt = Date.now();
-          return 'authenticated';
-        }
         const profile = await authService.getProfile();
+        if (isStaleEpoch(epoch)) return 'unauthenticated';
         setUser(profile);
         setLoading(false);
+        markAuthenticatedReady();
         lastSuccessfulCheckAt = Date.now();
         return 'authenticated';
       } catch {
+        // Refresh solo si la sesión central está confirmada (ya lo está aquí).
         try {
           const result = await authService.refresh(refreshToken);
+          if (isStaleEpoch(epoch)) return 'unauthenticated';
           const profile = result.user ?? (await authService.getProfile());
+          if (isStaleEpoch(epoch)) return 'unauthenticated';
           setAuth(profile, result.accessToken, result.refreshToken);
           lastSuccessfulCheckAt = Date.now();
           return 'authenticated';
@@ -141,17 +155,12 @@ export function useAuth({ requireAuth = true }: { requireAuth?: boolean } = {}) 
   }, [invalidateLocal, setAuth, setCsrfToken, setLoading, setStatus, setUser]);
 
   const logout = useCallback(async () => {
-    const token = useAuthStore.getState().csrfToken;
     abortRef.current?.abort();
     checkSessionInFlight = null;
-    try {
-      await entraSessionService.logout(token);
-    } catch {
-      /* la limpieza local sigue igual */
-    }
-    invalidateLocal();
+    await authService.logoutAll();
+    queryClient.clear();
     goToLogin();
-  }, [invalidateLocal]);
+  }, [queryClient]);
 
   useEffect(() => {
     let cancelled = false;
@@ -166,7 +175,6 @@ export function useAuth({ requireAuth = true }: { requireAuth?: boolean } = {}) 
         return;
       }
       if (outcome === 'error' && requireAuth) {
-        // Bloquear rutas protegidas sin confirmar sesión.
         setLoading(false);
       }
     };
@@ -178,7 +186,18 @@ export function useAuth({ requireAuth = true }: { requireAuth?: boolean } = {}) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Al volver a la pestaña / foco: revalidar sin solapar.
+  // Sincronización entre pestañas.
+  useEffect(() => {
+    return onAuthBroadcast((ev) => {
+      if (ev.type === 'logout') {
+        clearLocalSession();
+        clearPrivateQueryCache();
+        queryClient.clear();
+        goToLogin();
+      }
+    });
+  }, [clearLocalSession, queryClient]);
+
   useEffect(() => {
     if (!requireAuth) return;
 
@@ -191,7 +210,7 @@ export function useAuth({ requireAuth = true }: { requireAuth?: boolean } = {}) 
         void checkSession().then((outcome) => {
           if (outcome === 'unauthenticated') goToLogin();
         });
-      }, 300);
+      }, 400);
     };
 
     document.addEventListener('visibilitychange', revalidate);
@@ -203,10 +222,9 @@ export function useAuth({ requireAuth = true }: { requireAuth?: boolean } = {}) 
     };
   }, [checkSession, requireAuth]);
 
-  // Cambio de ruta protegida: reutilizar check en vuelo si existe.
   useEffect(() => {
     if (!requireAuth || !pathname) return;
-    if (status === 'loading') return;
+    if (status === 'loading' || status === 'error') return;
     void checkSession().then((outcome) => {
       if (outcome === 'unauthenticated') goToLogin();
     });
@@ -218,23 +236,8 @@ export function useAuth({ requireAuth = true }: { requireAuth?: boolean } = {}) 
     isLoading,
     status,
     csrfToken,
+    centralLogoutWarning,
     checkSession,
     logout,
   };
-}
-
-/** Usado por el interceptor HTTP ante 401 del CRM. */
-export async function handleCrmUnauthorized(): Promise<'central-dead' | 'central-alive' | 'unknown'> {
-  const central = await entraSessionService.me();
-  if (central.kind === 'unauthorized' || central.kind === 'forbidden') {
-    useAuthStore.getState().clearLocalSession();
-    clearPrivateQueryCache();
-    goToLogin();
-    return 'central-dead';
-  }
-  if (central.kind === 'ok') {
-    useAuthStore.getState().setCsrfToken(central.data.csrfToken ?? null);
-    return 'central-alive';
-  }
-  return 'unknown';
 }

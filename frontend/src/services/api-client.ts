@@ -1,37 +1,35 @@
 /**
- * Cliente HTTP base para comunicación con el backend del CRM.
- * Centraliza configuración de Axios, interceptores y manejo de tokens JWT.
+ * Cliente HTTP del CRM.
  *
- * Ante 401: se consulta ENTRA /api/auth/me.
- * - Si la sesión central murió → cierre local + login.
- * - Si la sesión central sigue viva → se intenta refresh JWT del CRM (no se cierra ENTRA).
+ * Ante 401:
+ * - Solo intenta refresh si ENTRA /api/auth/me confirma sesión central activa.
+ * - Si ENTRA no responde: bloquea (no asume autenticado; no refresh).
+ * - Si ENTRA 401: limpia sesión local.
  */
 import axios, { type AxiosError } from 'axios';
 import { publicApiBaseUrl } from '@/lib/public-urls';
 import { entraSessionService } from '@/services/entra-session.service';
 import { clearPrivateQueryCache } from '@/lib/query-client';
 import { useAuthStore } from '@/stores/auth.store';
+import {
+  areProtectedRequestsBlocked,
+  beginLogout,
+  closeAppWebSockets,
+  getAuthEpoch,
+  isAuthLoggingOut,
+  isStaleEpoch,
+} from '@/lib/auth-session-control';
 
 function apiBaseUrl(): string {
   return publicApiBaseUrl();
 }
 
 export const apiClient = axios.create({
-  // En navegador el interceptor fuerza same-origin /backend-api (sin CORS).
   baseURL: '/backend-api',
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
   },
-});
-
-apiClient.interceptors.request.use((config) => {
-  config.baseURL = apiBaseUrl();
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
 });
 
 let isRefreshing = false;
@@ -51,8 +49,16 @@ const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue = [];
 };
 
+export function rejectRefreshQueue(reason: unknown = new Error('Sesión cerrada')): void {
+  processQueue(reason, null);
+  isRefreshing = false;
+}
+
 function forceLocalLogout(): void {
   if (typeof window === 'undefined') return;
+  beginLogout();
+  rejectRefreshQueue();
+  closeAppWebSockets();
   useAuthStore.getState().clearLocalSession();
   clearPrivateQueryCache();
   if (window.location.pathname !== '/login') {
@@ -60,6 +66,7 @@ function forceLocalLogout(): void {
   }
 }
 
+/** true = viva; false = muerta; null = no confirmable (red/503). */
 async function centralSessionAlive(): Promise<boolean | null> {
   const result = await entraSessionService.me();
   if (result.kind === 'unauthorized' || result.kind === 'forbidden') return false;
@@ -70,6 +77,30 @@ async function centralSessionAlive(): Promise<boolean | null> {
   return null;
 }
 
+apiClient.interceptors.request.use((config) => {
+  config.baseURL = apiBaseUrl();
+
+  const url = config.url || '';
+  const isAuthBootstrap =
+    url.includes('/auth/exchange') ||
+    url.includes('/auth/refresh') ||
+    url.includes('/auth/logout');
+
+  if (!isAuthBootstrap && (areProtectedRequestsBlocked() || isAuthLoggingOut())) {
+    return Promise.reject(new axios.Cancel('Solicitud bloqueada: sesión no confirmada o cerrando'));
+  }
+
+  if (!isAuthBootstrap && useAuthStore.getState().status === 'error') {
+    return Promise.reject(new axios.Cancel('Sesión central no confirmada'));
+  }
+
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
@@ -78,15 +109,32 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest?._retry) {
       if (
         originalRequest?.url?.includes('/auth/exchange') ||
-        originalRequest?.url?.includes('/auth/refresh')
+        originalRequest?.url?.includes('/auth/refresh') ||
+        originalRequest?.url?.includes('/auth/logout')
       ) {
         return Promise.reject(error);
       }
 
-      // Si la sesión central murió, cerrar CRM. Si sigue viva, el 401 es del JWT del CRM.
+      if (isAuthLoggingOut() || areProtectedRequestsBlocked()) {
+        return Promise.reject(error);
+      }
+
+      const epochAtStart = getAuthEpoch();
       const central = await centralSessionAlive();
+
+      if (isStaleEpoch(epochAtStart) || isAuthLoggingOut()) {
+        return Promise.reject(error);
+      }
+
       if (central === false) {
         forceLocalLogout();
+        return Promise.reject(error);
+      }
+
+      // Indisponibilidad ENTRA: no refresh autónomo; no asumir sesión válida.
+      if (central === null) {
+        useAuthStore.getState().setStatus('error');
+        rejectRefreshQueue(new Error('Sesión central no confirmada'));
         return Promise.reject(error);
       }
 
@@ -103,6 +151,9 @@ apiClient.interceptors.response.use(
           failedQueue.push({ resolve, reject });
         })
           .then((token) => {
+            if (isStaleEpoch(epochAtStart) || isAuthLoggingOut()) {
+              return Promise.reject(new Error('Sesión cerrada'));
+            }
             if (originalRequest) {
               originalRequest.headers.Authorization = `Bearer ${token}`;
               return apiClient(originalRequest);
@@ -118,10 +169,18 @@ apiClient.interceptors.response.use(
 
       try {
         const res = await axios.post(`${apiBaseUrl()}/auth/refresh`, { refreshToken });
-        const { accessToken: newAccessToken, refreshToken: newRefreshToken } = res.data.data;
+        if (isStaleEpoch(epochAtStart) || isAuthLoggingOut()) {
+          processQueue(new Error('Sesión cerrada'), null);
+          return Promise.reject(error);
+        }
 
+        const { accessToken: newAccessToken, refreshToken: newRefreshToken } = res.data.data;
         localStorage.setItem('token', newAccessToken);
         localStorage.setItem('refreshToken', newRefreshToken);
+        useAuthStore.setState({
+          accessToken: newAccessToken,
+          refreshToken: newRefreshToken,
+        });
 
         processQueue(null, newAccessToken);
 
@@ -131,8 +190,6 @@ apiClient.interceptors.response.use(
         }
       } catch (refreshError) {
         processQueue(refreshError, null);
-        // JWT del CRM irrecuperable: limpiar tokens locales.
-        // Si central === true, no implica revocar cookie ENTRA (solo UX de CRM).
         forceLocalLogout();
         return Promise.reject(refreshError);
       } finally {
@@ -144,7 +201,6 @@ apiClient.interceptors.response.use(
   }
 );
 
-/** Extrae mensaje de error del backend o de un Error lanzado en el cliente */
 export function getApiErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
     return error.response?.data?.error?.message || error.message || 'Error de conexión';
@@ -155,7 +211,6 @@ export function getApiErrorMessage(error: unknown): string {
   return 'Error inesperado';
 }
 
-/** Detalles adicionales del error (p. ej. existingEntityId en duplicados). */
 export function getApiErrorDetails(error: unknown): Record<string, unknown> | undefined {
   if (axios.isAxiosError(error)) {
     return error.response?.data?.error?.details as Record<string, unknown> | undefined;

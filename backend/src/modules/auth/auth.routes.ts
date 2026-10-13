@@ -1,21 +1,23 @@
 /**
  * Rutas del módulo de autenticación.
  *
- * Rutas públicas:
- *   POST /auth/exchange  → canje del código de Entra
- *   POST /auth/register  → deshabilitado (403)
+ * Públicas:
+ *   POST /auth/exchange
+ *   POST /auth/register  → 403
  *   POST /auth/refresh
  *
- * Rutas protegidas:
+ * Protegidas / semi:
+ *   POST   /auth/logout   → Bearer (revoca sid local)
  *   GET    /auth/profile
  *   PUT    /auth/profile
- *   POST   /auth/change-password → deshabilitado (403; contraseña en Entra)
+ *   POST   /auth/change-password → 403
  */
 import { Router } from 'express';
 import { authController } from './auth.controller';
 import { asyncHandler } from '../../shared/middlewares/async-handler.middleware';
 import { validate } from '../../shared/middlewares/validate.middleware';
 import { protect } from './auth.middleware';
+import { handleEntraRevokeWebhook } from './entra-revoke.webhook';
 import {
   exchangeSchema,
   registerSchema,
@@ -26,13 +28,14 @@ import {
 
 export const authRoutes = Router();
 
-// ── Rutas públicas ──────────────────────────────────────────────
-
 authRoutes.post(
   '/exchange',
   validate(exchangeSchema, 'body'),
   asyncHandler(authController.exchange)
 );
+
+/** Webhook S2S desde ENTRA (HMAC). Sin JWT de usuario. */
+authRoutes.post('/entra-revoke', asyncHandler(handleEntraRevokeWebhook));
 
 authRoutes.post(
   '/register',
@@ -46,13 +49,9 @@ authRoutes.post(
   asyncHandler(authController.refresh)
 );
 
-// ── Rutas protegidas ────────────────────────────────────────────
+authRoutes.post('/logout', asyncHandler(authController.logout));
 
-authRoutes.get(
-  '/profile',
-  protect,
-  asyncHandler(authController.getProfile)
-);
+authRoutes.get('/profile', protect, asyncHandler(authController.getProfile));
 
 authRoutes.put(
   '/profile',

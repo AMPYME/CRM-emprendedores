@@ -26,8 +26,6 @@ export class AppError extends Error {
   }
 }
 
-// ── Errores comunes predefinidos ──────────────────────────────────
-
 export class NotFoundError extends AppError {
   constructor(resource: string, identifier?: string) {
     const msg = identifier
@@ -70,5 +68,12 @@ export class BadRequestError extends AppError {
 export class GoneError extends AppError {
   constructor(message: string = 'El recurso ya no está disponible') {
     super(message, 410, 'GONE');
+  }
+}
+
+/** Servicio de identidad/dependencia no disponible: no ejecutar la operación. */
+export class ServiceUnavailableError extends AppError {
+  constructor(message: string = 'Servicio temporalmente no disponible') {
+    super(message, 503, 'SERVICE_UNAVAILABLE');
   }
 }

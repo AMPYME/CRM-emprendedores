@@ -1,13 +1,24 @@
 /**
- * Servicio de autenticación del CRM (JWT tras exchange con ENTRA).
- * La sesión centralizada (cookie) se valida con entra-session.service.
+ * Servicio de autenticación del CRM (JWT + sesión local sid).
+ * La cookie ENTRA se valida en el navegador con entra-session.service.
  */
-import { apiClient } from './api-client';
+import { apiClient, rejectRefreshQueue } from './api-client';
 import type { ApiResponse } from '@/types/api.types';
 import type { AuthTokenResponse, AuthUser, RegisterInput } from '@/types/auth.types';
 import { entraSessionService } from './entra-session.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { clearPrivateQueryCache } from '@/lib/query-client';
+import {
+  beginLogout,
+  closeAppWebSockets,
+  isStaleEpoch,
+} from '@/lib/auth-session-control';
+
+export type LogoutResult = {
+  localRevoked: boolean;
+  centralOk: boolean;
+  centralUnconfirmed: boolean;
+};
 
 export const authService = {
   async exchange(code: string): Promise<AuthTokenResponse> {
@@ -21,7 +32,9 @@ export const authService = {
   },
 
   async refresh(refreshToken: string): Promise<AuthTokenResponse> {
-    const res = await apiClient.post<ApiResponse<AuthTokenResponse>>('/auth/refresh', { refreshToken });
+    const res = await apiClient.post<ApiResponse<AuthTokenResponse>>('/auth/refresh', {
+      refreshToken,
+    });
     return res.data.data;
   },
 
@@ -39,15 +52,55 @@ export const authService = {
     await apiClient.post('/auth/change-password', data);
   },
 
-  /** Cierra sesión central ENTRA + limpia JWT local. */
-  async logoutCentral(): Promise<void> {
-    const csrf = useAuthStore.getState().csrfToken;
+  /** Revoca sesión local CRM (sid). Ignora 401 si el token ya no vale. */
+  async logoutLocal(): Promise<boolean> {
     try {
-      await entraSessionService.logout(csrf);
+      await apiClient.post('/auth/logout');
+      return true;
     } catch {
-      /* continuar limpieza local */
+      return false;
     }
+  },
+
+  /**
+   * Logout completo: bloquea requests → CRM logout → ENTRA logout → limpia local.
+   */
+  async logoutAll(): Promise<LogoutResult> {
+    const epoch = beginLogout();
+    rejectRefreshQueue();
+    closeAppWebSockets();
+
+    const accessToken =
+      typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    let localRevoked = false;
+    if (accessToken) {
+      localRevoked = await this.logoutLocal();
+    }
+
+    if (isStaleEpoch(epoch)) {
+      /* otra pestaña avanzó la época */
+    }
+
+    const csrf = useAuthStore.getState().csrfToken;
+    const central = await entraSessionService.logout(csrf);
+    const centralOk = central.ok;
+    const centralUnconfirmed = Boolean(central.centralUnconfirmed);
+
     useAuthStore.getState().clearLocalSession();
     clearPrivateQueryCache();
+    if (centralUnconfirmed) {
+      useAuthStore
+        .getState()
+        .setCentralLogoutWarning(
+          'Se cerró la sesión local del CRM, pero el cierre en el servicio de identidad no pudo confirmarse.'
+        );
+    }
+
+    return { localRevoked, centralOk, centralUnconfirmed };
+  },
+
+  /** @deprecated usar logoutAll */
+  async logoutCentral(): Promise<void> {
+    await this.logoutAll();
   },
 };

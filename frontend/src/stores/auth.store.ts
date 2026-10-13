@@ -1,11 +1,14 @@
 /**
  * Store de autenticación con Zustand.
- * - JWT del CRM: autorización de APIs del propio CRM.
- * - Sesión ENTRA (cookie): fuente de verdad de autenticación del navegador.
- * csrfToken solo en memoria (no localStorage / sessionStorage).
+ * - JWT del CRM: autorización de APIs del propio CRM (sesión local con sid).
+ * - Sesión ENTRA (cookie): comprobación UX del navegador.
+ * csrfToken solo en memoria.
+ *
+ * status `error` = sesión central no confirmada (indisponibilidad): no tratar como autenticado.
  */
 import { create } from 'zustand';
 import type { AuthUser } from '@/types/auth.types';
+import { clearLogoutFlags, markAuthenticatedReady } from '@/lib/auth-session-control';
 
 export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated' | 'error';
 
@@ -17,15 +20,17 @@ interface AuthState {
   status: AuthStatus;
   isAuthenticated: boolean;
   isLoading: boolean;
+  /** Aviso UX si el logout central no se pudo confirmar. */
+  centralLogoutWarning: string | null;
 
   setAuth: (user: AuthUser, accessToken: string, refreshToken: string) => void;
   setUser: (user: AuthUser) => void;
   setCsrfToken: (token: string | null) => void;
   setStatus: (status: AuthStatus) => void;
   setLoading: (loading: boolean) => void;
-  /** Limpia JWT local + CSRF + usuario (sin llamar a ENTRA). */
+  setCentralLogoutWarning: (msg: string | null) => void;
   clearLocalSession: () => void;
-  /** @deprecated Preferir clearLocalSession + logout central vía useAuth/header. */
+  /** @deprecated Preferir flujo de logout centralizado. */
   logout: () => void;
   initialize: () => void;
 }
@@ -45,6 +50,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   status: 'loading',
   isAuthenticated: false,
   isLoading: true,
+  centralLogoutWarning: null,
 
   setAuth: (user, accessToken, refreshToken) => {
     if (typeof window !== 'undefined') {
@@ -52,6 +58,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       localStorage.setItem('refreshToken', refreshToken);
       localStorage.removeItem('adAccessToken');
     }
+    clearLogoutFlags();
+    markAuthenticatedReady();
     set({
       user,
       accessToken,
@@ -59,10 +67,13 @@ export const useAuthStore = create<AuthState>((set) => ({
       isAuthenticated: true,
       status: 'authenticated',
       isLoading: false,
+      centralLogoutWarning: null,
     });
   },
 
   setUser: (user) => {
+    clearLogoutFlags();
+    markAuthenticatedReady();
     set({ user, isAuthenticated: true, status: 'authenticated' });
   },
 
@@ -83,6 +94,10 @@ export const useAuthStore = create<AuthState>((set) => ({
       isLoading,
       status: isLoading ? 'loading' : state.status === 'loading' ? 'unauthenticated' : state.status,
     }));
+  },
+
+  setCentralLogoutWarning: (centralLogoutWarning) => {
+    set({ centralLogoutWarning });
   },
 
   clearLocalSession: () => {

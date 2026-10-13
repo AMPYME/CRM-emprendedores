@@ -1,6 +1,5 @@
 /**
  * Controladores del módulo de autenticación.
- * Manejan las peticiones HTTP y delegan la lógica al servicio.
  */
 import { Request, Response } from 'express';
 import { authService } from './auth.service';
@@ -12,32 +11,21 @@ import {
   ChangePasswordInput,
   UpdateProfileInput,
 } from './auth.validator';
+import { UnauthorizedError } from '../../shared/errors/app-error';
 
 export const authController = {
-  /**
-   * POST /auth/exchange
-   * Canjea el código de un solo uso de Entra por la sesión del CRM.
-   */
   async exchange(req: Request, res: Response): Promise<void> {
     const input = req.body as ExchangeInput;
     const result = await authService.exchange(input);
     sendSuccess(res, result);
   },
 
-  /**
-   * POST /auth/register
-   * Registra un nuevo usuario.
-   */
   async register(req: Request, res: Response): Promise<void> {
     const input = req.body as RegisterInput;
     const result = await authService.register(input);
     sendCreated(res, result);
   },
 
-  /**
-   * POST /auth/refresh
-   * Renueva los tokens usando un refresh token válido.
-   */
   async refresh(req: Request, res: Response): Promise<void> {
     const input = req.body as RefreshInput;
     const result = await authService.refresh(input);
@@ -45,21 +33,27 @@ export const authController = {
   },
 
   /**
-   * GET /auth/profile
-   * Retorna el perfil del usuario autenticado.
-   * Requiere: protect middleware.
+   * POST /auth/logout — revoca la sesión local (sid) del Bearer actual.
    */
+  async logout(req: Request, res: Response): Promise<void> {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+      throw new UnauthorizedError('Token de acceso requerido');
+    }
+    const token = authHeader.slice('Bearer '.length).trim();
+    if (!token) {
+      throw new UnauthorizedError('Token de acceso requerido');
+    }
+    await authService.logout(token);
+    sendNoContent(res);
+  },
+
   async getProfile(req: Request, res: Response): Promise<void> {
     const userId = req.user!.id;
     const result = await authService.getProfile(userId);
     sendSuccess(res, result);
   },
 
-  /**
-   * PUT /auth/profile
-   * Actualiza el perfil (nombre/apellido) del usuario autenticado.
-   * Requiere: protect middleware.
-   */
   async updateProfile(req: Request, res: Response): Promise<void> {
     const userId = req.user!.id;
     const input = req.body as UpdateProfileInput;
@@ -67,11 +61,6 @@ export const authController = {
     sendSuccess(res, result);
   },
 
-  /**
-   * POST /auth/change-password
-   * Cambia la contraseña del usuario autenticado.
-   * Requiere: protect middleware.
-   */
   async changePassword(req: Request, res: Response): Promise<void> {
     const userId = req.user!.id;
     const input = req.body as ChangePasswordInput;

@@ -1,10 +1,8 @@
 /**
  * Sesión centralizada ENTRA-userAPI (cookie HttpOnly).
- * Fuente de verdad del estado de autenticación del navegador.
  *
- * Nota: GET /api/auth/me renueva la inactividad de la sesión en Redis
- * (LookupSession → advanceSession). No usar polling frecuente o se
- * mantendrá viva la sesión solo por comprobaciones automáticas.
+ * GET /api/auth/me renueva la inactividad en Redis (LookupSession → advanceSession).
+ * No usar polling frecuente: mantendría viva la sesión solo por comprobaciones.
  */
 import { ENTRA_API_URL } from '@/lib/entra';
 
@@ -64,12 +62,15 @@ export const entraSessionService = {
 
   /**
    * Cierra la sesión central. Espera 204.
-   * Requiere X-CSRF-Token en POST (mismo valor que csrfToken de /me).
+   * Si falta CSRF o responde 403, intenta un /me y un único reintento.
    */
-  async logout(csrfToken: string | null, signal?: AbortSignal): Promise<{ ok: boolean; status: number }> {
-    try {
+  async logout(
+    csrfToken: string | null,
+    signal?: AbortSignal
+  ): Promise<{ ok: boolean; status: number; centralUnconfirmed?: boolean }> {
+    const attempt = async (csrf: string | null) => {
       const headers: Record<string, string> = { Accept: 'application/json' };
-      if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+      if (csrf) headers['X-CSRF-Token'] = csrf;
 
       const res = await fetch(joinUrl('/api/auth/logout'), {
         method: 'POST',
@@ -77,10 +78,33 @@ export const entraSessionService = {
         headers,
         signal,
       });
+      return res;
+    };
 
-      return { ok: res.status === 204 || res.ok, status: res.status };
+    try {
+      let res = await attempt(csrfToken);
+      if (res.status === 204 || res.ok) {
+        return { ok: true, status: res.status };
+      }
+
+      // CSRF ausente/inválido u otro error: recuperar token y reintentar una vez.
+      if (res.status === 403 || res.status === 401 || !csrfToken) {
+        const me = await this.me(signal);
+        if (me.kind === 'ok' && me.data.csrfToken) {
+          res = await attempt(me.data.csrfToken);
+          if (res.status === 204 || res.ok) {
+            return { ok: true, status: res.status };
+          }
+        }
+        if (me.kind === 'unauthorized') {
+          // Ya no hay sesión central.
+          return { ok: true, status: 204 };
+        }
+      }
+
+      return { ok: false, status: res.status, centralUnconfirmed: true };
     } catch {
-      return { ok: false, status: 0 };
+      return { ok: false, status: 0, centralUnconfirmed: true };
     }
   },
 };

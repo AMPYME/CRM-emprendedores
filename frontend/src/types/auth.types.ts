@@ -21,6 +21,8 @@ export interface AuthTokenResponse {
   user: AuthUser;
   accessToken: string;
   refreshToken: string;
+  sessionId?: string;
+  absoluteExpiresAt?: string;
 }
 
 export interface RegisterInput {

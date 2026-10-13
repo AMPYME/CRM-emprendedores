@@ -69,14 +69,25 @@ export function createApp(): Application {
         return (
           p.includes('/health') ||
           p.endsWith('/health') ||
-          p.includes('/intake/public')
+          p.includes('/intake/public') ||
+          p.includes('/auth/entra-revoke')
         );
       },
     })
   );
 
   // ── Middlewares de parsing ────────────────────────────────────
-  app.use(express.json({ limit: '10mb' }));
+  app.use(
+    express.json({
+      limit: '10mb',
+      verify: (req, _res, buf) => {
+        // Necesario para verificar HMAC del webhook ENTRA.
+        if (req.url?.includes('/auth/entra-revoke')) {
+          (req as express.Request & { rawBody?: Buffer }).rawBody = Buffer.from(buf);
+        }
+      },
+    })
+  );
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
   app.use(compression());
 

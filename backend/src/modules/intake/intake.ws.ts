@@ -1,20 +1,19 @@
 /**
  * WebSocket de intake.
  *
- * Operadores del dashboard se conectan con JWT (`?token=`) y se suscriben
- * con `{ action: 'subscribe', sessionId, accessCode }`.
+ * Operadores: JWT en `?token=` → sesión local (sid) revalidada en heartbeat.
+ * Público: sin JWT; limitado a una sesión con sid + accessCode.
  *
- * El formulario público se conecta sin JWT y se limita a una sola sesión
- * mediante `sid` + `accessCode` (query o mensaje subscribe).
- *
- * Los eventos se emiten al guardar, enviar, expirar o validar — sin polling.
+ * Un JWT válido no convierte automáticamente a viewer en operador de cola:
+ * subscribe_queue exige rol de operador (no EMPREND_VIEWER).
  */
 import { IncomingMessage } from 'http';
 import type { Server as HttpServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { config } from '../../config/environment';
 import { logger } from '../../shared/logger/logger';
-import { authService } from '../auth/auth.service';
+import { authService, registerSessionRevokedHandler } from '../auth/auth.service';
+import { isReadOnlyCrmRole } from '../auth/ad-auth.mapper';
 import { intakeRepository } from './intake.repository';
 import { IntakeSnapshot, IntakeWsEvent } from './intake.types';
 import { verifyAccessCode } from './intake-access';
@@ -24,14 +23,21 @@ interface IntakeClient extends WebSocket {
   sessionId?: string;
   queueWatch?: boolean;
   role?: 'operator' | 'public';
+  authSid?: string;
+  userId?: string;
+  userRole?: string;
+  accessToken?: string;
 }
 
 class IntakeWsServer {
   private wss: WebSocketServer | null = null;
+  private revalidateTimer: ReturnType<typeof setInterval> | null = null;
 
   init(server: HttpServer): void {
     if (this.wss) return;
     this.wss = new WebSocketServer({ server, path: config.wsPath });
+
+    registerSessionRevokedHandler((sid) => this.closeByAuthSid(sid));
 
     this.wss.on('connection', (ws: IntakeClient, req: IncomingMessage) => {
       void this.handleConnection(ws, req);
@@ -49,8 +55,52 @@ class IntakeWsServer {
       });
     }, 30000);
 
-    this.wss.on('close', () => clearInterval(heartbeat));
+    this.revalidateTimer = setInterval(() => {
+      void this.revalidateOperatorSessions();
+    }, 60000);
+
+    this.wss.on('close', () => {
+      clearInterval(heartbeat);
+      if (this.revalidateTimer) clearInterval(this.revalidateTimer);
+    });
     logger.info(`🔌 WebSocket intake escuchando en ${config.wsPath}`);
+  }
+
+  closeByAuthSid(authSid: string): void {
+    this.wss?.clients.forEach((client) => {
+      const c = client as IntakeClient;
+      if (c.authSid === authSid && c.readyState === WebSocket.OPEN) {
+        this.send(c, { type: 'error', message: 'Sesión revocada' });
+        c.close(4001, 'session_revoked');
+      }
+    });
+  }
+
+  private async revalidateOperatorSessions(): Promise<void> {
+    if (!this.wss) return;
+    const tasks: Promise<void>[] = [];
+    this.wss.clients.forEach((client) => {
+      const c = client as IntakeClient;
+      if (c.role !== 'operator' || !c.accessToken || c.readyState !== WebSocket.OPEN) return;
+      tasks.push(
+        (async () => {
+          try {
+            const user = await authService.verifyAccessToken(c.accessToken!);
+            c.userRole = user.role;
+            c.userId = user.id;
+            c.authSid = user.sessionId;
+            if (isReadOnlyCrmRole(user.role) && c.queueWatch) {
+              c.queueWatch = false;
+              this.send(c, { type: 'error', message: 'Rol de solo lectura: cola desuscrita' });
+            }
+          } catch {
+            this.send(c, { type: 'error', message: 'Sesión expirada' });
+            c.close(4001, 'unauthorized');
+          }
+        })()
+      );
+    });
+    await Promise.allSettled(tasks);
   }
 
   private async handleConnection(ws: IntakeClient, req: IncomingMessage): Promise<void> {
@@ -72,7 +122,7 @@ class IntakeWsServer {
       if (msg.action === 'subscribe' && msg.sessionId) {
         void this.subscribe(ws, msg.sessionId, msg.accessCode);
       } else if (msg.action === 'subscribe_queue') {
-        this.subscribeQueue(ws);
+        void this.subscribeQueue(ws);
       } else if (msg.action === 'unsubscribe') {
         ws.sessionId = undefined;
         ws.queueWatch = false;
@@ -94,8 +144,18 @@ class IntakeWsServer {
 
     if (token) {
       try {
-        await authService.verifyAccessToken(token);
-        ws.role = 'operator';
+        const user = await authService.verifyAccessToken(token);
+        if (isReadOnlyCrmRole(user.role)) {
+          // Viewer puede observar una sesión concreta, no operar la cola.
+          ws.role = 'operator';
+          ws.userRole = user.role;
+        } else {
+          ws.role = 'operator';
+          ws.userRole = user.role;
+        }
+        ws.authSid = user.sessionId;
+        ws.userId = user.id;
+        ws.accessToken = token;
       } catch {
         this.send(ws, { type: 'error', message: 'Token inválido' });
         ws.close(4001, 'unauthorized');
@@ -114,6 +174,18 @@ class IntakeWsServer {
   }
 
   private async subscribe(ws: IntakeClient, sessionId: string, accessCode?: string): Promise<void> {
+    if (ws.role === 'operator' && ws.accessToken) {
+      try {
+        const user = await authService.verifyAccessToken(ws.accessToken);
+        ws.userRole = user.role;
+        ws.authSid = user.sessionId;
+      } catch {
+        this.send(ws, { type: 'error', message: 'Sesión expirada' });
+        ws.close(4001, 'unauthorized');
+        return;
+      }
+    }
+
     if (ws.role === 'public' && ws.sessionId && ws.sessionId !== sessionId) {
       this.send(ws, {
         type: 'access_denied',
@@ -151,9 +223,22 @@ class IntakeWsServer {
     }
   }
 
-  private subscribeQueue(ws: IntakeClient): void {
-    if (ws.role !== 'operator') {
+  private async subscribeQueue(ws: IntakeClient): Promise<void> {
+    if (ws.role !== 'operator' || !ws.accessToken) {
       this.send(ws, { type: 'error', message: 'Solo operadores pueden suscribirse a la cola' });
+      return;
+    }
+    try {
+      const user = await authService.verifyAccessToken(ws.accessToken);
+      ws.userRole = user.role;
+      ws.authSid = user.sessionId;
+      if (isReadOnlyCrmRole(user.role)) {
+        this.send(ws, { type: 'error', message: 'Su rol no puede operar la cola de verificación' });
+        return;
+      }
+    } catch {
+      this.send(ws, { type: 'error', message: 'Sesión expirada' });
+      ws.close(4001, 'unauthorized');
       return;
     }
     ws.queueWatch = true;
@@ -193,7 +278,6 @@ class IntakeWsServer {
     });
   }
 
-  /** Avisa a operadores en /dashboard/intake para refrescar la cola de verificación. */
   notifyQueueChanged(reason?: string): void {
     this.wss?.clients.forEach((client) => {
       const c = client as IntakeClient;

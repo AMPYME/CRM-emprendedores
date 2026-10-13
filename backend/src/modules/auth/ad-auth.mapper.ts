@@ -1,6 +1,9 @@
 /**
  * Mapea el perfil devuelto por POST /api/auth/exchange al usuario local del CRM.
  * Los permisos de Entra no se usan como roles de aplicación.
+ *
+ * Política: ENTRA gobierna el rol en cada exchange (auth.service.apply mapped role).
+ * No se conservan privilegios administrativos locales si ENTRA mapea a operador/viewer.
  */
 import type { UserRole } from '@prisma/client';
 

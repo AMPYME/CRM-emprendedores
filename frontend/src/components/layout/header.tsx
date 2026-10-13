@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { Bell, LogOut, Menu, Settings } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth.store';
-import { entraSessionService } from '@/services/entra-session.service';
+import { authService } from '@/services/auth.service';
 import { clearPrivateQueryCache } from '@/lib/query-client';
 
 const SECTION_TITLES: { prefix: string; title: string }[] = [
@@ -57,16 +57,11 @@ interface HeaderProps {
 export function Header({ onMenuClick }: HeaderProps) {
   const pathname = usePathname();
   const queryClient = useQueryClient();
-  const { user, csrfToken, clearLocalSession } = useAuthStore();
+  const { user } = useAuthStore();
   const title = sectionTitle(pathname);
 
   const handleLogout = async () => {
-    try {
-      await entraSessionService.logout(csrfToken);
-    } catch {
-      /* limpieza local de todos modos */
-    }
-    clearLocalSession();
+    await authService.logoutAll();
     clearPrivateQueryCache();
     queryClient.clear();
     window.location.replace('/login');
