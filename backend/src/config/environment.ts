@@ -74,6 +74,9 @@ export const config = {
   entraApiBaseUrl: (process.env.ENTRA_API_BASE_URL || '').trim() || undefined,
   entraClientId: (process.env.EMPRENDEDORES_CLIENT_ID || '00000000-0000-4000-8000-000000000004').trim(),
   entraClientSecret: (process.env.EMPRENDEDORES_APP_SECRET || '').trim() || undefined,
+  entraBrowserRedirect: (
+    process.env.EMPRENDEDORES_OAUTH_REDIRECT || 'http://10.14.80.245/api/v1/auth/entra/callback'
+  ).trim(),
 
   entraAutoProvision: process.env.ENTRA_AUTO_PROVISION !== 'false',
 

@@ -153,14 +153,15 @@ export type EntraStartOutcome =
 export async function startEntraLogin(
   baseUrl: string,
   clientId: string,
-  returnUrl: string
+  returnUrl: string,
+  browserRedirectUrl: string
 ): Promise<EntraStartOutcome> {
   const url = joinUrl(baseUrl, '/api/auth/login');
   try {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ clientId, returnUrl }),
+      body: JSON.stringify({ clientId, returnUrl, browserRedirectUrl }),
     });
     const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
     const location = readString(data, 'url');
@@ -187,6 +188,40 @@ export async function startEntraLogin(
 export type EntraCallbackProxyOutcome =
   | { kind: 'redirect'; url: string }
   | { kind: 'error'; status: number; error: string };
+
+/** El backend cierra el callback con el secreto. El navegador no llama a users.ampyme.local. */
+export async function completeEntraCallback(
+  baseUrl: string,
+  clientId: string,
+  clientSecret: string,
+  code: string,
+  state: string
+): Promise<EntraCallbackProxyOutcome> {
+  const url = joinUrl(baseUrl, '/api/auth/callback/complete');
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ clientId, clientSecret, code, state }),
+    });
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    const location = readString(data, 'url');
+    if (res.ok && location) {
+      return { kind: 'redirect', url: location };
+    }
+    return {
+      kind: 'error',
+      status: res.status || 502,
+      error: readString(data, 'error') || 'No se pudo completar el ingreso',
+    };
+  } catch (err) {
+    logger.warn('Entra callback: error de red', {
+      url,
+      message: err instanceof Error ? err.message : String(err),
+    });
+    return { kind: 'error', status: 502, error: 'No se pudo contactar el servicio de identidad' };
+  }
+}
 
 /** Reenvía el callback al login por DNS, con la cookie que guardó el inicio. */
 export async function proxyEntraCallback(

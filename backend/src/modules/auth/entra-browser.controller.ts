@@ -1,18 +1,8 @@
 import { Request, Response } from 'express';
 import { config } from '../../config/environment';
-import { proxyEntraCallback, startEntraLogin } from './entra-user-api.client';
+import { completeEntraCallback, startEntraLogin } from './entra-user-api.client';
 
 const OAUTH_COOKIE = 'emprendedores_oauth';
-
-function readCookie(header: string | undefined, name: string): string {
-  if (!header) return '';
-  const parts = header.split(';');
-  for (const part of parts) {
-    const [rawKey, ...rest] = part.trim().split('=');
-    if (rawKey === name) return decodeURIComponent(rest.join('='));
-  }
-  return '';
-}
 
 export const entraBrowserController = {
   /**
@@ -25,7 +15,12 @@ export const entraBrowserController = {
       return;
     }
     const returnUrl = String(req.body?.returnUrl || '').trim();
-    const outcome = await startEntraLogin(config.entraApiBaseUrl, config.entraClientId, returnUrl);
+    const outcome = await startEntraLogin(
+      config.entraApiBaseUrl,
+      config.entraClientId,
+      returnUrl,
+      config.entraBrowserRedirect
+    );
     if (outcome.kind === 'error') {
       res.status(outcome.status).json({ error: outcome.error });
       return;
@@ -46,10 +41,10 @@ export const entraBrowserController = {
 
   /**
    * GET /api/v1/auth/entra/callback
-   * Microsoft vuelve a esta IP. El backend reenvía code y state al login por DNS.
+   * Microsoft vuelve a esta IP. Este backend cierra la sesión con ENTRA por DNS.
    */
   async callback(req: Request, res: Response): Promise<void> {
-    if (!config.entraApiBaseUrl) {
+    if (!config.entraApiBaseUrl || !config.entraClientId || !config.entraClientSecret) {
       res.status(503).json({ error: 'Login central no configurado' });
       return;
     }
@@ -60,12 +55,17 @@ export const entraBrowserController = {
       res.status(401).json({ error: 'Entra canceló el inicio de sesión' });
       return;
     }
-    const oauthCookie = readCookie(req.headers.cookie, OAUTH_COOKIE);
-    if (!code || !state || !oauthCookie) {
-      res.status(400).json({ error: 'falta la correlación del navegador' });
+    if (!code || !state) {
+      res.status(400).json({ error: 'faltan code o state' });
       return;
     }
-    const outcome = await proxyEntraCallback(config.entraApiBaseUrl, code, state, oauthCookie);
+    const outcome = await completeEntraCallback(
+      config.entraApiBaseUrl,
+      config.entraClientId,
+      config.entraClientSecret,
+      code,
+      state
+    );
     if (outcome.kind === 'error') {
       res.status(outcome.status).json({ error: outcome.error });
       return;
