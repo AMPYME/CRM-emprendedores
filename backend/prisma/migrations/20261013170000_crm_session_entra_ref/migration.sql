@@ -73,6 +73,9 @@ $$;
 REVOKE ALL ON FUNCTION api.fn_create_crm_session(text, text, text, text, timestamptz) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION api.fn_create_crm_session(text, text, text, text, timestamptz) TO crm_api;
 
+-- Postgres no cambia el tipo de retorno con CREATE OR REPLACE.
+DROP FUNCTION IF EXISTS api.fn_get_crm_session(text);
+
 CREATE OR REPLACE FUNCTION api.fn_get_crm_session(p_id text)
 RETURNS TABLE (
   id text,

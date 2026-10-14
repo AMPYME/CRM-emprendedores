@@ -76,10 +76,18 @@ else
       ;;
   esac
 
-  echo "⚠️  migrate deploy falló (posible baseline fallido P3009 en BD existente)."
+  echo "⚠️  migrate deploy falló."
   echo "   Recuperando registro de migración fallida..."
 
-  npx prisma migrate resolve --rolled-back "20260820140000_baseline" || true
+  case "$MIGRATE_OUT" in
+    *20261013170000_crm_session_entra_ref*)
+      echo "   Marcando 20261013170000_crm_session_entra_ref como revertida para reintentarla..."
+      npx prisma migrate resolve --rolled-back "20261013170000_crm_session_entra_ref" || true
+      ;;
+    *)
+      npx prisma migrate resolve --rolled-back "20260820140000_baseline" || true
+      ;;
+  esac
 
   USERS_STATE="$(table_exists users)"
   if [ "$USERS_STATE" = "err" ]; then
