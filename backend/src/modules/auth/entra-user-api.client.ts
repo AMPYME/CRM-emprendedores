@@ -144,3 +144,82 @@ export async function introspectEntraSession(
     return { kind: 'unavailable' };
   }
 }
+
+export type EntraStartOutcome =
+  | { kind: 'redirect'; url: string; oauthCookie?: string }
+  | { kind: 'error'; status: number; error: string };
+
+/** El backend llama al login por DNS. El navegador no envía el clientId. */
+export async function startEntraLogin(
+  baseUrl: string,
+  clientId: string,
+  returnUrl: string
+): Promise<EntraStartOutcome> {
+  const url = joinUrl(baseUrl, '/api/auth/login');
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ clientId, returnUrl }),
+    });
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    const location = readString(data, 'url');
+    if (!res.ok || !location) {
+      return {
+        kind: 'error',
+        status: res.status || 502,
+        error: readString(data, 'error') || 'No se pudo iniciar el ingreso',
+      };
+    }
+    const setCookies =
+      typeof res.headers.getSetCookie === 'function' ? res.headers.getSetCookie() : [];
+    const match = setCookies.join('; ').match(/(?:__Host-)?ampyme_oauth=([^;]+)/);
+    return { kind: 'redirect', url: location, oauthCookie: match?.[1] };
+  } catch (err) {
+    logger.warn('Entra login: error de red', {
+      url,
+      message: err instanceof Error ? err.message : String(err),
+    });
+    return { kind: 'error', status: 502, error: 'No se pudo contactar el servicio de identidad' };
+  }
+}
+
+export type EntraCallbackProxyOutcome =
+  | { kind: 'redirect'; url: string }
+  | { kind: 'error'; status: number; error: string };
+
+/** Reenvía el callback al login por DNS, con la cookie que guardó el inicio. */
+export async function proxyEntraCallback(
+  baseUrl: string,
+  code: string,
+  state: string,
+  oauthCookie: string
+): Promise<EntraCallbackProxyOutcome> {
+  const url = `${joinUrl(baseUrl, '/api/auth/callback')}?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`;
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      redirect: 'manual',
+      headers: {
+        Accept: 'application/json, text/html',
+        Cookie: `__Host-ampyme_oauth=${oauthCookie}; ampyme_oauth=${oauthCookie}`,
+      },
+    });
+    const location = res.headers.get('location');
+    if (location && res.status >= 300 && res.status < 400) {
+      return { kind: 'redirect', url: location };
+    }
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    return {
+      kind: 'error',
+      status: res.status || 502,
+      error: readString(data, 'error') || 'No se pudo completar el ingreso',
+    };
+  } catch (err) {
+    logger.warn('Entra callback: error de red', {
+      url,
+      message: err instanceof Error ? err.message : String(err),
+    });
+    return { kind: 'error', status: 502, error: 'No se pudo contactar el servicio de identidad' };
+  }
+}

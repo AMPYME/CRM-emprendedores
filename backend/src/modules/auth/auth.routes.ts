@@ -14,6 +14,7 @@
  */
 import { Router } from 'express';
 import { authController } from './auth.controller';
+import { entraBrowserController } from './entra-browser.controller';
 import { asyncHandler } from '../../shared/middlewares/async-handler.middleware';
 import { validate } from '../../shared/middlewares/validate.middleware';
 import { protect } from './auth.middleware';
@@ -27,6 +28,10 @@ import {
 } from './auth.validator';
 
 export const authRoutes = Router();
+
+/** El navegador solo llega aquí por la IP del backend. El clientId lo pone el servidor. */
+authRoutes.post('/entra/start', asyncHandler(entraBrowserController.start));
+authRoutes.get('/entra/callback', asyncHandler(entraBrowserController.callback));
 
 authRoutes.post(
   '/exchange',

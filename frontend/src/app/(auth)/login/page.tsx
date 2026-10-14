@@ -8,7 +8,7 @@ import { authService } from '@/services/auth.service';
 import { entraSessionService } from '@/services/entra-session.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { getApiErrorMessage } from '@/services/api-client';
-import { ENTRA_API_URL, ENTRA_CLIENT_ID, entraReturnUrl } from '@/lib/entra';
+import { entraReturnUrl } from '@/lib/entra';
 
 const CENTRO_INTERNA = 'https://aplicaciones.ampyme.local/';
 const CENTRO_PUBLICA = 'http://programas.ampyme.gob.pa/aplicaciones';
@@ -70,27 +70,26 @@ export default function LoginPage() {
       });
   }, [router, setAuth]);
 
-  const ingresarConMicrosoft = async () => {
+  const ingresarConMicrosoft = () => {
     if (busy) return;
     setBusy(true);
-    try {
-      const response = await fetch(`${ENTRA_API_URL}/api/auth/login`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId: ENTRA_CLIENT_ID, returnUrl: entraReturnUrl() }),
-      });
-      const data = (await response.json()) as { url?: string; error?: string };
-      if (!response.ok || !data.url) {
-        setBusy(false);
-        toast.error(data.error || 'No se pudo iniciar el ingreso');
-        return;
-      }
-      window.location.assign(data.url);
-    } catch {
-      setBusy(false);
-      toast.error('No se pudo contactar el servicio de identidad');
+    const apiBase = (
+      process.env.NEXT_PUBLIC_API_URL || 'http://10.14.80.245/api/v1'
+    ).replace(/\/$/, '');
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = `${apiBase}/auth/entra/start`;
+    for (const [name, value] of Object.entries({
+      returnUrl: entraReturnUrl(),
+    })) {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = name;
+      input.value = value;
+      form.appendChild(input);
     }
+    document.body.appendChild(form);
+    form.submit();
   };
 
   const volverAlCentro = async (event: MouseEvent<HTMLAnchorElement>) => {

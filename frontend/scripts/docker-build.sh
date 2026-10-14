@@ -27,7 +27,7 @@ fi
 # Destino del rewrite /backend-api (alcanzable desde el contenedor Next)
 export API_PROXY_TARGET="${API_PROXY_TARGET:-$NEXT_PUBLIC_API_URL}"
 export NEXT_PUBLIC_INTAKE_FORM_URL="${NEXT_PUBLIC_INTAKE_FORM_URL:-}"
-export NEXT_PUBLIC_ENTRA_API_URL="${NEXT_PUBLIC_ENTRA_API_URL:-http://login.ampyme.local}"
+export NEXT_PUBLIC_ENTRA_API_URL="${NEXT_PUBLIC_ENTRA_API_URL:-https://users.ampyme.local}"
 export NEXT_PUBLIC_EMPRENDEDORES_CLIENT_ID="${NEXT_PUBLIC_EMPRENDEDORES_CLIENT_ID:-c1af0f4e-6b8c-425a-be11-8789e86a82a4}"
 export NEXT_TELEMETRY_DISABLED=1
 
