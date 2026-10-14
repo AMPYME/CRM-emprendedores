@@ -33,8 +33,13 @@ export const entraBrowserController = {
     if (outcome.oauthCookie) {
       res.append(
         'Set-Cookie',
-        `${OAUTH_COOKIE}=${encodeURIComponent(outcome.oauthCookie)}; HttpOnly; Path=/api/v1/auth/entra; Max-Age=600; SameSite=Lax`
+        `${OAUTH_COOKIE}=${encodeURIComponent(outcome.oauthCookie)}; HttpOnly; Path=/; Max-Age=600; SameSite=Lax`
       );
+    }
+    const accept = req.get('accept') || '';
+    if (req.is('application/json') || accept.includes('application/json')) {
+      res.status(200).json({ url: outcome.url });
+      return;
     }
     res.redirect(303, outcome.url);
   },

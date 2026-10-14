@@ -9,6 +9,7 @@ import { entraSessionService } from '@/services/entra-session.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { getApiErrorMessage } from '@/services/api-client';
 import { entraReturnUrl } from '@/lib/entra';
+import { publicApiBaseUrl } from '@/lib/public-urls';
 
 const CENTRO_INTERNA = 'https://aplicaciones.ampyme.local/';
 const CENTRO_PUBLICA = 'http://programas.ampyme.gob.pa/aplicaciones';
@@ -70,26 +71,29 @@ export default function LoginPage() {
       });
   }, [router, setAuth]);
 
-  const ingresarConMicrosoft = () => {
+  const ingresarConMicrosoft = async () => {
     if (busy) return;
     setBusy(true);
-    const apiBase = (
-      process.env.NEXT_PUBLIC_API_URL || 'http://10.14.80.245/api/v1'
-    ).replace(/\/$/, '');
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = `${apiBase}/auth/entra/start`;
-    for (const [name, value] of Object.entries({
-      returnUrl: entraReturnUrl(),
-    })) {
-      const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = name;
-      input.value = value;
-      form.appendChild(input);
+    try {
+      const res = await fetch(`${publicApiBaseUrl()}/auth/entra/start`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({ returnUrl: entraReturnUrl() }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+      const target = data.url ? new URL(data.url) : null;
+      if (!res.ok || !target || target.protocol !== 'https:' || !target.hostname.endsWith('microsoftonline.com')) {
+        throw new Error(data.error || 'No se pudo abrir el login de Microsoft');
+      }
+      window.location.assign(target.href);
+    } catch (error) {
+      setBusy(false);
+      toast.error(error instanceof Error ? error.message : 'No se pudo abrir el login de Microsoft');
     }
-    document.body.appendChild(form);
-    form.submit();
   };
 
   const volverAlCentro = async (event: MouseEvent<HTMLAnchorElement>) => {
