@@ -16,10 +16,14 @@ fi
 BAKE_API="${BAKE_NEXT_PUBLIC_API_URL:-http://10.14.80.245/api/v1}"
 BAKE_WS="${BAKE_NEXT_PUBLIC_WS_URL:-ws://10.14.80.245/ws/intake}"
 BAKE_FORM="${BAKE_NEXT_PUBLIC_INTAKE_FORM_URL:-}"
+BAKE_ENTRA="${BAKE_NEXT_PUBLIC_ENTRA_API_URL:-http://localhost:8080}"
+BAKE_CLIENT="${BAKE_NEXT_PUBLIC_EMPRENDEDORES_CLIENT_ID:-00000000-0000-4000-8000-000000000004}"
 
 API_URL="${NEXT_PUBLIC_API_URL:-$BAKE_API}"
 WS_URL="${NEXT_PUBLIC_WS_URL:-$BAKE_WS}"
 FORM_URL="${NEXT_PUBLIC_INTAKE_FORM_URL-}"
+ENTRA_URL="${NEXT_PUBLIC_ENTRA_API_URL:-http://10.14.80.245:8080}"
+CLIENT_ID="${NEXT_PUBLIC_EMPRENDEDORES_CLIENT_ID:-$BAKE_CLIENT}"
 
 escape_sed() {
   printf '%s' "$1" | sed -e 's/[.\\/&*|[\]]/\\&/g'
@@ -44,9 +48,13 @@ replace_in_tree() {
 echo "[entrypoint] Runtime API=${API_URL}"
 echo "[entrypoint] Runtime WS=${WS_URL}"
 echo "[entrypoint] Runtime INTAKE_FORM=${FORM_URL:-<empty>}"
+echo "[entrypoint] Runtime ENTRA=${ENTRA_URL}"
 
 replace_in_tree "$BAKE_API" "$API_URL"
 replace_in_tree "$BAKE_WS" "$WS_URL"
+replace_in_tree "$BAKE_ENTRA" "$ENTRA_URL"
+replace_in_tree "http://localhost:8080" "$ENTRA_URL"
+replace_in_tree "$BAKE_CLIENT" "$CLIENT_ID"
 
 case "$BAKE_API" in
   https://*) replace_in_tree "http://${BAKE_API#https://}" "$API_URL" ;;
