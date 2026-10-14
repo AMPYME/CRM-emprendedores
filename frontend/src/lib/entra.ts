@@ -1,6 +1,6 @@
 /** Login central. El clientId es público; el secreto solo vive en el backend del CRM. */
 export const ENTRA_API_URL = (
-  process.env.NEXT_PUBLIC_ENTRA_API_URL || 'http://10.14.80.245:8080'
+  process.env.NEXT_PUBLIC_ENTRA_API_URL || 'http://login.ampyme.local'
 ).replace(/\/$/, '');
 
 export const ENTRA_CLIENT_ID =
