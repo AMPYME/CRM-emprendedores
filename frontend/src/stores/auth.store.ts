@@ -23,7 +23,7 @@ interface AuthState {
   /** Aviso UX si el logout central no se pudo confirmar. */
   centralLogoutWarning: string | null;
 
-  setAuth: (user: AuthUser, accessToken: string, refreshToken: string) => void;
+  setAuth: (user: AuthUser, accessToken: string, refreshToken: string, adAccessToken?: string) => void;
   setUser: (user: AuthUser) => void;
   setCsrfToken: (token: string | null) => void;
   setStatus: (status: AuthStatus) => void;
@@ -52,11 +52,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   isLoading: true,
   centralLogoutWarning: null,
 
-  setAuth: (user, accessToken, refreshToken) => {
+  setAuth: (user, accessToken, refreshToken, adAccessToken) => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('token', accessToken);
       localStorage.setItem('refreshToken', refreshToken);
-      localStorage.removeItem('adAccessToken');
+      if (adAccessToken) localStorage.setItem('adAccessToken', adAccessToken);
+      else localStorage.removeItem('adAccessToken');
     }
     clearLogoutFlags();
     markAuthenticatedReady();

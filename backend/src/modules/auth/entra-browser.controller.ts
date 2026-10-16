@@ -10,7 +10,7 @@ export const entraBrowserController = {
    * El navegador envía returnUrl. El clientId sale de EMPRENDEDORES_CLIENT_ID.
    */
   async start(req: Request, res: Response): Promise<void> {
-    if (!config.entraApiBaseUrl || !config.entraClientId) {
+    if (!config.entraApiBaseUrl || !config.entraClientId || !config.entraClientSecret) {
       res.status(503).json({ error: 'Login central no configurado' });
       return;
     }
@@ -18,8 +18,8 @@ export const entraBrowserController = {
     const outcome = await startEntraLogin(
       config.entraApiBaseUrl,
       config.entraClientId,
-      returnUrl,
-      config.entraBrowserRedirect
+      config.entraClientSecret,
+      returnUrl
     );
     if (outcome.kind === 'error') {
       res.status(outcome.status).json({ error: outcome.error });

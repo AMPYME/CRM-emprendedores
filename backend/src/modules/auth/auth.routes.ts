@@ -2,6 +2,7 @@
  * Rutas del módulo de autenticación.
  *
  * Públicas:
+ *   POST /auth/login     → Active Directory (AD-userAPI)
  *   POST /auth/exchange
  *   POST /auth/register  → 403
  *   POST /auth/refresh
@@ -20,6 +21,7 @@ import { validate } from '../../shared/middlewares/validate.middleware';
 import { protect } from './auth.middleware';
 import { handleEntraRevokeWebhook } from './entra-revoke.webhook';
 import {
+  loginSchema,
   exchangeSchema,
   registerSchema,
   refreshSchema,
@@ -28,6 +30,12 @@ import {
 } from './auth.validator';
 
 export const authRoutes = Router();
+
+authRoutes.post(
+  '/login',
+  validate(loginSchema, 'body'),
+  asyncHandler(authController.login)
+);
 
 /** El navegador solo llega aquí por la IP del backend. El clientId lo pone el servidor. */
 authRoutes.post('/entra/start', asyncHandler(entraBrowserController.start));

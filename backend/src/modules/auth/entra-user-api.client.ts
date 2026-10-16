@@ -153,15 +153,15 @@ export type EntraStartOutcome =
 export async function startEntraLogin(
   baseUrl: string,
   clientId: string,
-  returnUrl: string,
-  browserRedirectUrl: string
+  clientSecret: string,
+  returnUrl: string
 ): Promise<EntraStartOutcome> {
   const url = joinUrl(baseUrl, '/api/auth/login');
   try {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ clientId, returnUrl, browserRedirectUrl }),
+      body: JSON.stringify({ clientId, clientSecret, returnUrl }),
     });
     const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
     const location = readString(data, 'url');

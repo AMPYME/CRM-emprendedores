@@ -55,6 +55,8 @@ export interface AuthTokenResponse {
   sessionId?: string;
   /** Expiración absoluta de la sesión (ISO). */
   absoluteExpiresAt?: string;
+  /** Token de AD-userAPI. El navegador no lo usa para llamar a AD. */
+  adAccessToken?: string;
 }
 
 declare global {

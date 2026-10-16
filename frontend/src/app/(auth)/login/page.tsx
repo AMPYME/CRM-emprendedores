@@ -2,10 +2,12 @@
 
 import { useEffect, useState, type MouseEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import toast from 'react-hot-toast';
 import { Loader2 } from 'lucide-react';
 import { authService } from '@/services/auth.service';
-import { entraSessionService } from '@/services/entra-session.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { getApiErrorMessage } from '@/services/api-client';
 import { entraReturnUrl } from '@/lib/entra';
@@ -13,6 +15,13 @@ import { publicApiBaseUrl } from '@/lib/public-urls';
 
 const CENTRO_INTERNA = 'https://aplicaciones.ampyme.local/';
 const CENTRO_PUBLICA = 'http://programas.ampyme.gob.pa/aplicaciones';
+
+const loginSchema = z.object({
+  email: z.string().min(1, 'Usuario o correo requerido'),
+  password: z.string().min(1, 'La contraseña es requerida'),
+});
+
+type LoginFormData = z.infer<typeof loginSchema>;
 
 async function resolverUrlCentro(timeoutMs = 2000): Promise<string> {
   const controller = new AbortController();
@@ -38,6 +47,25 @@ export default function LoginPage() {
   const [centroHref, setCentroHref] = useState(CENTRO_PUBLICA);
   const [volviendo, setVolviendo] = useState(false);
   const [busy, setBusy] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: '', password: '' },
+  });
+
+  const onSubmit = async (data: LoginFormData) => {
+    try {
+      const result = await authService.login(data);
+      setAuth(result.user, result.accessToken, result.refreshToken, result.adAccessToken);
+      toast.success(`¡Bienvenido, ${result.user.firstName}!`);
+      router.replace('/dashboard');
+    } catch (error) {
+      toast.error(getApiErrorMessage(error));
+    }
+  };
 
   useEffect(() => {
     void resolverUrlCentro().then(setCentroHref);
@@ -56,11 +84,6 @@ export default function LoginPage() {
       .exchange(code)
       .then(async (result) => {
         setAuth(result.user, result.accessToken, result.refreshToken);
-        // Captura csrfToken de la sesión central (misma cookie del login Entra).
-        const me = await entraSessionService.me();
-        if (me.kind === 'ok') {
-          useAuthStore.getState().setCsrfToken(me.data.csrfToken ?? null);
-        }
         toast.success(`¡Bienvenido, ${result.user.firstName}!`);
         router.replace('/dashboard');
       })
@@ -172,15 +195,70 @@ export default function LoginPage() {
 
             <p className="mb-4 text-lg font-semibold text-slate-800">Acceso Usuario</p>
 
-            <p className="text-sm text-slate-500">
-              El ingreso usa la cuenta institucional de Microsoft. No se pide contraseña en esta pantalla.
-            </p>
+            <form
+              method="post"
+              action="/login"
+              autoComplete="on"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void handleSubmit(onSubmit)(event);
+              }}
+            >
+              <label htmlFor="username" className="mb-1.5 text-sm font-semibold text-slate-800">
+                Usuario
+                <span className="ml-0.5 text-red-500">*</span>
+              </label>
+              <input
+                id="username"
+                type="text"
+                autoComplete="username"
+                placeholder="Usuario"
+                className={`w-full rounded-lg border-[1.2px] bg-slate-50 px-3 py-2.5 text-base text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#0066A1] ${
+                  errors.email ? 'border-red-400' : 'border-slate-200'
+                }`}
+                {...register('email')}
+              />
+              {errors.email && <p className="mt-1 text-sm text-red-500">{errors.email.message}</p>}
+
+              <label htmlFor="password" className="mb-1.5 mt-4 text-sm font-semibold text-slate-800">
+                Contraseña
+                <span className="ml-0.5 text-red-500">*</span>
+              </label>
+              <input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                placeholder="Contraseña"
+                className={`w-full rounded-lg border-[1.2px] bg-slate-50 px-3 py-2.5 text-base text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#0066A1] ${
+                  errors.password ? 'border-red-400' : 'border-slate-200'
+                }`}
+                {...register('password')}
+              />
+              {errors.password && (
+                <p className="mt-1 text-sm text-red-500">{errors.password.message}</p>
+              )}
+
+              <button
+                type="submit"
+                disabled={isSubmitting || busy}
+                className="mt-5 w-full rounded-lg bg-[#10B981] py-3 text-base font-semibold text-white transition-colors hover:bg-[#059669] active:bg-[#047857] disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isSubmitting ? (
+                  <span className="inline-flex items-center justify-center gap-2">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    Iniciando sesión...
+                  </span>
+                ) : (
+                  'Acceder'
+                )}
+              </button>
+            </form>
 
             <button
               type="button"
-              disabled={busy}
+              disabled={busy || isSubmitting}
               onClick={() => void ingresarConMicrosoft()}
-              className="mt-5 w-full rounded-lg bg-[#10B981] py-3 text-base font-semibold text-white transition-colors hover:bg-[#059669] active:bg-[#047857] disabled:cursor-not-allowed disabled:opacity-70"
+              className="mt-3 w-full rounded-lg border border-[#0066A1] bg-white py-3 text-base font-semibold text-[#0066A1] transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {busy ? (
                 <span className="inline-flex items-center justify-center gap-2">
@@ -188,7 +266,7 @@ export default function LoginPage() {
                   Iniciando sesión...
                 </span>
               ) : (
-                'Ingresar con Microsoft'
+                'Microsoft'
               )}
             </button>
 

@@ -6,6 +6,7 @@ import { authService } from './auth.service';
 import { sendSuccess, sendCreated, sendNoContent } from '../../shared/utils/response.utils';
 import {
   ExchangeInput,
+  LoginInput,
   RegisterInput,
   RefreshInput,
   ChangePasswordInput,
@@ -14,6 +15,12 @@ import {
 import { UnauthorizedError } from '../../shared/errors/app-error';
 
 export const authController = {
+  async login(req: Request, res: Response): Promise<void> {
+    const input = req.body as LoginInput;
+    const result = await authService.login(input);
+    sendSuccess(res, result);
+  },
+
   async exchange(req: Request, res: Response): Promise<void> {
     const input = req.body as ExchangeInput;
     const result = await authService.exchange(input);

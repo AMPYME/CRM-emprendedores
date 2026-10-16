@@ -9,6 +9,7 @@ import bcrypt from 'bcryptjs';
 import { config } from '../../config/environment';
 import { authRepository, SafeUser } from './auth.repository';
 import { authSessionRepository, type CrmSessionRow } from './auth-session.repository';
+import { adGetMe, adLogin } from './ad-user-api.client';
 import { exchangeEntraCode, introspectEntraSession } from './entra-user-api.client';
 import {
   getPositiveIntrospect,
@@ -17,14 +18,19 @@ import {
 } from './entra-introspect-cache';
 import {
   resolveEmailForLocalUser,
+  resolveEmailForAdUser,
   resolveUsername,
+  resolveUsernameFromAd,
   namesFromDirectoryProfile,
+  namesFromAdProfile,
   hasAnyRequiredAdRole,
   mapAdRolesToCrmRole,
+  isFullAccessRole,
 } from './ad-auth.mapper';
 import { UserRole } from '@prisma/client';
 import {
   ExchangeInput,
+  LoginInput,
   RegisterInput,
   RefreshInput,
   ChangePasswordInput,
@@ -203,6 +209,7 @@ function resolveAdRoleSync(adRoles: string[], _currentRole: UserRole): UserRole 
 async function assertCentralSessionActive(session: CrmSessionRow): Promise<void> {
   if (!config.entraRequireIntrospect) return;
   const sessionRef = session.entra_session_ref;
+  if (!sessionRef) return;
   if (!sessionRef) {
     // Sesiones antiguas sin vínculo: no se puede confirmar ENTRA.
     throw new UnauthorizedError('Sesión sin vínculo central; vuelva a iniciar sesión');
@@ -274,7 +281,104 @@ async function issueSessionTokens(
   };
 }
 
+function resolveAdRoleKeepLocal(adRoles: string[], currentRole: UserRole): UserRole | undefined {
+  const mapped = mapAdRolesToCrmRole(adRoles) as UserRole;
+  if (mapped === 'EMPREND_OPERADOR' && isFullAccessRole(currentRole)) {
+    return undefined;
+  }
+  return mapped;
+}
+
 export const authService = {
+  /**
+   * Login exclusivo vía Active Directory (AD-userAPI).
+   * La sesión local no lleva vínculo Entra: el refresh no llama a introspección central.
+   */
+  async login(input: LoginInput): Promise<AuthTokenResponse> {
+    const identifier = input.email;
+
+    if (!config.adApiBaseUrl) {
+      throw new UnauthorizedError(
+        'Autenticación no disponible: configure AD_API_BASE_URL (solo login corporativo).'
+      );
+    }
+
+    const adOutcome = await adLogin(config.adApiBaseUrl, identifier, input.password);
+
+    if (adOutcome.kind === 'invalid_credentials') {
+      throw new UnauthorizedError('Credenciales inválidas');
+    }
+
+    if (adOutcome.kind === 'unavailable') {
+      throw new UnauthorizedError(
+        'No se pudo contactar el servicio de autenticación corporativa. Intente más tarde.'
+      );
+    }
+
+    const adTokens = adOutcome.tokens;
+    const me = await adGetMe(config.adApiBaseUrl, adTokens.accessToken);
+    if (!me) {
+      throw new UnauthorizedError(
+        'No se pudo obtener el perfil desde la API de usuarios corporativa'
+      );
+    }
+
+    const adRoles = me.roleNames ?? [];
+    if (!config.adSkipRoleCheck && !hasAnyRequiredAdRole(adRoles, config.adRequiredAppRoleSlugs)) {
+      throw new ForbiddenError(
+        'No tiene acceso a este sistema. Se requiere el rol de aplicación adecuado (Emprendedores CRM).'
+      );
+    }
+
+    const emailResolved = resolveEmailForAdUser(me, identifier, config.adEmailDomain);
+    if (!emailResolved) {
+      throw new UnauthorizedError(
+        'No se pudo determinar el correo del usuario. Configure AD_EMAIL_DOMAIN si usa solo nombre de usuario.'
+      );
+    }
+
+    const directoryUsername = resolveUsernameFromAd(me, identifier);
+    let user = await authRepository.findByEmail(emailResolved);
+
+    if (!user) {
+      if (!config.adAutoProvision) {
+        throw new ForbiddenError(
+          'Usuario no registrado en el CRM. Solicite acceso al administrador.'
+        );
+      }
+      const { firstName, lastName } = namesFromAdProfile(me);
+      const placeholderHash = await bcrypt.hash(randomUUID(), SALT_ROUNDS);
+      const crmRole = mapAdRolesToCrmRole(adRoles);
+      const created = await authRepository.create({
+        email: emailResolved,
+        passwordHash: placeholderHash,
+        firstName,
+        lastName,
+        username: directoryUsername,
+        role: crmRole,
+      });
+      const safe = await authRepository.updateLastLogin(created.id, undefined, directoryUsername);
+      logger.info('Login exitoso (AD + alta automática)', {
+        userId: safe.id,
+        email: safe.email,
+      });
+      await logLogin(safe);
+      const tokens = await issueSessionTokens(safe);
+      return { ...tokens, adAccessToken: adTokens.accessToken };
+    }
+
+    if (!user.isActive) {
+      throw new ForbiddenError('Cuenta desactivada. Contacte al administrador');
+    }
+
+    const roleSync = resolveAdRoleKeepLocal(adRoles, user.role);
+    const safeUser = await authRepository.updateLastLogin(user.id, roleSync, directoryUsername);
+    logger.info('Login exitoso (AD)', { userId: user.id, email: user.email });
+    await logLogin(safeUser);
+    const tokens = await issueSessionTokens(safeUser);
+    return { ...tokens, adAccessToken: adTokens.accessToken };
+  },
+
   async exchange(input: ExchangeInput): Promise<AuthTokenResponse> {
     if (!config.entraApiBaseUrl || !config.entraClientId || !config.entraClientSecret) {
       throw new UnauthorizedError(

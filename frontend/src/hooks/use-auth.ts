@@ -2,16 +2,15 @@
 
 /**
  * Hook de autenticación.
- * ENTRA /api/auth/me es la comprobación UX del navegador.
- * Indisponibilidad ≠ autenticado: status `error` y bloqueo de rutas/API.
- * GET /me renueva idle en Redis: sin polling periódico agresivo.
+ * La sesión del CRM es el JWT local.
+ * AD la confirma el backend contra AD-userAPI. Entra la confirma el backend con el secreto.
+ * El navegador no llama a users.ampyme.local para abrir el dashboard.
  */
 import { useCallback, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth.store';
 import { authService } from '@/services/auth.service';
-import { entraSessionService } from '@/services/entra-session.service';
 import { clearPrivateQueryCache } from '@/lib/query-client';
 import {
   beginLogout,
@@ -46,8 +45,6 @@ export function useAuth({ requireAuth = true }: { requireAuth?: boolean } = {}) 
     centralLogoutWarning,
     setAuth,
     setUser,
-    setCsrfToken,
-    setStatus,
     setLoading,
     clearLocalSession,
     initialize,
@@ -92,38 +89,6 @@ export function useAuth({ requireAuth = true }: { requireAuth?: boolean } = {}) 
         return 'unauthenticated';
       }
 
-      abortRef.current?.abort();
-      const controller = new AbortController();
-      abortRef.current = controller;
-
-      const central = await entraSessionService.me(controller.signal);
-      if (controller.signal.aborted || isStaleEpoch(epoch)) {
-        return useAuthStore.getState().status === 'authenticated'
-          ? 'authenticated'
-          : 'unauthenticated';
-      }
-
-      if (central.kind === 'unauthorized') {
-        invalidateLocal();
-        return 'unauthenticated';
-      }
-
-      if (central.kind === 'forbidden') {
-        // Permisos ENTRA insuficientes: no mantener CRM autenticado.
-        invalidateLocal();
-        return 'unauthenticated';
-      }
-
-      if (central.kind === 'network' || central.kind === 'unavailable') {
-        setStatus('error');
-        setLoading(false);
-        return 'error';
-      }
-
-      if (central.kind === 'ok') {
-        setCsrfToken(central.data.csrfToken ?? null);
-      }
-
       try {
         const profile = await authService.getProfile();
         if (isStaleEpoch(epoch)) return 'unauthenticated';
@@ -139,7 +104,9 @@ export function useAuth({ requireAuth = true }: { requireAuth?: boolean } = {}) 
           if (isStaleEpoch(epoch)) return 'unauthenticated';
           const profile = result.user ?? (await authService.getProfile());
           if (isStaleEpoch(epoch)) return 'unauthenticated';
-          setAuth(profile, result.accessToken, result.refreshToken);
+          const adAccessToken =
+            typeof window !== 'undefined' ? localStorage.getItem('adAccessToken') ?? undefined : undefined;
+          setAuth(profile, result.accessToken, result.refreshToken, adAccessToken);
           lastSuccessfulCheckAt = Date.now();
           return 'authenticated';
         } catch {
@@ -152,7 +119,7 @@ export function useAuth({ requireAuth = true }: { requireAuth?: boolean } = {}) 
     });
 
     return checkSessionInFlight;
-  }, [invalidateLocal, setAuth, setCsrfToken, setLoading, setStatus, setUser]);
+  }, [invalidateLocal, setAuth, setLoading, setUser]);
 
   const logout = useCallback(async () => {
     abortRef.current?.abort();

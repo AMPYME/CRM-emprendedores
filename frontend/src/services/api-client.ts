@@ -1,14 +1,10 @@
 /**
  * Cliente HTTP del CRM.
  *
- * Ante 401:
- * - Solo intenta refresh si ENTRA /api/auth/me confirma sesión central activa.
- * - Si ENTRA no responde: bloquea (no asume autenticado; no refresh).
- * - Si ENTRA 401: limpia sesión local.
+ * Ante 401 renueva el JWT del CRM. AD y Entra se confirman en el backend.
  */
 import axios, { type AxiosError } from 'axios';
 import { publicApiBaseUrl } from '@/lib/public-urls';
-import { entraSessionService } from '@/services/entra-session.service';
 import { clearPrivateQueryCache } from '@/lib/query-client';
 import { useAuthStore } from '@/stores/auth.store';
 import {
@@ -66,22 +62,12 @@ function forceLocalLogout(): void {
   }
 }
 
-/** true = viva; false = muerta; null = no confirmable (red/503). */
-async function centralSessionAlive(): Promise<boolean | null> {
-  const result = await entraSessionService.me();
-  if (result.kind === 'unauthorized' || result.kind === 'forbidden') return false;
-  if (result.kind === 'ok') {
-    useAuthStore.getState().setCsrfToken(result.data.csrfToken ?? null);
-    return true;
-  }
-  return null;
-}
-
 apiClient.interceptors.request.use((config) => {
   config.baseURL = apiBaseUrl();
 
   const url = config.url || '';
   const isAuthBootstrap =
+    url.includes('/auth/login') ||
     url.includes('/auth/exchange') ||
     url.includes('/auth/refresh') ||
     url.includes('/auth/logout');
@@ -108,6 +94,7 @@ apiClient.interceptors.response.use(
 
     if (error.response?.status === 401 && !originalRequest?._retry) {
       if (
+        originalRequest?.url?.includes('/auth/login') ||
         originalRequest?.url?.includes('/auth/exchange') ||
         originalRequest?.url?.includes('/auth/refresh') ||
         originalRequest?.url?.includes('/auth/logout')
@@ -120,21 +107,8 @@ apiClient.interceptors.response.use(
       }
 
       const epochAtStart = getAuthEpoch();
-      const central = await centralSessionAlive();
 
       if (isStaleEpoch(epochAtStart) || isAuthLoggingOut()) {
-        return Promise.reject(error);
-      }
-
-      if (central === false) {
-        forceLocalLogout();
-        return Promise.reject(error);
-      }
-
-      // Indisponibilidad ENTRA: no refresh autónomo; no asumir sesión válida.
-      if (central === null) {
-        useAuthStore.getState().setStatus('error');
-        rejectRefreshQueue(new Error('Sesión central no confirmada'));
         return Promise.reject(error);
       }
 

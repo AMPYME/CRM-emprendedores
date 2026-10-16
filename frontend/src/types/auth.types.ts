@@ -23,6 +23,12 @@ export interface AuthTokenResponse {
   refreshToken: string;
   sessionId?: string;
   absoluteExpiresAt?: string;
+  adAccessToken?: string;
+}
+
+export interface LoginInput {
+  email: string;
+  password: string;
 }
 
 export interface RegisterInput {

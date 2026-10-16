@@ -4,7 +4,7 @@
  */
 import { apiClient, rejectRefreshQueue } from './api-client';
 import type { ApiResponse } from '@/types/api.types';
-import type { AuthTokenResponse, AuthUser, RegisterInput } from '@/types/auth.types';
+import type { AuthTokenResponse, AuthUser, LoginInput, RegisterInput } from '@/types/auth.types';
 import { entraSessionService } from './entra-session.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { clearPrivateQueryCache } from '@/lib/query-client';
@@ -21,6 +21,11 @@ export type LogoutResult = {
 };
 
 export const authService = {
+  async login(data: LoginInput): Promise<AuthTokenResponse> {
+    const res = await apiClient.post<ApiResponse<AuthTokenResponse>>('/auth/login', data);
+    return res.data.data;
+  },
+
   async exchange(code: string): Promise<AuthTokenResponse> {
     const res = await apiClient.post<ApiResponse<AuthTokenResponse>>('/auth/exchange', { code });
     return res.data.data;

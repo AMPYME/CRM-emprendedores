@@ -3,6 +3,17 @@
  */
 import { z } from 'zod';
 
+// `email` es el identificador: correo UPN o usuario de Active Directory.
+export const loginSchema = z.object({
+  email: z
+    .string()
+    .min(1, 'Usuario o correo requerido')
+    .transform((v) => v.trim().toLowerCase()),
+  password: z.string().min(1, 'La contraseña es requerida'),
+});
+
+export type LoginInput = z.infer<typeof loginSchema>;
+
 // ── Canje del código de Entra ───────────────────────────────────
 // El navegador recibe ?code= en la URL de retorno y lo envía aquí. El secreto no viaja.
 export const exchangeSchema = z.object({

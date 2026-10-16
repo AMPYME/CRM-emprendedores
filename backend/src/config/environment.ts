@@ -71,12 +71,22 @@ export const config = {
   rateLimitWindowMs: parseInt(requiredEnv('RATE_LIMIT_WINDOW_MS', '900000'), 10),
   rateLimitMaxRequests: parseInt(requiredEnv('RATE_LIMIT_MAX_REQUESTS', '3000'), 10),
 
+  /**
+   * API interna de usuarios (AD-user-api). El login del CRM es POST /auth/login contra esta URL.
+   * Ej: http://api-adusers.ampyme.local
+   */
+  adApiBaseUrl: (process.env.AD_API_BASE_URL || '').trim() || undefined,
+  adAutoProvision: process.env.AD_AUTO_PROVISION !== 'false',
+  adEmailDomain: (process.env.AD_EMAIL_DOMAIN || '').trim() || undefined,
+  adRequiredAppRoleSlugs: (process.env.AD_REQUIRED_APP_ROLES || 'EMPREND_OPERADOR,EMPREND_VIEWER,EMPREND_ADMIN,ADMIN,SUPER_ADMIN')
+    .split(',')
+    .map((s) => s.trim().toUpperCase())
+    .filter(Boolean),
+  adSkipRoleCheck: process.env.AD_SKIP_ROLE_CHECK === 'true',
+
   entraApiBaseUrl: (process.env.ENTRA_API_BASE_URL || '').trim() || undefined,
   entraClientId: (process.env.EMPRENDEDORES_CLIENT_ID || '00000000-0000-4000-8000-000000000004').trim(),
   entraClientSecret: (process.env.EMPRENDEDORES_APP_SECRET || '').trim() || undefined,
-  entraBrowserRedirect: (
-    process.env.EMPRENDEDORES_OAUTH_REDIRECT || 'http://10.14.80.245/api/v1/auth/entra/callback'
-  ).trim(),
 
   entraAutoProvision: process.env.ENTRA_AUTO_PROVISION !== 'false',
 

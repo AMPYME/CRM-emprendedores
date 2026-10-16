@@ -6,6 +6,7 @@
  * No se conservan privilegios administrativos locales si ENTRA mapea a operador/viewer.
  */
 import type { UserRole } from '@prisma/client';
+import type { AdMeProfile } from './ad-user-api.client';
 
 export interface DirectoryProfile {
   email?: string;
@@ -104,4 +105,106 @@ export function namesFromDirectoryProfile(profile: DirectoryProfile): { firstNam
   if (parts.length === 0) return { firstName: 'Usuario', lastName: '-' };
   if (parts.length === 1) return { firstName: parts[0], lastName: '-' };
   return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
+}
+
+/** Obtiene el objeto usuario desde el JSON de /me (prioriza `user`, luego `data`). */
+export function normalizeMeUserPayload(root: Record<string, unknown>): Record<string, unknown> {
+  const u = root.user;
+  if (typeof u === 'object' && u !== null) {
+    return u as Record<string, unknown>;
+  }
+  const d = root.data;
+  if (typeof d === 'object' && d !== null) {
+    return d as Record<string, unknown>;
+  }
+  return root;
+}
+
+/** Nombres de rol de AD-userAPI. No mezcla `permissions` con roles. */
+export function extractRoleNamesFromMeUser(user: Record<string, unknown>): string[] {
+  const out = new Set<string>();
+  const add = (v: unknown): void => {
+    if (typeof v === 'string' && v.trim()) {
+      out.add(v.trim().toUpperCase());
+      return;
+    }
+    if (Array.isArray(v)) {
+      for (const item of v) {
+        if (typeof item === 'string' && item.trim()) {
+          out.add(item.trim().toUpperCase());
+        } else if (item && typeof item === 'object') {
+          const o = item as Record<string, unknown>;
+          const name = o.name ?? o.slug ?? o.code ?? o.role;
+          if (typeof name === 'string' && name.trim()) {
+            out.add(name.trim().toUpperCase());
+          }
+        }
+      }
+    }
+  };
+
+  add(user.roles);
+  add(user.roleSlugs);
+  add(user.role);
+
+  return [...out];
+}
+
+export function resolveEmailForAdUser(
+  profile: AdMeProfile,
+  loginIdentifier: string,
+  adEmailDomain?: string
+): string | null {
+  const tryEmail = (s: string | undefined): string | null => {
+    if (!s) return null;
+    const e = s.trim().toLowerCase();
+    return e.includes('@') ? e : null;
+  };
+
+  const fromProfile = tryEmail(profile.email) ?? tryEmail(profile.userPrincipalName) ?? null;
+  if (fromProfile) return fromProfile;
+
+  const login = loginIdentifier.trim().toLowerCase();
+  if (login.includes('@')) return login;
+
+  if (adEmailDomain) {
+    const domain = adEmailDomain.replace(/^@/, '').trim();
+    if (domain) return `${login}@${domain}`;
+  }
+
+  return null;
+}
+
+export function resolveUsernameFromAd(profile: AdMeProfile, loginIdentifier: string): string {
+  const candidates = [profile.username, loginIdentifier];
+  for (const raw of candidates) {
+    const value = raw?.trim();
+    if (value && !value.includes('@')) return value;
+  }
+  const email = profile.email || profile.userPrincipalName || loginIdentifier;
+  const local = email.split('@')[0]?.trim();
+  return local || loginIdentifier.trim();
+}
+
+export function namesFromAdProfile(profile: AdMeProfile): { firstName: string; lastName: string } {
+  const fn =
+    profile.firstName ||
+    profile.givenName ||
+    (profile.displayName ? profile.displayName.trim().split(/\s+/)[0] : undefined);
+  const ln =
+    profile.lastName ||
+    profile.familyName ||
+    profile.surname ||
+    (profile.displayName
+      ? profile.displayName.trim().split(/\s+/).slice(1).join(' ')
+      : undefined);
+
+  if (fn || ln) {
+    return {
+      firstName: fn || 'Usuario',
+      lastName: ln || '-',
+    };
+  }
+
+  return { firstName: 'Usuario', lastName: 'AD' };
 }
